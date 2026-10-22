@@ -1,0 +1,25 @@
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="kart">
+    <p class="kart-etiket">Bugünkü alım</p>
+    <p class="kart-deger" x-text="ozet ? kg(ozet.toplam_net_kg) : '—'"></p>
+    <p class="kart-alt" x-text="ozet ? `${ozet.teslimat_sayisi} teslimat · ${ozet.uretici_sayisi} üretici` : ''"></p>
+  </div>
+  <div class="kart">
+    <p class="kart-etiket">Brüt alım tutarı</p>
+    <p class="kart-deger" x-text="ozet ? tl(ozet.brut_alim_tutari) : '—'"></p>
+    <p class="kart-alt" x-text="ozet ? `Ort. fiyat ${ozet.ortalama_birim_fiyat ? tl(ozet.ortalama_birim_fiyat) + '/kg' : '—'}` : ''"></p>
+  </div>
+  <div class="kart">
+    <p class="kart-etiket">Kasadan çıkan ödeme</p>
+    <p class="kart-deger" x-text="ozet ? tl(ozet.odenen_toplam) : '—'"></p>
+    <p class="kart-alt" x-text="ozet ? `${ozet.odeme_sayisi} ödeme · ${tl(ozet.verilen_avans_toplami)} avans` : ''"></p>
+  </div>
+  <div class="kart">
+    <p class="kart-etiket">Ortalama randıman</p>
+    <p class="kart-deger" x-text="ozet && ozet.ortalama_randiman ? yuzde(ozet.ortalama_randiman) : '—'"></p>
+    <div class="mt-2 h-1.5 rounded-full bg-stone-100 overflow-hidden">
+      <div class="h-full bg-fistik-500 transition-all duration-700"
+           :style="`width: ${ozet && ozet.ortalama_randiman ? Math.min(100, Number(ozet.ortalama_randiman)) : 0}%`"></div>
+    </div>
+  </div>
+</div>

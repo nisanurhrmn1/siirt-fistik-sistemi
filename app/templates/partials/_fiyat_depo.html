@@ -1,0 +1,83 @@
+<div class="grid lg:grid-cols-5 gap-6">
+
+  <!-- Fiyat paneli -->
+  <form class="lg:col-span-2 panel-kutu space-y-4" @submit.prevent="fiyatYayinla()">
+    <div>
+      <h2 class="baslik">Günlük Taban Fiyat</h2>
+      <p class="text-xs text-stone-500 mt-1">Yeni fiyat yalnızca bundan sonraki tartımlara uygulanır; kesilmiş fişlerin fiyatı değişmez.</p>
+    </div>
+
+    <div class="space-y-3">
+      <template x-for="k in fiyatlar" :key="k.kalite_kodu">
+        <div class="rounded-lg border border-stone-200 p-3 flex items-center gap-3">
+          <span class="sinif-rozet" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span>
+          <div class="min-w-0 flex-1">
+            <p class="font-medium text-sm" x-text="k.kalite_adi"></p>
+            <p class="text-xs text-stone-500"
+               x-text="k.fiyat ? `Şu an ${tl(k.fiyat.birim_fiyat)}/kg · ${saatYaz(k.fiyat.gecerlilik_baslangici)} itibarıyla` : 'Geçerli fiyat yok'"></p>
+          </div>
+          <div class="relative w-32">
+            <input type="number" step="0.01" min="0" x-model="yeniFiyatlar[k.kalite_kodu]"
+                   :placeholder="k.fiyat ? Number(k.fiyat.birim_fiyat).toFixed(2) : '0,00'" class="girdi pr-12 text-right">
+            <span class="birim">₺/kg</span>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <div>
+      <label class="etiket">Geçerlilik başlangıcı <span class="text-stone-400 font-normal">(boş = hemen)</span></label>
+      <input type="datetime-local" x-model="fiyatGecerlilik" class="girdi">
+    </div>
+    <button type="submit" class="btn-birincil w-full" :disabled="fiyatKaydediliyor">Fiyatları Yayınla</button>
+  </form>
+
+  <!-- Depo -->
+  <div class="lg:col-span-3 space-y-6">
+    <div class="panel-kutu">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="baslik">Silo Doluluk</h2>
+        <span class="text-sm text-stone-500" x-text="`Toplam stok ${kg(toplamStok)}`"></span>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <template x-for="s in silolar" :key="s.silo_id">
+          <div class="rounded-xl border border-stone-200 p-4 flex gap-4">
+            <!-- Silo gövdesi -->
+            <div class="silo">
+              <div class="silo-dolgu" :class="kaliteRenk(s.adanmis_kalite).dolgu"
+                   :style="`height: ${Math.min(100, Number(s.doluluk_orani))}%`"></div>
+              <span class="silo-yuzde" x-text="'%' + Number(s.doluluk_orani).toLocaleString('tr-TR', {maximumFractionDigits: 1})"></span>
+            </div>
+            <div class="min-w-0 text-sm space-y-1">
+              <p class="font-semibold" x-text="s.silo_kodu"></p>
+              <p class="text-xs text-stone-500 truncate" x-text="s.silo_adi"></p>
+              <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.adanmis_kalite).rozet" x-text="s.adanmis_kalite || 'Genel'"></span>
+              <p class="tabular-nums pt-1" x-text="kg(s.stok_kg)"></p>
+              <p class="text-xs text-stone-500 tabular-nums" x-text="'/ ' + kg(s.kapasite_kg)"></p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div class="panel-kutu">
+      <h2 class="baslik mb-4">Kalite Sınıfına Göre Stok</h2>
+      <div class="space-y-3">
+        <template x-for="k in kaliteStok" :key="k.kalite_kodu">
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span><span class="font-medium" x-text="k.kalite_kodu"></span>
+                <span class="text-stone-500" x-text="`· ${k.kalite_adi} · ${k.lot_sayisi} lot · ${k.silolar.join(', ')}`"></span></span>
+              <span class="tabular-nums font-medium" x-text="kg(k.stok_kg)"></span>
+            </div>
+            <div class="h-3 rounded-full bg-stone-100 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-700" :class="kaliteRenk(k.kalite_kodu).dolgu"
+                   :style="`width: ${toplamStok ? Number(k.stok_kg) / toplamStok * 100 : 0}%`"></div>
+            </div>
+          </div>
+        </template>
+        <p x-show="!kaliteStok.length" class="text-sm text-stone-500 text-center py-6">Depoda stok yok.</p>
+      </div>
+    </div>
+  </div>
+</div>

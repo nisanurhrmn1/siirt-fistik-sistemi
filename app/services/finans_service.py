@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import BusinessRuleError, NotFoundError
+from app.core.format import tl
 from app.core.timeutil import day_bounds_utc
 from app.db.enums import LedgerEntryType, TicketStatus
 from app.db.models import (
@@ -95,7 +96,7 @@ def pay_settlement(db: Session, settlement_id: int, data: OdemeGirisi, user_id: 
         amount = data.tutar if data.tutar is not None else remaining
         if amount > remaining:
             raise BusinessRuleError(
-                f"Ödeme tutarı ({amount} TL) hakedişin kalan tutarını ({remaining} TL) aşamaz.")
+                f"Ödeme tutarı ({tl(amount)}) hakedişin kalan tutarını ({tl(remaining)}) aşamaz.")
         payment = rules.record_payment(
             db, producer_id=s.producer_id, amount=amount, method=data.odeme_yontemi, created_by_id=user_id,
             bank_account_id=data.banka_hesap_id, reference_no=data.referans_no, description=data.aciklama,
@@ -106,9 +107,11 @@ def pay_settlement(db: Session, settlement_id: int, data: OdemeGirisi, user_id: 
     if payment is None:
         mesaj = "Hakedişin kalan tutarının tamamı açık avanslardan mahsup edildi; ödeme yapılmadı."
     elif s.net_payable == s.paid_amount:
-        mesaj = f"{payment.amount} TL ödendi; hakediş tamamen kapandı."
+        mesaj = f"{tl(payment.amount)} ödendi; hakediş tamamen kapandı."
     else:
-        mesaj = f"{payment.amount} TL kısmi ödeme yapıldı; kalan {s.net_payable - s.paid_amount} TL."
+        mesaj = f"{tl(payment.amount)} kısmi ödeme yapıldı; kalan {tl(s.net_payable - s.paid_amount)}."
+    if offset_now > 0:
+        mesaj = f"{tl(offset_now)} açık avans mahsup edildi. " + mesaj
 
     sonuc = OdemeSonucu(
         mesaj=mesaj,

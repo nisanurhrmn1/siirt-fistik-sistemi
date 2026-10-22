@@ -52,6 +52,59 @@ class TartimGirisi(IstekModeli):
         return self
 
 
+class OnizlemeGirisi(IstekModeli):
+    uretici_id: int | None = Field(None, gt=0, description="Verilirse açık avans mahsubu da tahmin edilir")
+    brut_kg: Kilogram
+    dara_kg: DaraKilogram
+    kalite: KaliteAnalizi
+    manuel_kalite_kodu: str | None = Field(None, max_length=10)
+
+    @model_validator(mode="after")
+    def _agirliklar(self):
+        if self.dara_kg >= self.brut_kg:
+            raise ValueError("Dara ağırlığı brüt ağırlıktan küçük olmalıdır (net kg pozitif olmalı).")
+        return self
+
+
+class KesintiOnizleme(BaseModel):
+    kod: str
+    ad: str
+    tutar: Decimal
+
+
+class TartimOnizleme(BaseModel):
+    """Kayıt yapmadan, şu anki fiyat ve kurallarla tahmini hakediş."""
+    net_kg: Decimal
+    kalite_kodu: str
+    kalite_adi: str
+    fiyat_id: int | None
+    birim_fiyat: Decimal | None
+    brut_tutar: Decimal | None
+    kesintiler: list[KesintiOnizleme]
+    kesinti_toplami: Decimal
+    acik_avans: Decimal
+    avans_mahsubu: Decimal
+    tahmini_net_odenecek: Decimal | None
+    uyarilar: list[str]
+
+
+class TartimOzeti(BaseModel):
+    id: int
+    fis_no: str
+    lot_no: str | None
+    tartim_zamani: datetime
+    uretici_id: int
+    uretici_adi: str
+    plaka: str
+    net_kg: Decimal | None
+    kalite_kodu: str | None
+    birim_fiyat: Decimal | None
+    hakedis_id: int | None
+    net_odenecek: Decimal | None
+    kalan: Decimal | None
+    hakedis_durumu: str | None
+
+
 class KaliteSonucu(BaseModel):
     sinif_kodu: str
     sinif_adi: str

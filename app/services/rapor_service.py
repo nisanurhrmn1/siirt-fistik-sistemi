@@ -8,9 +8,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import NotFoundError
 from app.core.timeutil import day_bounds_utc
 from app.db.enums import TicketStatus
-from app.db.models import Advance, Lot, Payment, QualityGrade, QualityInspection, Silo, StockMovement, WeighTicket
+from app.db.models import (
+    Advance, Lot, Payment, Producer, ProducerLedgerEntry, QualityGrade, QualityInspection, Settlement, Silo,
+    StockMovement, WeighTicket,
+)
 from app.domain import rules
-from app.schemas.rapor import GunlukOzet, KaliteKirilimi, KaliteStok, KaliteStokPayi, SiloStok, StokDurumu
+from app.schemas.rapor import (
+    GunlukOzet, KaliteKirilimi, KaliteStok, KaliteStokPayi, SiloStok, StokDurumu, UreticiBakiye,
+)
 
 ZERO = Decimal("0")
 CENT = Decimal("0.01")
@@ -86,6 +91,30 @@ def stock_status(db: Session, gruplama: str, silo_id: int | None, kalite_kodu: s
                                       lot_sayisi=len(gps)) for gid, gps in per_grade.items()],
         ))
     return StokDurumu(gruplama="silo", sorgu_zamani=now, toplam_stok_kg=toplam, silolar=result)
+
+
+# ─── Üretici bakiyeleri ───
+
+def producer_balances(db: Session) -> list[UreticiBakiye]:
+    def grouped(stmt) -> dict[int, Decimal]:
+        return {pid: Decimal(str(v or 0)) for pid, v in db.execute(stmt).all()}
+
+    balance = grouped(select(ProducerLedgerEntry.producer_id, func.sum(ProducerLedgerEntry.amount))
+                      .group_by(ProducerLedgerEntry.producer_id))
+    open_adv = grouped(select(Advance.producer_id, func.sum(Advance.amount - Advance.offset_amount))
+                       .group_by(Advance.producer_id))
+    unpaid = grouped(select(Settlement.producer_id, func.sum(Settlement.net_payable - Settlement.paid_amount))
+                     .group_by(Settlement.producer_id))
+    kgs = grouped(select(Settlement.producer_id, func.sum(Settlement.net_kg)).group_by(Settlement.producer_id))
+
+    result = []
+    for p in db.scalars(select(Producer).order_by(Producer.full_name, Producer.id)):
+        b, u = _q(balance.get(p.id, ZERO)), _q(unpaid.get(p.id, ZERO))
+        result.append(UreticiBakiye(
+            uretici_id=p.id, ad_soyad=p.full_name, bakiye=b, acik_avans=_q(open_adv.get(p.id, ZERO)),
+            odenmemis_hakedis=u, odenebilir=max(min(u, b), ZERO), toplam_teslimat_kg=_q(kgs.get(p.id, ZERO)),
+        ))
+    return result
 
 
 # ─── Günlük özet ───

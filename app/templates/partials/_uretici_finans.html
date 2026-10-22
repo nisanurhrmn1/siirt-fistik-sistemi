@@ -1,0 +1,139 @@
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- Liste -->
+  <div class="panel-kutu">
+    <div class="flex items-center justify-between gap-2 mb-4">
+      <h2 class="baslik">Üreticiler</h2>
+      <button class="btn-birincil" @click="ureticiModalAc()">+ Yeni Üretici</button>
+    </div>
+    <input type="search" x-model="ureticiArama" placeholder="Ad, TC veya telefon ara…" class="girdi mb-3">
+    <ul class="divide-y divide-stone-100 -mx-2 max-h-[34rem] overflow-y-auto">
+      <template x-for="u in listelenenUreticiler" :key="u.id">
+        <li>
+          <button @click="ureticiSec(u)" class="w-full text-left px-2 py-3 rounded-lg flex items-center gap-3 hover:bg-stone-50"
+                  :class="secili && secili.id === u.id && 'bg-fistik-50 hover:bg-fistik-50'">
+            <span class="avatar" x-text="basHarfler(u.ad_soyad)"></span>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium truncate" x-text="u.ad_soyad"></p>
+              <p class="text-xs text-stone-500" x-text="`${u.ilce || u.il} · ${u.telefon}`"></p>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-sm font-medium tabular-nums" :class="bakiyeRenk(bakiyeler[u.id]?.bakiye)"
+                 x-text="tl(bakiyeler[u.id]?.bakiye ?? 0)"></p>
+              <p class="text-xs text-amber-700 tabular-nums" x-show="Number(bakiyeler[u.id]?.acik_avans) > 0"
+                 x-text="'avans ' + tl(bakiyeler[u.id]?.acik_avans)"></p>
+            </div>
+          </button>
+        </li>
+      </template>
+      <li x-show="!listelenenUreticiler.length" class="py-8 text-center text-sm text-stone-500">Üretici bulunamadı.</li>
+    </ul>
+  </div>
+
+  <!-- Detay -->
+  <div class="lg:col-span-2 space-y-6">
+    <template x-if="!secili">
+      <div class="panel-kutu text-center text-stone-500 py-20">Detay ve finans işlemleri için soldan bir üretici seçin.</div>
+    </template>
+
+    <template x-if="secili && ekstre">
+      <div class="space-y-6">
+        <div class="panel-kutu">
+          <div class="flex flex-wrap items-start gap-4">
+            <span class="avatar h-12 w-12 text-base" x-text="basHarfler(secili.ad_soyad)"></span>
+            <div class="min-w-0">
+              <h2 class="text-lg font-semibold" x-text="secili.ad_soyad"></h2>
+              <p class="text-sm text-stone-500"
+                 x-text="`${secili.tc_kimlik_no ? 'TC ' + secili.tc_kimlik_no : 'VKN ' + secili.vergi_no} · ${secili.telefon}`"></p>
+              <p class="text-xs text-stone-500 font-mono mt-0.5" x-show="secili.banka_hesaplari.length"
+                 x-text="secili.banka_hesaplari[0] && `${secili.banka_hesaplari[0].banka_adi} · ${ibanYaz(secili.banka_hesaplari[0].iban)}`"></p>
+            </div>
+            <div class="ml-auto flex gap-2">
+              <button class="btn-ikincil" @click="avansModalAc()">Avans Ver</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+            <div class="mini-kart">
+              <p class="kart-etiket">Cari bakiye</p>
+              <p class="text-lg font-semibold tabular-nums" :class="bakiyeRenk(ekstre.ozet.bakiye)" x-text="tl(ekstre.ozet.bakiye)"></p>
+              <p class="text-xs text-stone-500" x-text="bakiyeDurumAd(ekstre.ozet.bakiye_durumu)"></p>
+            </div>
+            <div class="mini-kart">
+              <p class="kart-etiket">Açık avans</p>
+              <p class="text-lg font-semibold tabular-nums text-amber-700" x-text="tl(ekstre.ozet.acik_avans_bakiyesi)"></p>
+            </div>
+            <div class="mini-kart">
+              <p class="kart-etiket">Ödenebilir</p>
+              <p class="text-lg font-semibold tabular-nums text-fistik-700" x-text="tl(ekstre.ozet.odenebilir_tutar)"></p>
+            </div>
+            <div class="mini-kart">
+              <p class="kart-etiket">Toplam teslimat</p>
+              <p class="text-lg font-semibold tabular-nums" x-text="kg(ekstre.ozet.toplam_teslimat_kg)"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hakedişler -->
+        <div class="panel-kutu">
+          <h3 class="baslik mb-4">Teslimatlar ve Hakedişler</h3>
+          <div class="overflow-x-auto">
+            <table class="tablo">
+              <thead><tr>
+                <th>Fiş / Tarih</th><th>Sınıf</th><th class="text-right">Net</th>
+                <th class="text-right">Brüt</th><th class="text-right">Kesinti + Avans</th>
+                <th class="text-right">Kalan / Durum</th><th></th>
+              </tr></thead>
+              <tbody>
+                <template x-for="t in [...ekstre.teslimatlar].reverse()" :key="t.tartim_id">
+                  <tr>
+                    <td><p class="font-medium" x-text="t.fis_no"></p><p class="text-xs text-stone-500 tabular-nums" x-text="tarihYaz(t.tarih)"></p></td>
+                    <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span></td>
+                    <td class="text-right tabular-nums" x-text="kg(t.net_kg)"></td>
+                    <td class="text-right tabular-nums" x-text="tl(t.brut_tutar)"></td>
+                    <td class="text-right tabular-nums">
+                      <span class="text-stone-500" x-text="tl(t.kesinti)"></span>
+                      <span class="block text-xs text-amber-700" x-show="Number(t.avans_mahsubu) > 0" x-text="'avans ' + tl(t.avans_mahsubu)"></span>
+                    </td>
+                    <td class="text-right">
+                      <p class="tabular-nums font-medium" x-text="tl(t.kalan)"></p>
+                      <span class="durum" :class="durumRenk(t.hakedis_durumu)" x-text="durumAd(t.hakedis_durumu)"></span>
+                    </td>
+                    <td class="text-right">
+                      <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)">Ödeme Yap</button>
+                    </td>
+                  </tr>
+                </template>
+                <tr x-show="!ekstre.teslimatlar.length"><td colspan="7" class="text-center text-stone-500 py-6">Henüz teslimat yok.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Cari hareketler -->
+        <div class="panel-kutu">
+          <h3 class="baslik mb-4">Cari Hesap Hareketleri</h3>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto">
+            <table class="tablo">
+              <thead><tr><th>Tarih</th><th>İşlem</th><th>Açıklama</th>
+                <th class="text-right">Alacak</th><th class="text-right">Borç</th><th class="text-right">Bakiye</th></tr></thead>
+              <tbody>
+                <template x-for="h in [...ekstre.hareketler].reverse()" :key="h.id">
+                  <tr>
+                    <td class="tabular-nums whitespace-nowrap" x-text="tarihYaz(h.tarih)"></td>
+                    <td x-text="hareketAd(h.tur)"></td>
+                    <td class="text-stone-500" x-text="h.aciklama"></td>
+                    <td class="text-right tabular-nums text-fistik-700" x-text="Number(h.alacak) ? tl(h.alacak) : ''"></td>
+                    <td class="text-right tabular-nums text-rose-700" x-text="Number(h.borc) ? tl(h.borc) : ''"></td>
+                    <td class="text-right tabular-nums font-medium" :class="bakiyeRenk(h.bakiye)" x-text="tl(h.bakiye)"></td>
+                  </tr>
+                </template>
+                <tr x-show="!ekstre.hareketler.length"><td colspan="6" class="text-center text-stone-500 py-6">Hareket yok.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>

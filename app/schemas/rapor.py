@@ -40,6 +40,17 @@ class StokDurumu(BaseModel):
     kaliteler: list[KaliteStok] | None = None
 
 
+# ─── Üretici bakiyeleri ───
+class UreticiBakiye(BaseModel):
+    uretici_id: int
+    ad_soyad: str
+    bakiye: Decimal = Field(description="(+) üreticiye borçluyuz, (−) üretici avans borçlu")
+    acik_avans: Decimal
+    odenmemis_hakedis: Decimal
+    odenebilir: Decimal
+    toplam_teslimat_kg: Decimal
+
+
 # ─── Günlük özet ───
 class KaliteKirilimi(BaseModel):
     kalite_kodu: str

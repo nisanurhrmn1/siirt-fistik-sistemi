@@ -1,13 +1,21 @@
 """Kantar → kalite → fiyat kilidi → hakediş → stok: tek transaction'da teslimat kaydı."""
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import BusinessRuleError, NotFoundError
-from app.db.models import Lot, Producer, QualityGrade, Silo, StockMovement, WeighTicket
+from app.core.format import tl
+from app.core.timeutil import day_bounds_utc
+from app.db.models import (
+    Advance, DeductionType, Lot, Producer, QualityGrade, QualityInspection, Silo, StockMovement, WeighTicket,
+)
 from app.domain import rules
-from app.schemas.tartim import FiyatKilidi, KaliteSonucu, StokKaydi, TartimGirisi, TartimYaniti
+from app.schemas.tartim import (
+    FiyatKilidi, KaliteSonucu, KesintiOnizleme, OnizlemeGirisi, StokKaydi, TartimGirisi, TartimOnizleme,
+    TartimOzeti, TartimYaniti,
+)
 from app.services.finans_service import build_hakedis_yaniti
 
 
@@ -76,6 +84,78 @@ def register_delivery(db: Session, data: TartimGirisi, user_id: int) -> WeighTic
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+def preview_delivery(db: Session, data: OnizlemeGirisi) -> TartimOnizleme:
+    """Hiçbir şey kaydetmeden, kaydedilseydi oluşacak sınıf/fiyat/hakedişi aynı kurallarla hesaplar."""
+    net_kg = data.brut_kg - data.dara_kg
+    uyarilar: list[str] = []
+    if data.manuel_kalite_kodu:
+        grade = db.scalar(select(QualityGrade).where(QualityGrade.code == data.manuel_kalite_kodu.upper()))
+        if grade is None:
+            raise NotFoundError(f"'{data.manuel_kalite_kodu}' kodlu kalite sınıfı bulunamadı.")
+    else:
+        k = data.kalite
+        grade = rules.determine_grade(db, split=k.catlak_orani, yield_=k.randiman, empty=k.bos_orani,
+                                      rotten=k.curuk_orani, moisture=k.nem_orani)
+
+    open_advance = Decimal("0")
+    if data.uretici_id is not None:
+        open_advance = Decimal(str(db.scalar(
+            select(func.coalesce(func.sum(Advance.amount - Advance.offset_amount), 0))
+            .where(Advance.producer_id == data.uretici_id)
+        )))
+
+    price = rules.find_effective_price(db, grade.id, rules.utcnow())
+    if price is None:
+        uyarilar.append(f"{grade.code} sınıfı için şu an onaylı fiyat yok; tartım kaydedilemez.")
+        return TartimOnizleme(
+            net_kg=net_kg, kalite_kodu=grade.code, kalite_adi=grade.name, fiyat_id=None, birim_fiyat=None,
+            brut_tutar=None, kesintiler=[], kesinti_toplami=Decimal("0"), acik_avans=open_advance,
+            avans_mahsubu=Decimal("0"), tahmini_net_odenecek=None, uyarilar=uyarilar,
+        )
+
+    gross = rules.money(net_kg * price.price_per_kg)
+    kesintiler = []
+    for dt in db.scalars(select(DeductionType).where(DeductionType.is_active.is_(True))
+                         .order_by(DeductionType.sort_order)):
+        _, amount = rules.deduction_amount(dt, gross, net_kg)
+        kesintiler.append(KesintiOnizleme(kod=dt.code, ad=dt.name, tutar=amount))
+    total_ded = sum((k.tutar for k in kesintiler), Decimal("0"))
+    offset = min(open_advance, max(gross - total_ded, Decimal("0")))
+    if offset > 0:
+        uyarilar.append(f"Üreticinin {tl(open_advance)} açık avansı var; {tl(offset)} bu teslimattan mahsup edilecek.")
+    return TartimOnizleme(
+        net_kg=net_kg, kalite_kodu=grade.code, kalite_adi=grade.name, fiyat_id=price.id,
+        birim_fiyat=price.price_per_kg, brut_tutar=gross, kesintiler=kesintiler, kesinti_toplami=total_ded,
+        acik_avans=open_advance, avans_mahsubu=offset, tahmini_net_odenecek=gross - total_ded - offset,
+        uyarilar=uyarilar,
+    )
+
+
+def list_deliveries(db: Session, tarih: date, uretici_id: int | None) -> list[TartimOzeti]:
+    start, end = day_bounds_utc(tarih)
+    stmt = (
+        select(WeighTicket)
+        .where(WeighTicket.gross_weighed_at >= start, WeighTicket.gross_weighed_at < end)
+        .options(selectinload(WeighTicket.producer), selectinload(WeighTicket.lot),
+                 selectinload(WeighTicket.settlement),
+                 selectinload(WeighTicket.inspection).selectinload(QualityInspection.quality_grade))
+        .order_by(WeighTicket.gross_weighed_at.desc(), WeighTicket.id.desc())
+    )
+    if uretici_id is not None:
+        stmt = stmt.where(WeighTicket.producer_id == uretici_id)
+    rows = []
+    for t in db.scalars(stmt):
+        s = t.settlement
+        rows.append(TartimOzeti(
+            id=t.id, fis_no=t.ticket_no, lot_no=t.lot.lot_no if t.lot else None, tartim_zamani=t.gross_weighed_at,
+            uretici_id=t.producer_id, uretici_adi=t.producer.full_name, plaka=t.vehicle_plate, net_kg=t.net_kg,
+            kalite_kodu=t.inspection.quality_grade.code if t.inspection else None, birim_fiyat=t.unit_price,
+            hakedis_id=s.id if s else None, net_odenecek=s.net_payable if s else None,
+            kalan=(s.net_payable - s.paid_amount) if s else None, hakedis_durumu=s.status.value if s else None,
+        ))
+    return rows
 
 
 def build_tartim_yaniti(db: Session, t: WeighTicket) -> TartimYaniti:

@@ -384,6 +384,9 @@ def _deduction_amount(dt: DeductionType, gross: Decimal, net_kg: Decimal) -> tup
     return gross, money(dt.rate)
 
 
+deduction_amount = _deduction_amount
+
+
 def _plan_advance_offsets(session: Session, producer_id: int, limit: Decimal) -> list[tuple[Advance, Decimal]]:
     """Açık avanslardan en eskiden başlayarak en fazla `limit` kadar mahsup planı."""
     open_advances = session.execute(

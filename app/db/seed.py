@@ -37,8 +37,9 @@ def seed_reference_data(db: Session) -> None:
     if db.scalar(select(Silo.id).limit(1)) is None:
         grades = {g.code: g.id for g in db.scalars(select(QualityGrade))}
         db.add_all([
-            Silo(code="S-A1", name="A Sınıfı Silo 1", capacity_kg=D("200000"), dedicated_grade_id=grades.get("A")),
-            Silo(code="S-B1", name="B Sınıfı Silo 1", capacity_kg=D("200000"), dedicated_grade_id=grades.get("B")),
-            Silo(code="S-ISK", name="Iskarta Deposu", capacity_kg=D("50000"), dedicated_grade_id=grades.get("ISK")),
+            Silo(code="S-A1", name="A Sınıfı Silo 1", capacity_kg=D("12000"), dedicated_grade_id=grades.get("A")),
+            Silo(code="S-A2", name="A Sınıfı Silo 2", capacity_kg=D("12000"), dedicated_grade_id=grades.get("A")),
+            Silo(code="S-B1", name="B Sınıfı Silo", capacity_kg=D("10000"), dedicated_grade_id=grades.get("B")),
+            Silo(code="S-ISK", name="Iskarta Deposu", capacity_kg=D("4000"), dedicated_grade_id=grades.get("ISK")),
         ])
     db.commit()

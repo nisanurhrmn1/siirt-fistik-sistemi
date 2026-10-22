@@ -1,0 +1,192 @@
+<div x-show="modal" x-transition.opacity class="fixed inset-0 z-40 bg-stone-900/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+     @keydown.escape.window="modal = null" @click.self="modal = null">
+
+  <!-- ─── Yeni üretici ─── -->
+  <form x-show="modal === 'uretici'" class="modal-kutu max-w-2xl no-print" @submit.prevent="ureticiKaydet()">
+    <div class="modal-baslik"><h3>Yeni Üretici</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 grid sm:grid-cols-2 gap-4">
+      <div class="sm:col-span-2 flex gap-2">
+        <button type="button" class="secim" :class="yeniUretici.tip === 'INDIVIDUAL' && 'secim-aktif'" @click="yeniUretici.tip = 'INDIVIDUAL'">Gerçek kişi</button>
+        <button type="button" class="secim" :class="yeniUretici.tip === 'COMPANY' && 'secim-aktif'" @click="yeniUretici.tip = 'COMPANY'">Tüzel kişi (firma)</button>
+      </div>
+      <div class="sm:col-span-2">
+        <label class="etiket" x-text="yeniUretici.tip === 'COMPANY' ? 'Firma ünvanı' : 'Ad soyad'"></label>
+        <input x-model="yeniUretici.ad_soyad" class="girdi" :class="hata('ad_soyad') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('ad_soyad')"></p>
+      </div>
+      <div x-show="yeniUretici.tip === 'INDIVIDUAL'">
+        <label class="etiket">TC Kimlik No</label>
+        <input x-model="yeniUretici.tc_kimlik_no" maxlength="11" inputmode="numeric" class="girdi font-mono" :class="hata('tc_kimlik_no') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('tc_kimlik_no')"></p>
+      </div>
+      <template x-if="yeniUretici.tip === 'COMPANY'">
+        <div class="contents">
+          <div>
+            <label class="etiket">Vergi No</label>
+            <input x-model="yeniUretici.vergi_no" maxlength="10" inputmode="numeric" class="girdi font-mono" :class="hata('vergi_no') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('vergi_no')"></p>
+          </div>
+          <div>
+            <label class="etiket">Vergi dairesi</label>
+            <input x-model="yeniUretici.vergi_dairesi" class="girdi">
+          </div>
+        </div>
+      </template>
+      <div>
+        <label class="etiket">Telefon</label>
+        <input x-model="yeniUretici.telefon" placeholder="0532 123 45 67" class="girdi" :class="hata('telefon') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('telefon')"></p>
+      </div>
+      <div>
+        <label class="etiket">İlçe</label>
+        <select x-model="yeniUretici.ilce" class="girdi">
+          <template x-for="i in ilceler"><option :value="i" x-text="i"></option></template>
+        </select>
+      </div>
+      <div class="sm:col-span-2 pt-2 border-t border-stone-100">
+        <p class="alt-baslik">Banka hesabı <span class="text-stone-400 font-normal normal-case">(havale ile ödeme için)</span></p>
+      </div>
+      <div>
+        <label class="etiket">Banka</label>
+        <input x-model="yeniUretici.banka_adi" placeholder="Ziraat Bankası" class="girdi" :class="hata('banka_hesabi.banka_adi') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('banka_hesabi.banka_adi')"></p>
+      </div>
+      <div>
+        <label class="etiket">IBAN</label>
+        <input x-model="yeniUretici.iban" placeholder="TR00 0000 0000 0000 0000 0000 00" class="girdi font-mono text-sm" :class="hata('banka_hesabi.iban') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('banka_hesabi.iban')"></p>
+      </div>
+      <p class="sm:col-span-2 hata-yazi" x-text="hata('istek')"></p>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Kaydet</button>
+    </div>
+  </form>
+
+  <!-- ─── Avans ─── -->
+  <form x-show="modal === 'avans'" class="modal-kutu max-w-md no-print" @submit.prevent="avansVer()">
+    <div class="modal-baslik"><h3>Avans Ver</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4" x-show="secili">
+      <p class="text-sm text-stone-600">
+        <span class="font-medium" x-text="secili?.ad_soyad"></span> için avans. Mevcut bakiye:
+        <span class="font-medium" :class="bakiyeRenk(ekstre?.ozet.bakiye)" x-text="tl(ekstre?.ozet.bakiye)"></span>
+      </p>
+      <div>
+        <label class="etiket">Tutar</label>
+        <div class="relative">
+          <input type="number" step="0.01" min="0" x-model="avansForm.tutar" class="girdi pr-8 text-lg" :class="hata('tutar') && 'girdi-hata'">
+          <span class="birim">₺</span>
+        </div>
+        <p class="hata-yazi" x-text="hata('tutar')"></p>
+      </div>
+      <div>
+        <label class="etiket">Ödeme yöntemi</label>
+        <select x-model="avansForm.odeme_yontemi" class="girdi">
+          <template x-for="(ad, kod) in odemeYontemleri"><option :value="kod" x-text="ad"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="etiket">Açıklama</label>
+        <input x-model="avansForm.aciklama" placeholder="Gübre / ilaç avansı" class="girdi">
+      </div>
+      <p class="text-xs text-stone-500">Avans cari hesaba borç yazılır ve sonraki teslimatlardan otomatik mahsup edilir.</p>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Avansı Kaydet</button>
+    </div>
+  </form>
+
+  <!-- ─── Ödeme ─── -->
+  <form x-show="modal === 'odeme'" class="modal-kutu max-w-md no-print" @submit.prevent="odemeYap()">
+    <div class="modal-baslik"><h3>Hakediş Ödemesi</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4" x-show="odemeForm.hakedis">
+      <dl class="text-sm rounded-lg bg-stone-50 p-3 space-y-1">
+        <div class="satir"><dt>Fiş</dt><dd class="font-medium" x-text="odemeForm.hakedis?.fis_no"></dd></div>
+        <div class="satir"><dt>Net hakediş</dt><dd class="tabular-nums" x-text="tl(odemeForm.hakedis?.net_odenecek)"></dd></div>
+        <div class="satir"><dt>Ödenen</dt><dd class="tabular-nums" x-text="tl(odemeForm.hakedis?.odenen)"></dd></div>
+        <div class="satir font-semibold"><dt>Kalan</dt><dd class="tabular-nums" x-text="tl(odemeForm.hakedis?.kalan)"></dd></div>
+      </dl>
+      <p class="text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2" x-show="Number(ekstre?.ozet.acik_avans_bakiyesi) > 0"
+         x-text="`Üreticinin ${tl(ekstre?.ozet.acik_avans_bakiyesi)} açık avansı var; ödeme öncesi kalan tutardan mahsup edilecek.`"></p>
+      <div>
+        <label class="etiket">Ödenecek tutar <span class="text-stone-400 font-normal">(boş = kalanın tamamı)</span></label>
+        <div class="relative">
+          <input type="number" step="0.01" min="0" x-model="odemeForm.tutar" class="girdi pr-8 text-lg" :class="hata('tutar') && 'girdi-hata'">
+          <span class="birim">₺</span>
+        </div>
+        <p class="hata-yazi" x-text="hata('tutar')"></p>
+      </div>
+      <div>
+        <label class="etiket">Ödeme yöntemi</label>
+        <select x-model="odemeForm.odeme_yontemi" class="girdi">
+          <template x-for="(ad, kod) in odemeYontemleri"><option :value="kod" x-text="ad"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="etiket">Dekont / referans no</label>
+        <input x-model="odemeForm.referans_no" class="girdi">
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Ödemeyi Onayla</button>
+    </div>
+  </form>
+
+  <!-- ─── Kantar fişi (yazdırılabilir) ─── -->
+  <div x-show="modal === 'fis'" class="modal-kutu max-w-lg">
+    <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
+    <template x-if="fis">
+      <div class="print-area p-6 space-y-4 text-sm">
+        <div class="flex items-start justify-between border-b border-dashed border-stone-300 pb-4">
+          <div>
+            <p class="font-semibold">Siirt Fıstığı Alım Merkezi</p>
+            <p class="text-xs text-stone-500">Kantar ve Hakediş Fişi</p>
+          </div>
+          <div class="text-right">
+            <p class="font-mono font-semibold" x-text="fis.fis_no"></p>
+            <p class="font-mono text-xs text-stone-500" x-text="fis.lot_no"></p>
+            <p class="text-xs text-stone-500" x-text="tarihYaz(fis.tartim_zamani)"></p>
+          </div>
+        </div>
+        <dl class="grid grid-cols-2 gap-x-6 gap-y-1">
+          <dt class="text-stone-500">Üretici</dt><dd class="text-right font-medium" x-text="fis.uretici_adi"></dd>
+          <dt class="text-stone-500">Plaka</dt><dd class="text-right font-mono" x-text="fis.plaka"></dd>
+          <dt class="text-stone-500">Brüt</dt><dd class="text-right tabular-nums" x-text="kg(fis.brut_kg)"></dd>
+          <dt class="text-stone-500">Dara</dt><dd class="text-right tabular-nums" x-text="kg(fis.dara_kg)"></dd>
+          <dt class="font-semibold">Net</dt><dd class="text-right tabular-nums font-semibold" x-text="kg(fis.net_kg)"></dd>
+        </dl>
+        <div class="border-t border-dashed border-stone-300 pt-3" x-show="fis.kalite">
+          <p class="font-medium mb-1" x-text="fis.kalite && `Kalite: ${fis.kalite.sinif_kodu} — ${fis.kalite.sinif_adi}${fis.kalite.manuel_atama ? ' (manuel)' : ''}`"></p>
+          <p class="text-xs text-stone-500" x-text="fis.kalite && `Çatlak ${yuzde(fis.kalite.catlak_orani)} · Randıman ${yuzde(fis.kalite.randiman)} · Boş ${yuzde(fis.kalite.bos_orani)} · Çürük ${yuzde(fis.kalite.curuk_orani)} · Nem ${yuzde(fis.kalite.nem_orani)}`"></p>
+        </div>
+        <div class="border-t border-dashed border-stone-300 pt-3 space-y-1" x-show="fis.hakedis">
+          <div class="satir"><dt>Kilitli birim fiyat</dt><dd class="tabular-nums" x-text="tl(fis.fiyat?.birim_fiyat) + ' /kg'"></dd></div>
+          <div class="satir"><dt>Brüt tutar</dt><dd class="tabular-nums" x-text="tl(fis.hakedis?.brut_tutar)"></dd></div>
+          <template x-for="k in (fis.hakedis?.kesintiler || [])" :key="k.kod">
+            <div class="satir text-stone-500"><dt x-text="k.hesaplama === 'PERCENT' ? `${k.ad} (${yuzde(k.oran)})` : k.ad"></dt><dd class="tabular-nums" x-text="'− ' + tl(k.tutar)"></dd></div>
+          </template>
+          <div class="satir text-amber-700" x-show="Number(fis.hakedis?.avans_mahsubu_toplami) > 0">
+            <dt>Avans mahsubu</dt><dd class="tabular-nums" x-text="'− ' + tl(fis.hakedis?.avans_mahsubu_toplami)"></dd>
+          </div>
+          <div class="satir text-base font-bold pt-2 border-t border-stone-200">
+            <dt>Net hakediş</dt><dd class="tabular-nums" x-text="tl(fis.hakedis?.net_odenecek)"></dd>
+          </div>
+          <p class="text-xs text-stone-500" x-text="fis.hakedis && `${fis.hakedis.hakedis_no} · ${durumAd(fis.hakedis.durum)}`"></p>
+        </div>
+        <div class="border-t border-dashed border-stone-300 pt-3 text-xs text-stone-500"
+             x-text="`Depo: ${fis.stok.map(s => s.silo_kodu + ' (' + kg(s.miktar_kg) + ')').join(', ')} · Cari bakiye: ${tl(fis.uretici_guncel_bakiye)}`"></div>
+        <div class="grid grid-cols-2 gap-6 pt-8 text-xs text-center text-stone-500">
+          <div class="border-t border-stone-300 pt-1">Kantar memuru</div>
+          <div class="border-t border-stone-300 pt-1">Üretici</div>
+        </div>
+      </div>
+    </template>
+    <div class="modal-alt no-print">
+      <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
+      <button type="button" class="btn-birincil" @click="window.print()">Yazdır</button>
+    </div>
+  </div>
+</div>
