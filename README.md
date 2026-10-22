@@ -202,7 +202,7 @@ Demo, asıl çalışma veritabanına (`siirt_fistik.db`) dokunmaz.
 ### Adım adım kurulum
 
 ```bash
-git clone <depo-adresi> siirt-fistik-sistemi
+git clone https://github.com/nisanurhrmn1/siirt-fistik-sistemi.git
 cd siirt-fistik-sistemi
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
