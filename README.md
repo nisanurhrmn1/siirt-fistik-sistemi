@@ -1,7 +1,7 @@
 # Siirt Fıstığı Alım ve Üretici Ödeme Sistemi
 
 > Yazılım Mühendisliği Dönem Projesi · Siirt Üniversitesi
-> **Hazırlayan:** [Nisanur HARMAN, Vesile KARADEMİR] · [230304014, 230304034] · **Danışman:** [Prof. Dr. Musa ATAŞ] · **Dönem:** 2026–2027 Güz
+> **Hazırlayanlar:** Nisanur HARMAN (230304014), Vesile KARADEMİR (230304034) · **Danışman:** Prof. Dr. Musa ATAŞ · **Dönem:** 2026–2027 Güz
 
 Siirt fıstığı alım merkezlerinde yapılan işlerin tamamını tek sistemde toplayan bir web uygulaması:
 kantar tartımı, kalite analizi, günlük fiyat, üretici hakedişi, avans, ödeme ve depo stoğu.
