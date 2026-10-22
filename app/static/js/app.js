@@ -38,11 +38,14 @@ const bosUretici = () => ({
 document.addEventListener('alpine:init', () => {
   Alpine.data('panel', () => ({
     sekmeler: [
-      { id: 'kantar', ad: 'Kantar & Teslimat' },
-      { id: 'uretici', ad: 'Üretici & Finans' },
-      { id: 'fiyat', ad: 'Fiyat & Depo' },
+      { id: 'kantar', ad: 'Kantar & Teslimat', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25M5.25 4.97 2.63 15.7a6 6 0 0 0 5.25 1.56L5.25 4.97Zm13.5 0-2.62 10.72a6 6 0 0 0 5.25 1.56L18.75 4.97ZM5.25 4.97A48.4 48.4 0 0 1 18.75 4.97"/></svg>' },
+      { id: 'uretici', ad: 'Üretici & Finans', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.13a9.38 9.38 0 0 0 2.63.37 9.34 9.34 0 0 0 4.12-.95 4.13 4.13 0 0 0-7.53-2.49M15 19.13v-.01c0-1.11-.29-2.16-.79-3.07M15 19.13v.11A12.32 12.32 0 0 1 8.62 21c-2.33 0-4.51-.65-6.37-1.76v-.11a6.38 6.38 0 0 1 11.96-3.08M12 6.38a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0Zm8.25 2.25a2.63 2.63 0 1 1-5.25 0 2.63 2.63 0 0 1 5.25 0Z"/></svg>' },
+      { id: 'fiyat', ad: 'Fiyat & Depo', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.13C3 12.5 3.5 12 4.13 12h2.25c.62 0 1.12.5 1.12 1.13v6.75C7.5 20.5 7 21 6.38 21H4.13C3.5 21 3 20.5 3 19.88v-6.75ZM9.75 8.63c0-.63.5-1.13 1.13-1.13h2.25c.62 0 1.12.5 1.12 1.13v11.25c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V8.63ZM16.5 4.13c0-.63.5-1.13 1.13-1.13h2.25C20.5 3 21 3.5 21 4.13v15.75c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V4.13Z"/></svg>' },
     ],
     tab: 'kantar',
+    // Ekranda sayarak değişen sayılar (özet kartları ve tahmini net ödeme)
+    anim: { alim: 0, brut: 0, odenen: 0, randiman: 0, net: 0 },
+    _animKare: {},
     saat: '',
     yenileniyor: false,
     toasts: [],
@@ -111,7 +114,13 @@ document.addEventListener('alpine:init', () => {
       } catch (e) { this.hataGoster(e); }
       this.yenileniyor = false;
     },
-    async yukleOzet() { this.ozet = await api('/raporlar/gunluk-ozet'); },
+    async yukleOzet() {
+      this.ozet = await api('/raporlar/gunluk-ozet');
+      this.sayiAnimasyonu('alim', this.ozet.toplam_net_kg);
+      this.sayiAnimasyonu('brut', this.ozet.brut_alim_tutari);
+      this.sayiAnimasyonu('odenen', this.ozet.odenen_toplam);
+      this.sayiAnimasyonu('randiman', this.ozet.ortalama_randiman || 0);
+    },
     async yukleTartimlar() { this.tartimlar = await api('/tartimlar'); },
     async yukleFiyatlar() { this.fiyatlar = (await api('/fiyatlar/guncel')).kalemler; },
     async yukleUreticiler() {
@@ -168,6 +177,7 @@ document.addEventListener('alpine:init', () => {
         });
         if (sira !== this._onizlemeSira) return; // eski yanıt
         this.onizleme = sonuc;
+        this.sayiAnimasyonu('net', sonuc.tahmini_net_odenecek || 0);
       } catch (e) {
         if (sira !== this._onizlemeSira) return;
         this.onizleme = null;
@@ -295,6 +305,42 @@ document.addEventListener('alpine:init', () => {
         this.onizlemeIste();
       } catch (e) { this.hataGoster(e); }
       this.fiyatKaydediliyor = false;
+    },
+
+    // ─── Görsel efektler ───
+    get selamlama() {
+      const s = new Date().getHours();
+      return s < 6 ? 'İyi geceler' : s < 12 ? 'Günaydın' : s < 18 ? 'İyi çalışmalar' : 'İyi akşamlar';
+    },
+    fiyatAd(kod) {
+      const f = this.fiyatlar.find((k) => k.kalite_kodu === kod)?.fiyat;
+      return f ? `${this.tl(f.birim_fiyat)}/kg` : 'girilmedi';
+    },
+    /** Sayıyı eski değerinden yeni değerine ~0,6 sn'de yumuşakça sayarak götürür. */
+    sayiAnimasyonu(anahtar, hedef) {
+      hedef = Number(hedef) || 0;
+      cancelAnimationFrame(this._animKare[anahtar]);
+      const hareketAz = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const bas = Number(this.anim[anahtar]) || 0, sure = 600, t0 = performance.now();
+      if (hareketAz || bas === hedef) { this.anim[anahtar] = hedef; return; }
+      const adim = (t) => {
+        const k = Math.min(1, (t - t0) / sure), e = 1 - Math.pow(1 - k, 3);   // ease-out
+        this.anim[anahtar] = k < 1 ? bas + (hedef - bas) * e : hedef;
+        if (k < 1) this._animKare[anahtar] = requestAnimationFrame(adim);
+      };
+      this._animKare[anahtar] = requestAnimationFrame(adim);
+      // Sekme arka plandayken requestAnimationFrame durur; değer yine de doğru kalsın.
+      clearTimeout(this._animKare[anahtar + '_son']);
+      this._animKare[anahtar + '_son'] = setTimeout(() => {
+        cancelAnimationFrame(this._animKare[anahtar]);
+        this.anim[anahtar] = hedef;
+      }, sure + 100);
+    },
+    /** Öğeye kısa bir parlama/büyüme animasyonu uygular (her çağrıda baştan başlatır). */
+    parlat(el, sinif = 'parla') {
+      el.classList.remove(sinif);
+      void el.offsetWidth;   // reflow: animasyonu yeniden tetikle
+      el.classList.add(sinif);
     },
 
     // ─── Yardımcılar ───

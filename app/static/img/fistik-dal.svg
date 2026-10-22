@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 220">
+  <title>Siirt fıstığı dalı</title>
+  <defs>
+    <radialGradient id="zuruf" cx=".35" cy=".3" r=".75">
+      <stop offset="0" stop-color="#fde2dc"/>
+      <stop offset=".55" stop-color="#e9a6a2"/>
+      <stop offset="1" stop-color="#b9606d"/>
+    </radialGradient>
+    <radialGradient id="zuruf2" cx=".35" cy=".3" r=".75">
+      <stop offset="0" stop-color="#fdf0d5"/>
+      <stop offset=".6" stop-color="#f1c98a"/>
+      <stop offset="1" stop-color="#c98f45"/>
+    </radialGradient>
+    <linearGradient id="yaprak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#86c25a"/>
+      <stop offset="1" stop-color="#3f7a26"/>
+    </linearGradient>
+    <linearGradient id="kabuk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf3e4"/>
+      <stop offset="1" stop-color="#d8b483"/>
+    </linearGradient>
+    <linearGradient id="ic" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b5e061"/>
+      <stop offset="1" stop-color="#4d8a1c"/>
+    </linearGradient>
+    <g id="meyve">
+      <ellipse rx="11" ry="14" fill="url(#zuruf)"/>
+      <ellipse rx="3.5" ry="5" cx="-3.5" cy="-5" fill="#fff" opacity=".35"/>
+    </g>
+    <g id="meyve2">
+      <ellipse rx="11" ry="14" fill="url(#zuruf2)"/>
+      <ellipse rx="3.5" ry="5" cx="-3.5" cy="-5" fill="#fff" opacity=".35"/>
+    </g>
+  </defs>
+
+  <!-- ana dal -->
+  <path d="M8 190C70 150 120 120 190 104c60-14 120-10 222-40" fill="none" stroke="#8a5a36" stroke-width="7" stroke-linecap="round"/>
+  <path d="M190 104c-6-24-2-44 12-62" fill="none" stroke="#8a5a36" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M300 82c10 18 12 38 6 58" fill="none" stroke="#8a5a36" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- yapraklar -->
+  <g fill="url(#yaprak)">
+    <path d="M60 158c-28-6-44-26-46-46 24 2 42 18 46 46z"/>
+    <path d="M110 128c-4-28 8-50 26-60 6 24-4 46-26 60z"/>
+    <path d="M150 116c24-16 50-14 66-2-20 16-44 16-66 2z"/>
+    <path d="M202 44c-18-18-22-40-14-56 18 12 24 34 14 56z"/>
+    <path d="M206 46c22-10 44-4 56 10-22 10-42 6-56-10z"/>
+    <path d="M330 72c4-28 22-46 42-52 0 24-16 44-42 52z"/>
+    <path d="M372 62c26-6 44 4 48 20-22 6-40-2-48-20z"/>
+  </g>
+  <g stroke="#2f5d1c" stroke-width="1" opacity=".45" fill="none">
+    <path d="M60 158 22 118"/><path d="M110 128 134 74"/><path d="M150 116h62"/>
+    <path d="M202 44l-12-52"/><path d="M206 46l52 8"/><path d="M330 72l38-48"/><path d="M372 62l44 16"/>
+  </g>
+
+  <!-- salkım 1 -->
+  <g>
+    <use href="#meyve" x="196" y="128"/><use href="#meyve2" x="176" y="140"/><use href="#meyve" x="216" y="146"/>
+    <use href="#meyve" x="190" y="160"/><use href="#meyve2" x="206" y="176"/><use href="#meyve" x="230" y="124"/>
+  </g>
+  <!-- salkım 2 -->
+  <g>
+    <use href="#meyve" x="300" y="150"/><use href="#meyve2" x="318" y="162"/><use href="#meyve" x="290" y="172"/>
+    <use href="#meyve" x="312" y="186"/>
+  </g>
+
+  <!-- açılmış fıstıklar -->
+  <g transform="translate(92 176) rotate(-18)">
+    <path d="M-1-18c-10 2-15 11-14 21 1 9 6 14 12 15-3-7-4-14-3-21 .8-6 2-11 5-15z" fill="url(#kabuk)"/>
+    <path d="M1-18c10 2 15 11 14 21-1 9-6 14-12 15 3-7 4-14 3-21-.8-6-2-11-5-15z" fill="url(#kabuk)"/>
+    <path d="M0-15c-4 5-5 11-4.5 17 .4 5 1.8 9 4.5 13 2.7-4 4.1-8 4.5-13 .5-6-.5-12-4.5-17z" fill="url(#ic)"/>
+    <path d="M-1.5-11c-1.7 4-2.2 8-1.9 12" stroke="#9d3f5a" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"/>
+  </g>
+  <g transform="translate(370 120) rotate(14) scale(.85)">
+    <path d="M-1-18c-10 2-15 11-14 21 1 9 6 14 12 15-3-7-4-14-3-21 .8-6 2-11 5-15z" fill="url(#kabuk)"/>
+    <path d="M1-18c10 2 15 11 14 21-1 9-6 14-12 15 3-7 4-14 3-21-.8-6-2-11-5-15z" fill="url(#kabuk)"/>
+    <path d="M0-15c-4 5-5 11-4.5 17 .4 5 1.8 9 4.5 13 2.7-4 4.1-8 4.5-13 .5-6-.5-12-4.5-17z" fill="url(#ic)"/>
+  </g>
+</svg>

@@ -1,9 +1,15 @@
 <div class="grid lg:grid-cols-5 gap-6">
 
   <!-- Form -->
-  <form class="lg:col-span-3 panel-kutu space-y-6" @submit.prevent="fisKes()">
+  <form class="lg:col-span-3 panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg space-y-6"
+        @submit.prevent="fisKes()">
     <div class="flex items-center justify-between">
-      <h2 class="baslik">Kantar Tartımı</h2>
+      <h2 class="baslik flex items-center gap-2">
+        <span class="ikon-kutu h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-fistik-600 text-emerald-600">
+          <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.47 0-2.87.3-4.15.84m4.15-.84c1.47 0 2.87.3 4.15.84M5.25 4.97 2.63 15.7c-.12.5.12 1.02.59 1.2a6 6 0 0 0 4.06 0c.47-.18.71-.7.59-1.2L5.25 4.97Zm13.5 0-2.62 10.72c-.12.5.12 1.02.59 1.2a6 6 0 0 0 4.06 0c.47-.18.71-.7.59-1.2L18.75 4.97ZM5.25 4.97A48.4 48.4 0 0 1 12 4.5c2.29 0 4.55.16 6.75.47"/></svg>
+        </span>
+        Kantar Tartımı
+      </h2>
       <span class="text-xs text-stone-500">Fiyat, fiş kesildiği an kilitlenir</span>
     </div>
 
@@ -57,9 +63,10 @@
           </div>
           <p class="hata-yazi" x-text="hata('dara_kg')"></p>
         </div>
-        <div class="rounded-lg bg-fistik-50 border border-fistik-200 px-3 py-2">
-          <p class="text-xs text-fistik-700">Net</p>
-          <p class="text-xl font-semibold text-fistik-800 tabular-nums" x-text="netKg !== null ? kg(netKg) : '—'"></p>
+        <div class="rounded-xl bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200/70 px-3 py-2 transition-shadow"
+             x-effect="netKg; if (netKg !== null) parlat($el)">
+          <p class="text-xs font-medium text-emerald-700">Net</p>
+          <p class="text-xl font-bold text-emerald-800 tabular-nums" x-text="netKg !== null ? kg(netKg) : '—'"></p>
         </div>
       </div>
       <p class="hata-yazi" x-text="hata('istek')"></p>
@@ -107,16 +114,23 @@
 
   <!-- Canlı hesaplama -->
   <aside class="lg:col-span-2">
-    <div class="panel-kutu lg:sticky lg:top-24 space-y-4">
+    <div class="panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg lg:sticky lg:top-24 space-y-4 relative overflow-hidden"
+         x-effect="onizleme; if (onizleme) parlat($el)">
+      <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-fistik-500 to-amber-400"></div>
       <div class="flex items-center justify-between">
         <h2 class="baslik">Tahmini Hakediş</h2>
-        <span class="text-xs rounded-full px-2 py-0.5"
-              :class="onizlemeYukleniyor ? 'bg-stone-100 text-stone-500' : 'bg-fistik-100 text-fistik-700'"
-              x-text="onizlemeYukleniyor ? 'hesaplanıyor…' : 'canlı'"></span>
+        <span class="text-xs font-semibold rounded-full px-2.5 py-1 inline-flex items-center gap-1.5"
+              :class="onizlemeYukleniyor ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'">
+          <span class="canli-nokta"></span>
+          <span x-text="onizlemeYukleniyor ? 'hesaplanıyor…' : 'canlı'"></span>
+        </span>
       </div>
 
       <template x-if="!onizleme">
-        <p class="text-sm text-stone-500 py-8 text-center" x-text="onizlemeMesaj"></p>
+        <div class="py-6 text-center">
+          <img src="{{ url_for('static', path='img/logo.svg') }}" alt="" class="mx-auto h-14 w-14 opacity-25 grayscale">
+          <p class="mt-3 text-sm text-stone-500" x-text="onizlemeMesaj"></p>
+        </div>
       </template>
 
       <template x-if="onizleme">
@@ -142,9 +156,10 @@
               <dt>Avans mahsubu</dt><dd class="tabular-nums" x-text="'− ' + tl(onizleme.avans_mahsubu)"></dd>
             </div>
           </dl>
-          <div class="flex items-baseline justify-between">
-            <span class="text-sm text-stone-600">Tahmini net ödeme</span>
-            <span class="text-2xl font-bold text-fistik-700 tabular-nums" x-text="tl(onizleme.tahmini_net_odenecek)"></span>
+          <div class="rounded-xl bg-gradient-to-br from-emerald-600 to-fistik-600 text-white px-4 py-3 flex items-baseline justify-between shadow-md shadow-emerald-900/10">
+            <span class="text-sm text-emerald-50/90">Tahmini net ödeme</span>
+            <span class="text-2xl font-bold tabular-nums" x-effect="onizleme.tahmini_net_odenecek; parlat($el, 'sayi-parla')"
+                  x-text="tl(anim.net)"></span>
           </div>
           <template x-for="u in onizleme.uyarilar">
             <p class="text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2" x-text="u"></p>

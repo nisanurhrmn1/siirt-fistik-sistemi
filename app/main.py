@@ -37,7 +37,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Siirt Fıstığı Alım ve Üretici Ödeme Sistemi",
-    version="1.0.0",
+    version="1.1.0",
     description="Kantar, kalite, fiyat, hakediş, avans, ödeme ve depo yönetimi için REST API.\n\n"
                 "Para ve ağırlık değerleri hassasiyet kaybı olmaması için JSON'da **metin** olarak döner "
                 "(ör. `\"300000.00\"`); isteklerde sayı veya metin gönderilebilir.\n\n"

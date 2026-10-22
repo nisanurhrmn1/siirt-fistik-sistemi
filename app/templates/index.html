@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Siirt Fıstığı Alım Paneli</title>
   <link rel="icon" href="{{ url_for('static', path='img/logo.svg') }}" type="image/svg+xml">
-  <!-- Tüm kütüphaneler yerel: internet bağlantısı olmadan çalışır (app/static/vendor/) -->
+  <!-- Tüm kütüphaneler ve görseller yerel: internet bağlantısı olmadan çalışır (app/static/) -->
   <script src="{{ url_for('static', path='vendor/tailwindcss-3.4.5.js') }}"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            fistik: { 50: '#f4f8ea', 100: '#e6efcf', 200: '#cfe0a3', 300: '#b2cc6e', 400: '#97b746',
-                      500: '#7c9d2f', 600: '#627d23', 700: '#4b5f1e', 800: '#3d4d1c', 900: '#34411b' },
-            kabuk: { 50: '#fbf7f1', 100: '#f4ebdc', 200: '#e8d5b7', 500: '#b98b52', 700: '#7d5a32' },
+            // Siirt fıstığı yeşili (#558b2f) üzerine kurulu ölçek
+            fistik: { 50: '#f3f8ec', 100: '#e3efd3', 200: '#c8e0a8', 300: '#a6cb76', 400: '#85b24f',
+                      500: '#6a9a3a', 600: '#558b2f', 700: '#426d25', 800: '#365620', 900: '#2e481d' },
+            kabuk: { 50: '#fbf7f1', 100: '#f6ead6', 200: '#e8d5b7', 500: '#b98b52', 700: '#7d5a32' },
           },
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'] },
         },
@@ -25,43 +26,82 @@
   <script defer src="{{ url_for('static', path='js/app.js') }}?v={{ surum }}"></script>
   <script defer src="{{ url_for('static', path='vendor/alpinejs-3.14.1.min.js') }}"></script>
 </head>
-<body class="bg-stone-100 text-stone-800 antialiased" x-data="panel" x-cloak>
+<body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
+      x-data="panel" x-cloak>
 
-  <!-- ─── Üst bar ─── -->
-  <header class="no-print bg-white border-b border-stone-200 sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-4">
-      <img src="{{ url_for('static', path='img/logo.svg') }}" alt="" class="h-9 w-9">
+  <!-- ─── Üst bar (cam efekti) ─── -->
+  <header class="ust-bar no-print sticky top-0 z-30">
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] flex items-center gap-3">
+      <img src="{{ url_for('static', path='img/logo.svg') }}" alt="Siirt Fıstığı amblemi" class="amblem">
       <div class="min-w-0">
-        <h1 class="font-semibold leading-tight truncate">Siirt Fıstığı Alım ve Üretici Ödeme Sistemi</h1>
-        <p class="text-xs text-stone-500" x-text="saat"></p>
+        <h1 class="font-bold leading-tight truncate text-stone-900">
+          Siirt Fıstığı <span class="text-emerald-700">Alım ve Üretici Ödeme</span> Sistemi
+        </h1>
+        <p class="text-xs text-stone-500 flex items-center gap-1.5">
+          <span class="canli-nokta text-emerald-500"></span><span x-text="saat"></span>
+        </p>
       </div>
-      <div class="ml-auto flex items-center gap-2">
+      <div class="ml-auto flex items-center gap-1">
         <button @click="hepsiniYenile()" class="btn-ghost" title="Verileri yenile">
           <svg class="h-4 w-4" :class="yenileniyor && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.6m15.4 2A8 8 0 004.6 9M4.6 9H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"/></svg>
           <span class="hidden sm:inline">Yenile</span>
         </button>
-        <a href="/docs" target="_blank" class="btn-ghost">API</a>
+        <a href="/docs" target="_blank" class="btn-ghost">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
+          <span class="hidden sm:inline">API</span>
+        </a>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 no-print">
 
+    <!-- ─── Karşılama şeridi ─── -->
+    <section class="serit px-6 py-5 sm:px-8 sm:py-6">
+      <img src="{{ url_for('static', path='img/fistik-dal.svg') }}" alt="" class="serit-dal hidden sm:block">
+      <div class="relative z-10 max-w-xl">
+        <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
+        <h2 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight" x-text="selamlama"></h2>
+        <p class="mt-1 text-sm text-emerald-50/90">
+          Bugün <span class="font-semibold text-white" x-text="ozet ? ozet.teslimat_sayisi + ' teslimat' : '—'"></span> alındı ·
+          A sınıfı fiyat <span class="font-semibold text-amber-200" x-text="fiyatAd('A')"></span>
+        </p>
+      </div>
+    </section>
+
     <!-- ─── Günlük rapor kartları ─── -->
     {% include "partials/_ozet_kartlari.html" %}
 
     <!-- ─── Sekmeler ─── -->
-    <nav class="flex gap-1 bg-white p-1 rounded-xl border border-stone-200 w-full sm:w-fit overflow-x-auto">
+    <nav class="sekme-cubugu w-full sm:w-fit overflow-x-auto">
       <template x-for="s in sekmeler" :key="s.id">
         <button @click="tab = s.id" class="tab" :class="tab === s.id ? 'tab-aktif' : ''">
+          <span class="h-4 w-4" x-html="s.ikon"></span>
           <span x-text="s.ad"></span>
         </button>
       </template>
     </nav>
 
-    <section x-show="tab === 'kantar'">{% include "partials/_kantar.html" %}</section>
-    <section x-show="tab === 'uretici'">{% include "partials/_uretici_finans.html" %}</section>
-    <section x-show="tab === 'fiyat'">{% include "partials/_fiyat_depo.html" %}</section>
+    <!-- Sekme içerikleri: girişte yumuşak kayarak belirir (çıkış anlık, iki sekme üst üste binmez) -->
+    <section x-show="tab === 'kantar'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      {% include "partials/_kantar.html" %}
+    </section>
+    <section x-show="tab === 'uretici'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      {% include "partials/_uretici_finans.html" %}
+    </section>
+    <section x-show="tab === 'fiyat'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      {% include "partials/_fiyat_depo.html" %}
+    </section>
+
+    <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v{{ surum }} · çevrimdışı çalışır
+    </footer>
   </main>
 
   {% include "partials/_modallar.html" %}
@@ -69,10 +109,14 @@
   <!-- ─── Bildirimler ─── -->
   <div class="no-print fixed bottom-4 right-4 z-50 space-y-2 w-[22rem] max-w-[calc(100vw-2rem)]">
     <template x-for="t in toasts" :key="t.id">
-      <div x-transition class="rounded-lg shadow-lg border px-4 py-3 text-sm bg-white"
-           :class="t.tur === 'hata' ? 'border-rose-200' : 'border-fistik-200'">
-        <div class="flex gap-2">
-          <span class="mt-0.5 h-2 w-2 rounded-full shrink-0" :class="t.tur === 'hata' ? 'bg-rose-500' : 'bg-fistik-500'"></span>
+      <div x-transition:enter="transition ease-out duration-300 transform"
+           x-transition:enter-start="opacity-0 translate-y-3 scale-95" x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+           x-transition:leave="transition ease-in duration-200" x-transition:leave-end="opacity-0 translate-x-4"
+           class="cam rounded-2xl shadow-lg px-4 py-3 text-sm"
+           :class="t.tur === 'hata' ? 'border-rose-200' : 'border-emerald-200'">
+        <div class="flex gap-2.5">
+          <span class="mt-0.5 h-5 w-5 rounded-full shrink-0 flex items-center justify-center text-white text-[.65rem] font-bold"
+                :class="t.tur === 'hata' ? 'bg-rose-500' : 'bg-emerald-500'" x-text="t.tur === 'hata' ? '!' : '✓'"></span>
           <div class="min-w-0">
             <p class="font-medium" x-text="t.mesaj"></p>
             <ul class="mt-1 text-stone-500 list-disc pl-4" x-show="t.detaylar.length">
