@@ -38,7 +38,8 @@ def init_db(engine: Engine) -> None:
     Base.metadata.create_all(engine)
     if engine.dialect.name == "postgresql":
         with engine.begin() as conn:
-            conn.exec_driver_sql(PG_EXTRAS_SQL.read_text(encoding="utf-8"))
+            # Parametresiz, doğrudan sürücüye: dosyadaki RAISE '... %' ifadeleri yer tutucu sanılmasın.
+            conn.connection.driver_connection.execute(PG_EXTRAS_SQL.read_text(encoding="utf-8"))
 
 
 engine = create_db_engine(settings.database_url, echo=settings.sql_echo)

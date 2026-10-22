@@ -162,10 +162,10 @@ Veritabanı şemasının ayrıntıları ve ER diyagramı: **[docs/ER.md](docs/ER
 | Web çatısı | **FastAPI** | Tip tabanlı doğrulama, otomatik OpenAPI/Swagger, yüksek performans |
 | Doğrulama | **Pydantic v2** | İstek/yanıt şemaları, alan bazlı hata mesajları |
 | ORM | **SQLAlchemy 2.0** | Tipli `Mapped[...]` modelleri; hem SQLite hem PostgreSQL desteği |
-| Veritabanı | SQLite (geliştirme/demo), **PostgreSQL 15+** (üretim) | PostgreSQL'de `EXCLUDE` kısıtı, trigger'lar ve `timestamptz` |
+| Veritabanı | **PostgreSQL** (18.6 ile test edildi), SQLite (kurulumsuz demo) | PostgreSQL'de `EXCLUDE` kısıtı, trigger'lar, rapor view'ları ve `timestamptz` |
 | Arayüz | **Jinja2** + **Alpine.js** + **Tailwind CSS** | Node/React derleme adımı olmadan reaktif, modern arayüz |
 | Sunucu | Uvicorn | ASGI sunucusu |
-| Test | pytest + FastAPI `TestClient` | Her test kendi bellek içi veritabanında çalışır |
+| Test | pytest + FastAPI `TestClient` | Her test temiz bir veritabanında çalışır (SQLite veya PostgreSQL) |
 
 Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, Swagger UI, ReDoc) `app/static/vendor/` klasöründedir. Sistem **hiçbir dış adrese istek atmaz**.
 
@@ -228,10 +228,32 @@ Sunucuyu başlatmak için (boş veritabanı, `siirt_fistik.db`):
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./siirt_fistik.db` | PostgreSQL için: `postgresql+psycopg://kullanici:sifre@localhost:5432/siirt_fistik` |
+| `TEST_DATABASE_URL` | — | `pytest --pg` için ayrı PostgreSQL test veritabanı (her testte şema sıfırlanır) |
 | `SEED_DEMO_DATA` | `1` | İlk açılışta kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 | `SQL_ECHO` | `0` | `1` ise üretilen SQL sorgularını loglar |
 
-PostgreSQL kullanıldığında uygulama `btree_gist` eklentisini, trigger'ları ve rapor view'larını (`db/postgres_triggers_views.sql`) kendisi kurar. Saf SQL şeması `db/schema.sql` dosyasındadır; `python -m scripts.export_ddl` komutuyla modellerden yeniden üretilebilir.
+Değişkenler proje kökündeki **`.env`** dosyasından da okunur (örnek: [`.env.example`](.env.example)). `.env` şifre içerdiği için Git'e yüklenmez.
+
+### PostgreSQL ile çalıştırma
+
+Uygulama varsayılan olarak kurulum gerektirmeyen SQLite ile açılır. PostgreSQL'e geçmek için:
+
+1. PostgreSQL'i kurun (https://www.postgresql.org/download/windows/; pgAdmin kurulumla birlikte gelir).
+2. Uygulama kullanıcısını ve veritabanlarını oluşturun. Betik `postgres` yönetici şifresini sorar:
+   ```bash
+   .\.venv\Scripts\python.exe -m scripts.postgres_kurulum
+   ```
+   - `fistik` adında ayrı bir uygulama kullanıcısı oluşturulur; uygulama yönetici hesabıyla çalışmaz.
+   - `siirt_fistik` (asıl) ve `siirt_fistik_test` (testler) veritabanları oluşturulur.
+   - Rastgele üretilen uygulama şifresi yalnızca `.env` dosyasına yazılır.
+3. Sunucuyu her zamanki gibi başlatın; `.env` sayesinde PostgreSQL kullanılır:
+   ```bash
+   .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+   ```
+
+İlk açılışta uygulama tabloları, `btree_gist` eklentisini, trigger'ları ve rapor view'larını (`db/postgres_triggers_views.sql`) kendisi kurar. Veriler pgAdmin'de `siirt_fistik` veritabanı altında incelenebilir; view'lar (`v_producer_balance`, `v_daily_purchases`, `v_silo_stock` …) doğrudan SQL raporu olarak kullanılabilir.
+
+Saf SQL şeması `db/schema.sql` dosyasındadır; `python -m scripts.export_ddl` komutuyla modellerden yeniden üretilebilir. `demo.bat` / `scripts.demo` her zaman ayrı bir SQLite dosyası (`demo.db`) kullanır; PostgreSQL verisine dokunmaz.
 
 ---
 
@@ -312,11 +334,13 @@ curl -X POST http://127.0.0.1:8000/api/v1/tartimlar -H "Content-Type: applicatio
 ## 8. Testler
 
 ```bash
-.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pytest -q          # SQLite (kurulum gerektirmez)
+.\.venv\Scripts\python.exe -m pytest -q --pg     # PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m scripts.scenario_test
 ```
 
-- **`tests/test_api.py`** (19 test): Uç noktaların hepsini HTTP üzerinden dener. Doğrulama hataları (negatif kg, %100'ü aşan oran, geçersiz TC/IBAN), fiyat kilidi, aynı gün çoklu teslimat, avansın teslimattan büyük olması, parçalı ödeme, sonradan verilen avansın mahsubu, stok ve günlük rapor kapsanır. Ayrıca panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmadığı denetlenir. Her test kendi bellek içi veritabanında çalışır.
+- **`tests/test_api.py`** (19 test): Uç noktaların hepsini HTTP üzerinden dener. Doğrulama hataları (negatif kg, %100'ü aşan oran, geçersiz TC/IBAN), fiyat kilidi, aynı gün çoklu teslimat, avansın teslimattan büyük olması, parçalı ödeme, sonradan verilen avansın mahsubu, stok ve günlük rapor kapsanır. Ayrıca panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmadığı denetlenir. Her test temiz bir veritabanında çalışır.
+- **`tests/test_postgres.py`** (8 test, yalnızca `--pg`): Uygulamayı atlayıp doğrudan SQL ile veri bozmaya çalışır ve PostgreSQL'in reddettiğini doğrular. Kapsam: cari hesap defterinin değiştirilememesi, onaylı ve kilitli fiyatların korunması, çakışan fiyat aralığı, hakediş formülü, yanlış kalitenin siloya girememesi. Ayrıca rapor view'larının API ile aynı sonucu verdiği kontrol edilir.
 - **`scripts/scenario_test.py`**: İş kurallarını HTTP olmadan, saat saat kurgulanmış bir gün senaryosuyla doğrular: 07:00 avans, 08:00 / 11:30 / 14:00 teslimatlar, 12:00 fiyat değişimi.
 
 ---
@@ -350,9 +374,11 @@ siirt-fistik-sistemi/
 ├── scripts/
 │   ├── demo.py               Tek komutla demo
 │   ├── demo_verisi.py        Örnek veri yükleyici
+│   ├── postgres_kurulum.py   PostgreSQL kullanıcı/veritabanı kurulumu, .env üretimi
 │   ├── scenario_test.py      İş kuralı senaryo testi
 │   └── export_ddl.py         Modellerden schema.sql üretimi
-└── tests/                    pytest API testleri
+├── tests/                    test_api.py (API), test_postgres.py (trigger/kısıt, --pg)
+└── .env.example              Ortam değişkenleri örneği (.env Git'e yüklenmez)
 ```
 
 ---
@@ -363,7 +389,6 @@ siirt-fistik-sistemi/
 |---|---|---|
 | Kimlik doğrulama | Yok. İşlemi yapan kullanıcı `X-Kullanici-Id` başlığıyla verilir; başlık yoksa yönetici kabul edilir. | JWT/OAuth2 ve rol bazlı yetki (kantar memuru, muhasebe, fiyat yöneticisi) |
 | Veritabanı göçleri | Tablolar açılışta `create_all` ile oluşturulur | Alembic migration'ları |
-| PostgreSQL | Şema ve trigger'lar hazır; testler SQLite'ta çalışıyor | PostgreSQL üzerinde entegrasyon testleri (Docker) |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
 | Kantar entegrasyonu | Ağırlık elle girilir | Kantar göstergesinden seri port/TCP ile otomatik okuma |

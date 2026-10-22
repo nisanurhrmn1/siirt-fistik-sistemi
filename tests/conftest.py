@@ -17,11 +17,37 @@ warnings.filterwarnings("ignore", category=SAWarning, message=".*Decimal objects
 IBAN = "TR330006100519786457841326"
 
 
+def pytest_addoption(parser):
+    parser.addoption("--pg", action="store_true",
+                     help="Testleri .env'deki TEST_DATABASE_URL (PostgreSQL) üzerinde çalıştır")
+
+
+def _test_engine(config):
+    """Varsayılan: bellek içi SQLite. --pg: PostgreSQL test veritabanı, her testte şema sıfırlanır."""
+    if not config.getoption("--pg"):
+        return create_db_engine("sqlite://")
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.exit("--pg için .env'de TEST_DATABASE_URL tanımlı olmalı (scripts.postgres_kurulum çalıştırın).")
+    engine = create_db_engine(url)
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP SCHEMA IF EXISTS public CASCADE")
+        conn.exec_driver_sql("CREATE SCHEMA public")
+    return engine
+
+
 @pytest.fixture
-def client():
-    """Her test için boş, bellek içi veritabanı + başlangıç verisi (kullanıcı, sınıflar, kesintiler, silolar)."""
-    engine = create_db_engine("sqlite://")
+def db_engine(request):
+    engine = _test_engine(request.config)
     init_db(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def client(db_engine):
+    """Her test için boş veritabanı + başlangıç verisi (kullanıcı, sınıflar, kesintiler, silolar)."""
+    engine = db_engine
     Session = make_session_factory(engine)
     with Session() as db:
         seed_reference_data(db)
@@ -36,7 +62,6 @@ def client():
     app.dependency_overrides[get_db] = _get_db
     yield TestClient(app)  # lifespan çalışmaz; init/seed yukarıda yapıldı
     app.dependency_overrides.clear()
-    engine.dispose()
 
 
 @pytest.fixture
