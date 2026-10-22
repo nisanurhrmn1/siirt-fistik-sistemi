@@ -12,6 +12,14 @@ Panel dahil her şey **internetsiz** çalışır.
 
 ---
 
+## Proje dokümanları
+
+| Doküman | İçerik |
+|---|---|
+| 📋 [Gereksinimler (SRS)](docs/GEREKSINIMLER.md) | Fonksiyonel ve fonksiyonel olmayan gereksinimler, iş kuralları, kullanım durumları, izlenebilirlik matrisi |
+| 📐 [UML diyagramları](docs/UML.md) | Kullanım durumu, sınıf, sıralama, etkinlik, durum ve bileşen/dağıtım diyagramları |
+| 🗄️ [Veritabanı (ER)](docs/ER.md) | ER diyagramı, tablolar ve iş kuralı → şema eşlemesi |
+
 ## İçindekiler
 1. [Projenin amacı](#1-projenin-amacı)
 2. [Çözülen belirsizlikler (edge case'ler)](#2-çözülen-belirsizlikler-edge-caseler)
@@ -150,7 +158,7 @@ flowchart TB
 
 Bir kuralın birden fazla katmanda tekrarlanması bilinçli bir tercihtir (derinlemesine savunma). Örneğin "net kg pozitif olmalı" kuralı Pydantic şemasında, servis katmanında ve veritabanındaki `CHECK` kısıtında ayrı ayrı denetlenir.
 
-Veritabanı şemasının ayrıntıları ve ER diyagramı: **[docs/ER.md](docs/ER.md)**
+Veritabanı şemasının ayrıntıları ve ER diyagramı: **[docs/ER.md](docs/ER.md)** · Sınıf, sıralama ve durum diyagramları: **[docs/UML.md](docs/UML.md)**
 
 ---
 
@@ -369,6 +377,8 @@ siirt-fistik-sistemi/
 │   ├── schema.sql            PostgreSQL DDL (modellerden üretilir)
 │   └── postgres_triggers_views.sql   Trigger'lar ve rapor view'ları
 ├── docs/
+│   ├── GEREKSINIMLER.md      Yazılım gereksinimleri belirtimi (SRS)
+│   ├── UML.md                UML diyagramları
 │   ├── ER.md                 ER diyagramı ve iş kuralı → şema eşlemesi
 │   └── ekran-goruntuleri/
 ├── scripts/
