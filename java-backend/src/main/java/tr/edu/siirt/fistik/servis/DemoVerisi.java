@@ -52,7 +52,12 @@ public class DemoVerisi implements ApplicationRunner {
             System.out.println("Veritabanında zaten üretici var; demo verisi eklenmedi.");
             return;
         }
-        Long k = em.createQuery("select u.id from User u where u.role = :r order by u.id", Long.class)
+        yukle();
+    }
+
+    /** Örnek veriyi yükler. Veritabanında üretici olmadığı varsayılır (bkz. GeceSifirlama). */
+    public void yukle() {
+        Long k =em.createQuery("select u.id from User u where u.role = :r order by u.id", Long.class)
                 .setParameter("r", tr.edu.siirt.fistik.alan.UserRole.ADMIN).setMaxResults(1).getSingleResult();
         // TC'ler algoritmik olarak geçerli, gerçek kişilere ait olmayan test numaralarıdır.
         List<UreticiYaniti> u = new ArrayList<>();

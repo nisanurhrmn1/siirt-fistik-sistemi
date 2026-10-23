@@ -1,0 +1,4 @@
+# Docker imajına yalnızca Java projesinin kaynakları girer (.env, veritabanları, Python dosyaları girmez).
+*
+!java-backend/pom.xml
+!java-backend/src

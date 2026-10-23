@@ -45,7 +45,10 @@ public final class OrtamYukleyici {
             sifre = parca.length > 1 ? parca[1] : "";
         }
         int port = uri.getPort() > 0 ? uri.getPort() : 5432;
-        System.setProperty("spring.datasource.url", "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath());
+        // Bulut veritabanları (Neon, Render…) SSL ister: adresteki sslmode parametresi korunur.
+        String ssl = uri.getQuery() == null ? "" : java.util.Arrays.stream(uri.getQuery().split("&"))
+                .filter(p -> p.startsWith("sslmode=")).findFirst().map(p -> "?" + p).orElse("");
+        System.setProperty("spring.datasource.url", "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getPath() + ssl);
         if (kullanici != null) System.setProperty("spring.datasource.username", kullanici);
         if (sifre != null) System.setProperty("spring.datasource.password", sifre);
     }

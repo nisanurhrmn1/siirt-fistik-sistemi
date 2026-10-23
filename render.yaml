@@ -1,0 +1,25 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Render panelinde "New → Blueprint" ile bu depo seçildiğinde web servisi otomatik kurulur.
+# Yalnızca DATABASE_URL elle girilir (Neon'daki PostgreSQL bağlantı adresi).
+services:
+  - type: web
+    name: siirt-fistik
+    runtime: docker
+    plan: free
+    region: frankfurt            # Türkiye'ye en yakın bölge
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /saglik
+    autoDeploy: true             # GitHub'a her yüklemede yeniden yayınlanır
+    envVars:
+      - key: DATABASE_URL        # Neon → Connection string (postgresql://...?sslmode=require)
+        sync: false
+      - key: JWT_SECRET          # Giriş token'larının imza anahtarı (Render rastgele üretir)
+        generateValue: true
+      - key: BASLANGIC_SIFRESI   # Hesapların başlangıç şifresi (rastgele; Render panelinde görülebilir)
+        generateValue: true
+      - key: DEMO_HESAPLARI      # Giriş ekranında tek tıkla demo girişi
+        value: "true"
+      - key: DEMO_VERISI         # Boş veritabanına örnek veri yükle
+        value: "true"
+      - key: GECE_SIFIRLAMA      # Her gece 03:00'te demo verisini sıfırla
+        value: "true"

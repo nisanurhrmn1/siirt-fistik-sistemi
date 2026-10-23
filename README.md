@@ -19,6 +19,7 @@ Panel dahil her şey **internetsiz** çalışır.
 | 📋 [Gereksinimler (SRS)](docs/GEREKSINIMLER.md) | Fonksiyonel ve fonksiyonel olmayan gereksinimler, iş kuralları, kullanım durumları, izlenebilirlik matrisi |
 | 📐 [UML diyagramları](docs/UML.md) | Kullanım durumu, sınıf, sıralama, etkinlik, durum ve bileşen/dağıtım diyagramları |
 | 🗄️ [Veritabanı (ER)](docs/ER.md) | ER diyagramı, tablolar ve iş kuralı → şema eşlemesi |
+| 🌐 [İnternette yayınlama](docs/YAYINLAMA.md) | Neon (PostgreSQL) + Render (Docker) ile ücretsiz yayın, adım adım |
 
 ## İçindekiler
 1. [Projenin amacı](#1-projenin-amacı)
@@ -272,7 +273,10 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `DATABASE_URL` (`.env`) | — | `postgresql://kullanici:sifre@localhost:5432/siirt_fistik` |
 | `TEST_DATABASE_URL` (`.env`) | — | Sözleşme testleri için ayrı veritabanı |
 | `--server.port` / `PORT` | `8000` | Sunucu portu |
-| `--fistik.demo-verisi` | `false` | `true` ise boş veritabanına örnek veri yükler |
+| `DEMO_VERISI` / `--fistik.demo-verisi` | `false` | `true` ise boş veritabanına örnek veri yükler |
+| `DEMO_HESAPLARI` | `true` | Giriş ekranında tek tıkla demo girişi |
+| `GECE_SIFIRLAMA` | `false` | `true` ise her gece 03:00'te demo verisini sıfırlar |
+| `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 
 ### Kullanıcılar ve roller
@@ -295,6 +299,10 @@ Okuma işlemleri (listeler, raporlar, ekstre) giriş yapmış herkese açıktır
   - Şifreler BCrypt özeti olarak saklanır.
   - Token 8 saat (bir vardiya) geçerlidir; `.env` içindeki `JWT_SECRET` ile imzalanır.
   - Yanlış girişte "kullanıcı adı veya şifre hatalı" denir; hangi kullanıcı adlarının var olduğu sızdırılmaz.
+
+### İnternette yayınlama
+
+Depoda bir `Dockerfile` ve bir Render kurulum dosyası (`render.yaml`) bulunur. Sistem ücretsiz olarak **Neon** (PostgreSQL) ve **Render** (sunucu) üzerinde yayınlanabilir. Herkese açık demo için her gece 03:00'te demo verisi kendini sıfırlar. Adım adım rehber: **[docs/YAYINLAMA.md](docs/YAYINLAMA.md)**
 
 ### Python prototipi (isteğe bağlı)
 
@@ -427,6 +435,7 @@ cd java-backend
 ```
 siirt-fistik-sistemi/
 ├── baslat.bat                Java sunucusunu derler/başlatır, paneli açar (Windows)
+├── Dockerfile, render.yaml   Bulutta yayın (Docker imajı, Render Blueprint)
 ├── java-backend/             ★ Ana sistem: Java 21 + Spring Boot 3
 │   ├── pom.xml, mvnw.cmd     Maven projesi ve sarmalayıcısı
 │   └── src/
