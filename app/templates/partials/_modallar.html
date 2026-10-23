@@ -135,6 +135,86 @@
     </div>
   </form>
 
+  <!-- ─── Yeni kullanıcı (Yönetici) ─── -->
+  <form x-show="modal === 'kullanici'" class="modal-kutu max-w-md no-print" @submit.prevent="kullaniciEkle()">
+    <div class="modal-baslik"><h3>Yeni Kullanıcı</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="etiket">Ad soyad</label>
+        <input x-model="kullaniciForm.ad_soyad" class="girdi" :class="hata('ad_soyad') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('ad_soyad')"></p>
+      </div>
+      <div>
+        <label class="etiket">Kullanıcı adı</label>
+        <input x-model="kullaniciForm.kullanici_adi" autocomplete="off" placeholder="ayse.kaya" class="girdi font-mono" :class="hata('kullanici_adi') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('kullanici_adi')"></p>
+      </div>
+      <div>
+        <label class="etiket">Rol</label>
+        <select x-model="kullaniciForm.rol" class="girdi">
+          <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="etiket">Geçici şifre</label>
+        <input type="text" x-model="kullaniciForm.gecici_sifre" autocomplete="new-password" class="girdi font-mono" :class="hata('gecici_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('gecici_sifre')"></p>
+        <p class="text-xs text-stone-500 mt-1">En az 8 karakter. Kullanıcıya iletin; ilk girişte kendi şifresini belirleyecek.</p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Kullanıcıyı Ekle</button>
+    </div>
+  </form>
+
+  <!-- ─── Şifre sıfırlama (Yönetici) ─── -->
+  <form x-show="modal === 'sifre-sifirla'" class="modal-kutu max-w-md no-print" @submit.prevent="sifreSifirla()">
+    <div class="modal-baslik"><h3>Şifre Sıfırla</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-stone-600"><span class="font-medium" x-text="sifirlamaForm.kullanici?.ad_soyad"></span> için yeni geçici şifre.
+        Kullanıcı ilk girişte kendi şifresini belirleyecek.</p>
+      <div>
+        <label class="etiket">Geçici şifre</label>
+        <input type="text" x-model="sifirlamaForm.yeni_sifre" autocomplete="new-password" class="girdi font-mono" :class="hata('yeni_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('yeni_sifre')"></p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Şifreyi Sıfırla</button>
+    </div>
+  </form>
+
+  <!-- ─── Şifremi değiştir (herkes) ─── -->
+  <form x-show="modal === 'sifre'" class="modal-kutu max-w-md no-print" @submit.prevent="sifreDegistir()">
+    <div class="modal-baslik"><h3>Şifremi Değiştir</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <p x-show="oturum?.sifre_degistirmeli" class="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2">
+        Yöneticinin verdiği geçici şifreyle giriş yaptınız. Lütfen yalnızca sizin bildiğiniz yeni bir şifre belirleyin.
+      </p>
+      <div>
+        <label class="etiket">Mevcut şifre</label>
+        <input type="password" x-model="sifreForm.mevcut_sifre" autocomplete="current-password" class="girdi" :class="hata('mevcut_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('mevcut_sifre')"></p>
+      </div>
+      <div>
+        <label class="etiket">Yeni şifre <span class="text-stone-400 font-normal">(en az 8 karakter)</span></label>
+        <input type="password" x-model="sifreForm.yeni_sifre" autocomplete="new-password" class="girdi" :class="hata('yeni_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('yeni_sifre')"></p>
+      </div>
+      <div>
+        <label class="etiket">Yeni şifre (tekrar)</label>
+        <input type="password" x-model="sifreForm.tekrar" autocomplete="new-password" class="girdi" :class="hata('tekrar') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('tekrar')"></p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null" x-text="oturum?.sifre_degistirmeli ? 'Sonra' : 'Vazgeç'"></button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Şifreyi Değiştir</button>
+    </div>
+  </form>
+
   <!-- ─── Kantar fişi (yazdırılabilir) ─── -->
   <div x-show="modal === 'fis'" class="modal-kutu max-w-lg">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>

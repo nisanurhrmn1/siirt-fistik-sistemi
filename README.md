@@ -296,7 +296,14 @@ Panel açıldığında giriş ekranı gelir. Her rol yalnızca kendi işlemlerin
 
 Okuma işlemleri (listeler, raporlar, ekstre) giriş yapmış herkese açıktır. Her kayıt, işlemi yapan kullanıcıyla imzalanır (`weighed_by_id`, `created_by_id`…).
 
-- **Demo modu** (varsayılan açık): Giriş ekranında her rol için **tek tıkla giriş** düğmesi vardır. Hesaplar ilk açılışta oluşturulur; başlangıç şifresi `application.properties` içindeki `fistik.baslangic-sifresi` ayarıdır.
+**Yeni kullanıcılar nasıl eklenir?** Herkese açık bir "kaydol" yoktur, çünkü rolü kullanıcı değil yönetici belirler (aksi halde herkes kendini Muhasebe yapıp ödeme girebilirdi). İki yol vardır:
+
+1. **Hesap talebi:** Giriş ekranındaki **"Hesap talep edin"** bağlantısıyla çalışan ad, kullanıcı adı, görev ve şifresini gönderir. Hesap, yönetici onaylayana kadar giriş yapamaz. Yönetici rolü talep edilemez.
+2. **Yöneticinin eklemesi:** Yönetici **Kullanıcılar** sekmesinden kullanıcıyı geçici bir şifreyle ekler. Kullanıcı ilk girişte kendi şifresini belirler.
+
+Yönetici aynı sekmeden talepleri onaylar (gerekirse rolü değiştirerek) veya reddeder, rol değiştirir, hesabı pasifleştirir ve şifre sıfırlar. Rol değişikliği ve pasifleştirme, kullanıcının açık oturumunda bir sonraki istekte geçerli olur (rol token'dan değil veritabanından okunur). Her kullanıcı üst bardaki **Şifre** düğmesiyle kendi şifresini değiştirebilir.
+
+- **Demo modu** (varsayılan açık): Giriş ekranında her rol için **tek tıkla giriş** düğmesi vardır. Hesaplar ilk açılışta oluşturulur; başlangıç şifresi `application.properties` içindeki `fistik.baslangic-sifresi` ayarıdır. Herkese açık demoda bu hesaplar kilitlidir (rolü, şifresi değiştirilemez); denemek için yeni kullanıcı eklenebilir. Gece sıfırlaması açıksa sonradan eklenen kullanıcılar da her gece silinir.
 - **Gerçek kullanım:** `DEMO_HESAPLARI=false` ve güçlü bir `BASLANGIC_SIFRESI` ortam değişkeni verin.
 - **Güvenlik ayrıntıları:**
   - Şifreler BCrypt özeti olarak saklanır.
@@ -326,6 +333,15 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `POST` | `/oturum/demo-giris` | Demo hesabıyla tek tıkla giriş (yalnızca demo modunda) | 200 |
 | `GET` | `/oturum/demo-hesaplar` | Giriş ekranındaki demo hesapları (şifre içermez) | 200 |
 | `GET` | `/oturum/ben` | Oturumdaki kullanıcı, rolü ve yetkileri | 200 |
+| `POST` | `/oturum/hesap-talebi` | Hesap talebi (giriş gerektirmez; yönetici onayına düşer) | 201 |
+| `POST` | `/oturum/sifre-degistir` | Kendi şifresini değiştirme | 200 |
+| **Kullanıcılar** *(yalnızca Yönetici)* ||||
+| `GET` | `/kullanicilar` | Kullanıcılar ve bekleyen talepler | 200 |
+| `POST` | `/kullanicilar` | Geçici şifreyle kullanıcı ekleme | 201 |
+| `POST` | `/kullanicilar/{id}/onayla` | Talebi onaylama (isteğe bağlı farklı rol) | 200 |
+| `DELETE` | `/kullanicilar/{id}/talep` | Talebi reddetme | 204 |
+| `PATCH` | `/kullanicilar/{id}` | Ad, rol veya aktiflik değiştirme | 200 |
+| `POST` | `/kullanicilar/{id}/sifre-sifirla` | Geçici şifre belirleme | 200 |
 | **Üreticiler** ||||
 | `POST` | `/ureticiler` | Yeni üretici (TC/VKN, telefon, IBAN doğrulamalı) | 201 |
 | `GET` | `/ureticiler` | Sayfalı, aranabilir üretici listesi | 200 |
@@ -411,7 +427,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (37 test: 27 + 10 güvenlik)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (46 test: 27 + 10 güvenlik + 9 kullanıcı)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -428,6 +444,14 @@ cd java-backend
   - yanlış girişte kullanıcı adlarının sızdırılmaması
   - rol kuralları (kantar memuru ödeme yapamaz, muhasebe tartım yapamaz, depo sorumlusu yalnızca okur)
   - her kaydın işlemi yapan kullanıcıyla imzalanması
+- **`tests/test_kullanicilar.py`** (9 test, yalnızca Java): Kapsam:
+  - hesap talebinin onaylanmadan giriş yapamaması, onayda rolün değiştirilebilmesi, reddedilen talebin silinmesi
+  - yönetici rolü talep edilememesi, tekrarlı kullanıcı adı ve kısa şifrenin reddi
+  - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
+  - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
+  - demo hesaplarının ve yöneticinin kendi hesabının korunması
+
+> PostgreSQL testleri (`--pg`) test veritabanının şemasını silip yeniden kurar. Ardından Java testlerini çalıştıracaksanız Java sunucusunu yeniden başlatın; Flyway şemayı tamamlar.
 
 > Java'ya geçişte bu testler bir sıralama hatasını yakaladı: Hibernate, yeni fiyatı onaylayan güncellemeyi eski fiyatı kapatan güncellemeden önce gönderiyordu. O an iki onaylı fiyat çakıştığı için PostgreSQL'in `EXCLUDE` kısıtı işlemi reddetti. Hata `Kurallar.fiyatOnayla` içinde düzeltildi; veritabanı koruması amacına uygun çalıştı.
 
@@ -474,7 +498,7 @@ siirt-fistik-sistemi/
 
 | Konu | Mevcut durum | Öneri |
 |---|---|---|
-| Kullanıcı yönetimi | Hesaplar başlangıç verisiyle oluşturulur; panelden kullanıcı ekleme ve şifre değiştirme yok | Yönetici için kullanıcı/şifre yönetimi ekranı |
+| Şifre unutma | Şifreyi yalnızca yönetici sıfırlayabilir; hatalı giriş denemesi sınırı yok | E-postayla sıfırlama bağlantısı ve art arda hatalı girişte geçici kilit |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
 | Kantar entegrasyonu | Ağırlık elle girilir | Kantar göstergesinden seri port/TCP ile otomatik okuma |

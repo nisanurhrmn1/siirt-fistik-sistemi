@@ -48,7 +48,7 @@ flowchart LR
 5. **Apply / Deploy Blueprint** düğmesine basın.
 6. İlk derleme **5–10 dakika** sürer (Maven bağımlılıkları indirilir). **Logs** sekmesinde şu satırları görünce sistem hazırdır:
    ```
-   Successfully applied 3 migrations ... now at version v3
+   Successfully applied 4 migrations ... now at version v4
    Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.
    Started SiirtFistikApplication in ... seconds
    ```
@@ -75,7 +75,8 @@ flowchart LR
 - **İlk açılış yavaş olabilir.** Render'ın ücretsiz planında sunucu 15 dakika kullanılmazsa uyur; ilk ziyarette 30–60 saniyede uyanır. Sunumdan birkaç dakika önce adresi bir kez açın.
 - **Herkese açık demo:**
   - Giriş ekranındaki demo hesaplarıyla herkes veri girebilir. Bu yüzden `GECE_SIFIRLAMA=true` ayarı açık: her gece 03:00'te işlem verisi silinip örnek veri yeniden yüklenir.
-  - Kullanıcı hesapları, kalite sınıfları ve silolar korunur.
+  - Demo hesapları, kalite sınıfları ve silolar korunur. Ziyaretçilerin eklediği kullanıcılar ve hesap talepleri silinir.
+  - Demo hesapları kilitlidir: ziyaretçiler onların rolünü veya şifresini değiştiremez.
 - **Yönetici şifresi:** Render, `BASLANGIC_SIFRESI` değişkenini rastgele üretir. Şifreyle giriş yapmak isterseniz değeri Render panelinde **Environment** sekmesinde görebilirsiniz.
 - **Güncelleme:** GitHub'a her `git push` sonrası Render otomatik olarak yeniden derleyip yayınlar (`autoDeploy: true`).
 - **Demoyu kapatmak (gerçek kullanım):** Render → **Environment** → `DEMO_HESAPLARI`, `DEMO_VERISI` ve `GECE_SIFIRLAMA` değerlerini `false` yapın.

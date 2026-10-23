@@ -36,6 +36,10 @@ public final class Oturum {
             new Object[]{"fiyat", "Fiyat Yöneticisi", UserRole.PRICE_MANAGER},
             new Object[]{"depo", "Depo Sorumlusu", UserRole.WAREHOUSE});
 
+    public static boolean demoHesabi(String kullaniciAdi) {
+        return DEMO_HESAPLARI.stream().anyMatch(h -> h[0].equals(kullaniciAdi));
+    }
+
     private static final Duration SURE = Duration.ofHours(8);   // bir vardiya
 
     public record GirisIstegi(@NotBlank(message = "Bu alan zorunludur.") @Size(max = 50) String kullaniciAdi,
@@ -46,10 +50,10 @@ public final class Oturum {
     }
 
     public record OturumKullanicisi(Long id, String kullaniciAdi, String adSoyad, UserRole rol, String rolAdi,
-                                    List<String> yetkiler) {
+                                    List<String> yetkiler, boolean sifreDegistirmeli) {
         static OturumKullanicisi from(User u) {
             return new OturumKullanicisi(u.getId(), u.getUsername(), u.getFullName(), u.getRole(), u.getRole().getAd(),
-                    Yetki.yetkiler(u.getRole()));
+                    Yetki.yetkiler(u.getRole()), u.isMustChangePassword());
         }
     }
 
@@ -93,8 +97,11 @@ public final class Oturum {
         public GirisYaniti giris(GirisIstegi g) {
             User u = kullaniciAdiyla(g.kullaniciAdi());
             // Kullanıcı yoksa da aynı mesaj: hangi kullanıcı adlarının var olduğu sızdırılmaz.
-            if (u == null || !u.isActive() || u.getPasswordHash() == null || !sifreleyici.matches(g.sifre(), u.getPasswordHash()))
+            if (u == null || u.getPasswordHash() == null || !sifreleyici.matches(g.sifre(), u.getPasswordHash()))
                 throw new YetkiHatasi("Kullanıcı adı veya şifre hatalı.");
+            // Şifre doğruysa durumu söylemek güvenlidir (hesabın sahibi zaten o).
+            if (u.isPendingApproval()) throw new YetkiHatasi("Hesap talebiniz henüz yönetici tarafından onaylanmadı.");
+            if (!u.isActive()) throw new YetkiHatasi("Hesabınız pasif; yöneticinize başvurun.");
             return tokenUret(u);
         }
 
@@ -124,7 +131,7 @@ public final class Oturum {
 
     @RestController
     @RequestMapping("/api/v1/oturum")
-    @Tag(name = "Oturum", description = "Giriş, demo girişi ve oturumdaki kullanıcı")
+    @Tag(name = "Oturum")
     public static class OturumKontrolcusu {
         private final OturumServisi servis;
 

@@ -8,10 +8,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -21,7 +25,8 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.web.SecurityFilterChain;
 import tr.edu.siirt.fistik.api.Yanitlar.HataYaniti;
 
@@ -80,9 +85,15 @@ public class GuvenlikAyarlari {
     }
 
     @Bean
-    public SecurityFilterChain guvenlikZinciri(HttpSecurity http, ObjectMapper json) throws Exception {
-        JwtAuthenticationConverter rolCevirici = new JwtAuthenticationConverter();
-        rolCevirici.setJwtGrantedAuthoritiesConverter(jwt -> List.of(new SimpleGrantedAuthority("ROLE_" + jwt.getClaimAsString("rol"))));
+    public SecurityFilterChain guvenlikZinciri(HttpSecurity http, ObjectMapper json, JdbcTemplate jdbc) throws Exception {
+        // Rol token'dan değil veritabanından okunur: yönetici rolü değiştirir veya hesabı pasifleştirirse
+        // bu, token süresinin (8 saat) dolmasını beklemeden bir sonraki istekte geçerli olur.
+        Converter<Jwt, AbstractAuthenticationToken> rolCevirici = jwt -> {
+            String rol = jdbc.query("select role from users where id = ? and is_active", rs -> rs.next() ? rs.getString(1) : null,
+                    Long.valueOf(jwt.getSubject()));
+            if (rol == null) throw new DisabledException("Hesap pasif veya silinmiş.");
+            return new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("ROLE_" + rol)), jwt.getSubject());
+        };
 
         return http
                 .csrf(c -> c.disable())
@@ -91,8 +102,11 @@ public class GuvenlikAyarlari {
                         .requestMatchers("/", "/index.html", "/redoc", "/redoc.html", "/docs", "/static/**", "/favicon.ico",
                                 "/swagger-ui.html", "/swagger-ui/**", "/openapi.json", "/openapi.json/**", "/saglik", "/error")
                         .permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/oturum/giris", "/api/v1/oturum/demo-giris").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/oturum/giris", "/api/v1/oturum/demo-giris",
+                                "/api/v1/oturum/hesap-talebi").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/oturum/demo-hesaplar").permitAll()
+                        // Kullanıcı yönetimi ayrıca adres düzeyinde de korunur: yetkisiz istek gövde doğrulamasına hiç ulaşmaz
+                        .requestMatchers("/api/v1/kullanicilar/**", "/api/v1/kullanicilar").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(o -> o
@@ -109,14 +123,14 @@ public class GuvenlikAyarlari {
 
     private static String rolAciklamasi() {
         var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (a instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken j) {
+        if (a == null) return "";
+        return a.getAuthorities().stream().map(y -> y.getAuthority().replaceFirst("^ROLE_", "")).findFirst().map(r -> {
             try {
-                return " (rolünüz: " + tr.edu.siirt.fistik.alan.UserRole.valueOf(j.getToken().getClaimAsString("rol")).getAd() + ")";
+                return " (rolünüz: " + tr.edu.siirt.fistik.alan.UserRole.valueOf(r).getAd() + ")";
             } catch (IllegalArgumentException e) {
                 return "";
             }
-        }
-        return "";
+        }).orElse("");
     }
 
     private static void yaz(HttpServletResponse res, ObjectMapper json, int durum, String mesaj) throws IOException {

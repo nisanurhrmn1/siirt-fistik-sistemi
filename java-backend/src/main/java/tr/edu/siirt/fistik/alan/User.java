@@ -37,6 +37,17 @@ public class User {
     @Column(name = "password_hash")
     private String passwordHash;
 
+    /** Giriş ekranından gelen hesap talebi: yönetici onaylayana kadar pasif kalır. */
+    @Column(name = "pending_approval")
+    private boolean pendingApproval;
+
+    /** Yöneticinin verdiği geçici şifre: ilk girişte değiştirilmesi istenir. */
+    @Column(name = "must_change_password")
+    private boolean mustChangePassword;
+
+    @Column(name = "request_note")
+    private String requestNote;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

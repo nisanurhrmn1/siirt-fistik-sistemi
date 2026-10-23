@@ -22,8 +22,8 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.1.0">
-  <script defer src="/static/js/app.js?v=2.1.0"></script>
+  <link rel="stylesheet" href="/static/css/app.css?v=2.2.0">
+  <script defer src="/static/js/app.js?v=2.2.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
@@ -50,6 +50,10 @@
               <p class="text-sm font-semibold text-stone-800" x-text="oturum.ad_soyad"></p>
               <p class="text-[.7rem] font-medium text-emerald-700" x-text="oturum.rol_adi"></p>
             </div>
+            <button @click="sifreModalAc()" class="btn-ghost" title="Şifremi değiştir">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.03 5.91c-.57-.1-1.17.03-1.58.44L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.82c0-.6.24-1.17.66-1.6l6.07-6.06c.41-.41.53-1.01.44-1.58A6 6 0 1 1 21.75 8.25Z"/></svg>
+              <span class="hidden lg:inline">Şifre</span>
+            </button>
             <button @click="cikisYap()" class="btn-ghost" title="Çıkış yap">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
               <span class="hidden sm:inline">Çıkış</span>
@@ -139,10 +143,12 @@
 
     <!-- ─── Sekmeler ─── -->
     <nav class="sekme-cubugu w-full sm:w-fit overflow-x-auto">
-      <template x-for="s in sekmeler" :key="s.id">
+      <template x-for="s in gorunurSekmeler" :key="s.id">
         <button @click="tab = s.id" class="tab" :class="tab === s.id ? 'tab-aktif' : ''">
           <span class="h-4 w-4" x-html="s.ikon"></span>
           <span x-text="s.ad"></span>
+          <span x-show="s.id === 'kullanicilar' && bekleyenTalepler.length"
+                class="ml-0.5 rounded-full bg-amber-500 text-white text-[.65rem] font-bold px-1.5" x-text="bekleyenTalepler.length"></span>
         </button>
       </template>
     </nav>
@@ -588,9 +594,102 @@
   </div>
 </div>
     </section>
+    <section x-show="tab === 'kullanicilar'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <!-- ─── Kullanıcı yönetimi (yalnızca Yönetici) ─── -->
+<div class="space-y-6">
+
+  <!-- Bekleyen hesap talepleri -->
+  <div class="panel-kutu">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="baslik">Hesap Talepleri</h2>
+        <p class="text-xs text-stone-500 mt-1">Giriş ekranından gelen talepler. Onaylarken rolü değiştirebilirsiniz.</p>
+      </div>
+      <span class="durum bg-amber-100 text-amber-800" x-show="bekleyenTalepler.length" x-text="`${bekleyenTalepler.length} bekliyor`"></span>
+    </div>
+    <p x-show="!bekleyenTalepler.length" class="text-sm text-stone-500">Bekleyen talep yok.</p>
+    <div class="space-y-3">
+      <template x-for="u in bekleyenTalepler" :key="u.id">
+        <div class="mini-kart p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span class="avatar" x-text="basHarfler(u.ad_soyad)"></span>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-sm text-stone-800"><span x-text="u.ad_soyad"></span>
+              <span class="font-mono text-xs text-stone-500" x-text="'@' + u.kullanici_adi"></span></p>
+            <p class="text-xs text-stone-500" x-text="`${tarihYaz(u.olusturulma)} · talep edilen rol: ${u.rol_adi}`"></p>
+            <p x-show="u.aciklama" class="text-xs text-stone-600 mt-1 italic" x-text="'“' + u.aciklama + '”'"></p>
+          </div>
+          <select x-model="onayRolleri[u.id]" class="girdi sm:w-48" aria-label="Verilecek rol">
+            <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi" :selected="r.rol === onayRolleri[u.id]"></option></template>
+          </select>
+          <div class="flex gap-2">
+            <button type="button" class="btn-kucuk" :disabled="islemde" @click="talepOnayla(u)">Onayla</button>
+            <button type="button" class="btn-ghost text-rose-700" :disabled="islemde" @click="talepReddet(u)">Reddet</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Kullanıcılar -->
+  <div class="panel-kutu">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="baslik">Kullanıcılar</h2>
+        <p class="text-xs text-stone-500 mt-1">Rol değişikliği ve pasifleştirme bir sonraki işlemde hemen geçerli olur.</p>
+      </div>
+      <button type="button" class="btn-birincil" @click="kullaniciModalAc()">+ Yeni kullanıcı</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="tablo">
+        <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="u in kayitliKullanicilar" :key="u.id">
+            <tr :class="u.durum === 'PASIF' && 'opacity-60'">
+              <td>
+                <p class="font-medium"><span x-text="u.ad_soyad"></span>
+                  <span x-show="u.id === oturum?.id" class="text-xs text-emerald-700 font-semibold">(siz)</span></p>
+                <p class="text-xs text-stone-500 font-mono" x-text="'@' + u.kullanici_adi"></p>
+              </td>
+              <td>
+                <select class="girdi py-1.5 text-sm w-44" :value="u.rol" :disabled="islemde || u.demo_hesabi || u.id === oturum?.id"
+                        :title="u.demo_hesabi ? 'Demo hesapları değiştirilemez' : ''"
+                        @change="kullaniciGuncelle(u, { rol: $event.target.value }, `${u.ad_soyad}: rol değiştirildi.`)">
+                  <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi" :selected="r.rol === u.rol"></option></template>
+                </select>
+              </td>
+              <td>
+                <span class="durum" :class="u.durum === 'AKTIF' ? 'bg-fistik-100 text-fistik-800' : 'bg-stone-100 text-stone-600'" x-text="u.durum_adi"></span>
+                <span x-show="u.demo_hesabi" class="durum bg-sky-100 text-sky-800">Demo</span>
+                <span x-show="u.sifre_degistirmeli" class="durum bg-amber-100 text-amber-800" title="Geçici şifreyle; ilk girişte değiştirecek">Geçici şifre</span>
+              </td>
+              <td class="text-right whitespace-nowrap">
+                <template x-if="!u.demo_hesabi && u.id !== oturum?.id">
+                  <span class="inline-flex gap-1">
+                    <button type="button" class="btn-ghost text-xs" :disabled="islemde" @click="sifreSifirlaModalAc(u)">Şifre sıfırla</button>
+                    <button type="button" class="btn-ghost text-xs" :disabled="islemde"
+                            :class="u.durum === 'AKTIF' ? 'text-rose-700' : 'text-emerald-700'"
+                            @click="kullaniciGuncelle(u, { aktif: u.durum !== 'AKTIF' }, `${u.ad_soyad}: ${u.durum === 'AKTIF' ? 'pasifleştirildi' : 'etkinleştirildi'}.`)"
+                            x-text="u.durum === 'AKTIF' ? 'Pasifleştir' : 'Etkinleştir'"></button>
+                  </span>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <p x-show="kullanicilar.some((u) => u.demo_hesabi)" class="mt-3 text-xs text-stone-400">
+      Demo hesapları herkese açık sunumda kilitlidir; denemek için yeni bir kullanıcı ekleyin.
+      Gece sıfırlaması açıksa demo dışındaki kullanıcılar her gece 03:00'te silinir.
+    </p>
+  </div>
+</div>
+    </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.1.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.2.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -731,6 +830,86 @@
     </div>
   </form>
 
+  <!-- ─── Yeni kullanıcı (Yönetici) ─── -->
+  <form x-show="modal === 'kullanici'" class="modal-kutu max-w-md no-print" @submit.prevent="kullaniciEkle()">
+    <div class="modal-baslik"><h3>Yeni Kullanıcı</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="etiket">Ad soyad</label>
+        <input x-model="kullaniciForm.ad_soyad" class="girdi" :class="hata('ad_soyad') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('ad_soyad')"></p>
+      </div>
+      <div>
+        <label class="etiket">Kullanıcı adı</label>
+        <input x-model="kullaniciForm.kullanici_adi" autocomplete="off" placeholder="ayse.kaya" class="girdi font-mono" :class="hata('kullanici_adi') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('kullanici_adi')"></p>
+      </div>
+      <div>
+        <label class="etiket">Rol</label>
+        <select x-model="kullaniciForm.rol" class="girdi">
+          <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi"></option></template>
+        </select>
+      </div>
+      <div>
+        <label class="etiket">Geçici şifre</label>
+        <input type="text" x-model="kullaniciForm.gecici_sifre" autocomplete="new-password" class="girdi font-mono" :class="hata('gecici_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('gecici_sifre')"></p>
+        <p class="text-xs text-stone-500 mt-1">En az 8 karakter. Kullanıcıya iletin; ilk girişte kendi şifresini belirleyecek.</p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Kullanıcıyı Ekle</button>
+    </div>
+  </form>
+
+  <!-- ─── Şifre sıfırlama (Yönetici) ─── -->
+  <form x-show="modal === 'sifre-sifirla'" class="modal-kutu max-w-md no-print" @submit.prevent="sifreSifirla()">
+    <div class="modal-baslik"><h3>Şifre Sıfırla</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <p class="text-sm text-stone-600"><span class="font-medium" x-text="sifirlamaForm.kullanici?.ad_soyad"></span> için yeni geçici şifre.
+        Kullanıcı ilk girişte kendi şifresini belirleyecek.</p>
+      <div>
+        <label class="etiket">Geçici şifre</label>
+        <input type="text" x-model="sifirlamaForm.yeni_sifre" autocomplete="new-password" class="girdi font-mono" :class="hata('yeni_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('yeni_sifre')"></p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Şifreyi Sıfırla</button>
+    </div>
+  </form>
+
+  <!-- ─── Şifremi değiştir (herkes) ─── -->
+  <form x-show="modal === 'sifre'" class="modal-kutu max-w-md no-print" @submit.prevent="sifreDegistir()">
+    <div class="modal-baslik"><h3>Şifremi Değiştir</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <p x-show="oturum?.sifre_degistirmeli" class="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2">
+        Yöneticinin verdiği geçici şifreyle giriş yaptınız. Lütfen yalnızca sizin bildiğiniz yeni bir şifre belirleyin.
+      </p>
+      <div>
+        <label class="etiket">Mevcut şifre</label>
+        <input type="password" x-model="sifreForm.mevcut_sifre" autocomplete="current-password" class="girdi" :class="hata('mevcut_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('mevcut_sifre')"></p>
+      </div>
+      <div>
+        <label class="etiket">Yeni şifre <span class="text-stone-400 font-normal">(en az 8 karakter)</span></label>
+        <input type="password" x-model="sifreForm.yeni_sifre" autocomplete="new-password" class="girdi" :class="hata('yeni_sifre') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('yeni_sifre')"></p>
+      </div>
+      <div>
+        <label class="etiket">Yeni şifre (tekrar)</label>
+        <input type="password" x-model="sifreForm.tekrar" autocomplete="new-password" class="girdi" :class="hata('tekrar') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('tekrar')"></p>
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null" x-text="oturum?.sifre_degistirmeli ? 'Sonra' : 'Vazgeç'"></button>
+      <button type="submit" class="btn-birincil" :disabled="islemde">Şifreyi Değiştir</button>
+    </div>
+  </form>
+
   <!-- ─── Kantar fişi (yazdırılabilir) ─── -->
   <div x-show="modal === 'fis'" class="modal-kutu max-w-lg">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
@@ -811,7 +990,7 @@
       </div>
 
       <!-- Sağ: giriş formu ve demo hesapları -->
-      <div class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
+      <div x-show="girisModu === 'giris'" class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
         <div>
           <h2 class="text-xl font-bold text-stone-900">Giriş yap</h2>
           <p class="text-sm text-stone-500 mt-1">Kullanıcı adınız ve şifrenizle oturum açın.</p>
@@ -827,9 +1006,13 @@
             <input id="sifre" type="password" x-model="girisForm.sifre" autocomplete="current-password" class="girdi">
           </div>
           <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+          <p x-show="girisBilgi" x-text="girisBilgi" class="text-sm rounded-lg bg-emerald-50 text-emerald-800 px-3 py-2"></p>
           <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
             <span x-text="girisYapiliyor ? 'Giriş yapılıyor…' : 'Giriş yap'"></span>
           </button>
+          <p class="text-sm text-center text-stone-500">
+            Hesabınız yok mu? <button type="button" class="link text-sm" @click="talepEkraniAc()">Hesap talep edin</button>
+          </p>
         </form>
 
         <template x-if="demoHesaplar.length">
@@ -854,6 +1037,57 @@
           </div>
         </template>
       </div>
+
+      <!-- Sağ: hesap talebi (yönetici onaylayınca giriş yapılabilir) -->
+      <form x-show="girisModu === 'talep'" class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-4" @submit.prevent="talepGonder()">
+        <div>
+          <h2 class="text-xl font-bold text-stone-900">Hesap talep et</h2>
+          <p class="text-sm text-stone-500 mt-1">
+            Talebiniz yöneticiye iletilir. Yönetici onayladığında bu kullanıcı adı ve şifreyle giriş yapabilirsiniz.
+          </p>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="etiket" for="talep_ad">Ad soyad</label>
+            <input id="talep_ad" x-model="talepForm.ad_soyad" autocomplete="name" class="girdi" :class="hata('ad_soyad') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('ad_soyad')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_kullanici">Kullanıcı adı</label>
+            <input id="talep_kullanici" x-model="talepForm.kullanici_adi" autocomplete="username" placeholder="ayse.kaya"
+                   class="girdi font-mono" :class="hata('kullanici_adi') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('kullanici_adi')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_rol">Göreviniz</label>
+            <select id="talep_rol" x-model="talepForm.istenen_rol" class="girdi" :class="hata('istenen_rol') && 'girdi-hata'">
+              <template x-for="r in talepRolleri" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi"></option></template>
+            </select>
+            <p class="hata-yazi" x-text="hata('istenen_rol')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_sifre">Şifre <span class="text-stone-400 font-normal">(en az 8 karakter)</span></label>
+            <input id="talep_sifre" type="password" x-model="talepForm.sifre" autocomplete="new-password" class="girdi" :class="hata('sifre') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('sifre')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_tekrar">Şifre (tekrar)</label>
+            <input id="talep_tekrar" type="password" x-model="talepForm.tekrar" autocomplete="new-password" class="girdi" :class="hata('tekrar') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('tekrar')"></p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="etiket" for="talep_not">Yöneticiye not <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
+            <input id="talep_not" x-model="talepForm.aciklama" maxlength="300" placeholder="Ör. Kurtalan kantarında çalışıyorum." class="girdi">
+          </div>
+        </div>
+        <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+        <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
+          <span x-text="girisYapiliyor ? 'Gönderiliyor…' : 'Talebi gönder'"></span>
+        </button>
+        <p class="text-sm text-center text-stone-500">
+          Hesabınız var mı? <button type="button" class="link text-sm" @click="girisModuAc()">Giriş yapın</button>
+        </p>
+      </form>
     </div>
   </div>
 </div>

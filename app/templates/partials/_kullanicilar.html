@@ -1,0 +1,89 @@
+<!-- ─── Kullanıcı yönetimi (yalnızca Yönetici) ─── -->
+<div class="space-y-6">
+
+  <!-- Bekleyen hesap talepleri -->
+  <div class="panel-kutu">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="baslik">Hesap Talepleri</h2>
+        <p class="text-xs text-stone-500 mt-1">Giriş ekranından gelen talepler. Onaylarken rolü değiştirebilirsiniz.</p>
+      </div>
+      <span class="durum bg-amber-100 text-amber-800" x-show="bekleyenTalepler.length" x-text="`${bekleyenTalepler.length} bekliyor`"></span>
+    </div>
+    <p x-show="!bekleyenTalepler.length" class="text-sm text-stone-500">Bekleyen talep yok.</p>
+    <div class="space-y-3">
+      <template x-for="u in bekleyenTalepler" :key="u.id">
+        <div class="mini-kart p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <span class="avatar" x-text="basHarfler(u.ad_soyad)"></span>
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-sm text-stone-800"><span x-text="u.ad_soyad"></span>
+              <span class="font-mono text-xs text-stone-500" x-text="'@' + u.kullanici_adi"></span></p>
+            <p class="text-xs text-stone-500" x-text="`${tarihYaz(u.olusturulma)} · talep edilen rol: ${u.rol_adi}`"></p>
+            <p x-show="u.aciklama" class="text-xs text-stone-600 mt-1 italic" x-text="'“' + u.aciklama + '”'"></p>
+          </div>
+          <select x-model="onayRolleri[u.id]" class="girdi sm:w-48" aria-label="Verilecek rol">
+            <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi" :selected="r.rol === onayRolleri[u.id]"></option></template>
+          </select>
+          <div class="flex gap-2">
+            <button type="button" class="btn-kucuk" :disabled="islemde" @click="talepOnayla(u)">Onayla</button>
+            <button type="button" class="btn-ghost text-rose-700" :disabled="islemde" @click="talepReddet(u)">Reddet</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- Kullanıcılar -->
+  <div class="panel-kutu">
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="baslik">Kullanıcılar</h2>
+        <p class="text-xs text-stone-500 mt-1">Rol değişikliği ve pasifleştirme bir sonraki işlemde hemen geçerli olur.</p>
+      </div>
+      <button type="button" class="btn-birincil" @click="kullaniciModalAc()">+ Yeni kullanıcı</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="tablo">
+        <thead><tr><th>Kullanıcı</th><th>Rol</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="u in kayitliKullanicilar" :key="u.id">
+            <tr :class="u.durum === 'PASIF' && 'opacity-60'">
+              <td>
+                <p class="font-medium"><span x-text="u.ad_soyad"></span>
+                  <span x-show="u.id === oturum?.id" class="text-xs text-emerald-700 font-semibold">(siz)</span></p>
+                <p class="text-xs text-stone-500 font-mono" x-text="'@' + u.kullanici_adi"></p>
+              </td>
+              <td>
+                <select class="girdi py-1.5 text-sm w-44" :value="u.rol" :disabled="islemde || u.demo_hesabi || u.id === oturum?.id"
+                        :title="u.demo_hesabi ? 'Demo hesapları değiştirilemez' : ''"
+                        @change="kullaniciGuncelle(u, { rol: $event.target.value }, `${u.ad_soyad}: rol değiştirildi.`)">
+                  <template x-for="r in roller" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi" :selected="r.rol === u.rol"></option></template>
+                </select>
+              </td>
+              <td>
+                <span class="durum" :class="u.durum === 'AKTIF' ? 'bg-fistik-100 text-fistik-800' : 'bg-stone-100 text-stone-600'" x-text="u.durum_adi"></span>
+                <span x-show="u.demo_hesabi" class="durum bg-sky-100 text-sky-800">Demo</span>
+                <span x-show="u.sifre_degistirmeli" class="durum bg-amber-100 text-amber-800" title="Geçici şifreyle; ilk girişte değiştirecek">Geçici şifre</span>
+              </td>
+              <td class="text-right whitespace-nowrap">
+                <template x-if="!u.demo_hesabi && u.id !== oturum?.id">
+                  <span class="inline-flex gap-1">
+                    <button type="button" class="btn-ghost text-xs" :disabled="islemde" @click="sifreSifirlaModalAc(u)">Şifre sıfırla</button>
+                    <button type="button" class="btn-ghost text-xs" :disabled="islemde"
+                            :class="u.durum === 'AKTIF' ? 'text-rose-700' : 'text-emerald-700'"
+                            @click="kullaniciGuncelle(u, { aktif: u.durum !== 'AKTIF' }, `${u.ad_soyad}: ${u.durum === 'AKTIF' ? 'pasifleştirildi' : 'etkinleştirildi'}.`)"
+                            x-text="u.durum === 'AKTIF' ? 'Pasifleştir' : 'Etkinleştir'"></button>
+                  </span>
+                </template>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+    <p x-show="kullanicilar.some((u) => u.demo_hesabi)" class="mt-3 text-xs text-stone-400">
+      Demo hesapları herkese açık sunumda kilitlidir; denemek için yeni bir kullanıcı ekleyin.
+      Gece sıfırlaması açıksa demo dışındaki kullanıcılar her gece 03:00'te silinir.
+    </p>
+  </div>
+</div>

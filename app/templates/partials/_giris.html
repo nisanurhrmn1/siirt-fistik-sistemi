@@ -23,7 +23,7 @@
       </div>
 
       <!-- Sağ: giriş formu ve demo hesapları -->
-      <div class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
+      <div x-show="girisModu === 'giris'" class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
         <div>
           <h2 class="text-xl font-bold text-stone-900">Giriş yap</h2>
           <p class="text-sm text-stone-500 mt-1">Kullanıcı adınız ve şifrenizle oturum açın.</p>
@@ -39,9 +39,13 @@
             <input id="sifre" type="password" x-model="girisForm.sifre" autocomplete="current-password" class="girdi">
           </div>
           <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+          <p x-show="girisBilgi" x-text="girisBilgi" class="text-sm rounded-lg bg-emerald-50 text-emerald-800 px-3 py-2"></p>
           <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
             <span x-text="girisYapiliyor ? 'Giriş yapılıyor…' : 'Giriş yap'"></span>
           </button>
+          <p class="text-sm text-center text-stone-500">
+            Hesabınız yok mu? <button type="button" class="link text-sm" @click="talepEkraniAc()">Hesap talep edin</button>
+          </p>
         </form>
 
         <template x-if="demoHesaplar.length">
@@ -66,6 +70,57 @@
           </div>
         </template>
       </div>
+
+      <!-- Sağ: hesap talebi (yönetici onaylayınca giriş yapılabilir) -->
+      <form x-show="girisModu === 'talep'" class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-4" @submit.prevent="talepGonder()">
+        <div>
+          <h2 class="text-xl font-bold text-stone-900">Hesap talep et</h2>
+          <p class="text-sm text-stone-500 mt-1">
+            Talebiniz yöneticiye iletilir. Yönetici onayladığında bu kullanıcı adı ve şifreyle giriş yapabilirsiniz.
+          </p>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="sm:col-span-2">
+            <label class="etiket" for="talep_ad">Ad soyad</label>
+            <input id="talep_ad" x-model="talepForm.ad_soyad" autocomplete="name" class="girdi" :class="hata('ad_soyad') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('ad_soyad')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_kullanici">Kullanıcı adı</label>
+            <input id="talep_kullanici" x-model="talepForm.kullanici_adi" autocomplete="username" placeholder="ayse.kaya"
+                   class="girdi font-mono" :class="hata('kullanici_adi') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('kullanici_adi')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_rol">Göreviniz</label>
+            <select id="talep_rol" x-model="talepForm.istenen_rol" class="girdi" :class="hata('istenen_rol') && 'girdi-hata'">
+              <template x-for="r in talepRolleri" :key="r.rol"><option :value="r.rol" x-text="r.rol_adi"></option></template>
+            </select>
+            <p class="hata-yazi" x-text="hata('istenen_rol')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_sifre">Şifre <span class="text-stone-400 font-normal">(en az 8 karakter)</span></label>
+            <input id="talep_sifre" type="password" x-model="talepForm.sifre" autocomplete="new-password" class="girdi" :class="hata('sifre') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('sifre')"></p>
+          </div>
+          <div>
+            <label class="etiket" for="talep_tekrar">Şifre (tekrar)</label>
+            <input id="talep_tekrar" type="password" x-model="talepForm.tekrar" autocomplete="new-password" class="girdi" :class="hata('tekrar') && 'girdi-hata'">
+            <p class="hata-yazi" x-text="hata('tekrar')"></p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="etiket" for="talep_not">Yöneticiye not <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
+            <input id="talep_not" x-model="talepForm.aciklama" maxlength="300" placeholder="Ör. Kurtalan kantarında çalışıyorum." class="girdi">
+          </div>
+        </div>
+        <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+        <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
+          <span x-text="girisYapiliyor ? 'Gönderiliyor…' : 'Talebi gönder'"></span>
+        </button>
+        <p class="text-sm text-center text-stone-500">
+          Hesabınız var mı? <button type="button" class="link text-sm" @click="girisModuAc()">Giriş yapın</button>
+        </p>
+      </form>
     </div>
   </div>
 </div>

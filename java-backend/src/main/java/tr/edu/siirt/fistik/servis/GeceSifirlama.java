@@ -9,12 +9,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import tr.edu.siirt.fistik.api.Oturum;
 
 /**
  * Herkese açık demo sunucusu için: her gece işlem verisini silip örnek veriyi yeniden yükler.
  * Ziyaretçiler gün içinde her şeyi silse bile ertesi gün sistem temiz başlar.
- * Yalnızca {@code fistik.gece-sifirlama=true} ise etkindir; tanım verileri (kullanıcılar, kalite sınıfları,
- * kesinti türleri, silolar) korunur.
+ * Yalnızca {@code fistik.gece-sifirlama=true} ise etkindir; tanım verileri (demo hesapları, kalite sınıfları,
+ * kesinti türleri, silolar) korunur, sonradan eklenen kullanıcılar silinir.
  */
 @Component
 @ConditionalOnProperty(name = "fistik.gece-sifirlama", havingValue = "true")
@@ -40,7 +41,12 @@ public class GeceSifirlama {
     @Scheduled(cron = "${fistik.sifirlama-cron:0 0 3 * * *}", zone = "Europe/Istanbul")
     public void sifirla() {
         log.info("Gece sıfırlaması: demo verisi yeniden yükleniyor…");
-        tx.executeWithoutResult(s -> em.createNativeQuery("TRUNCATE " + ISLEM_TABLOLARI + " RESTART IDENTITY CASCADE").executeUpdate());
+        tx.executeWithoutResult(s -> {
+            em.createNativeQuery("TRUNCATE " + ISLEM_TABLOLARI + " RESTART IDENTITY CASCADE").executeUpdate();
+            // Ziyaretçilerin eklediği kullanıcılar ve hesap talepleri de silinir; demo hesapları kalır.
+            em.createQuery("delete from User u where u.username not in :demolar")
+                    .setParameter("demolar", Oturum.DEMO_HESAPLARI.stream().map(h -> (String) h[0]).toList()).executeUpdate();
+        });
         demo.yukle();
         log.info("Gece sıfırlaması tamamlandı.");
     }

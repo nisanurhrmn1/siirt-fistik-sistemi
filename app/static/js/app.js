@@ -35,6 +35,7 @@ const bosKantar = () => ({
   uretici_id: '', plaka: '', sofor_adi: '', brut_kg: '', dara_kg: '', silo_id: '',
   kalite: { numune_gram: '500', catlak_orani: '', randiman: '', bos_orani: '', curuk_orani: '0', nem_orani: '' },
 });
+const bosTalep = () => ({ ad_soyad: '', kullanici_adi: '', istenen_rol: 'SCALE_OPERATOR', sifre: '', tekrar: '', aciklama: '' });
 const bosUretici = () => ({
   tip: 'INDIVIDUAL', ad_soyad: '', tc_kimlik_no: '', vergi_no: '', vergi_dairesi: '', telefon: '',
   ilce: 'Merkez', banka_adi: '', iban: '',
@@ -46,6 +47,7 @@ document.addEventListener('alpine:init', () => {
       { id: 'kantar', ad: 'Kantar & Teslimat', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25M5.25 4.97 2.63 15.7a6 6 0 0 0 5.25 1.56L5.25 4.97Zm13.5 0-2.62 10.72a6 6 0 0 0 5.25 1.56L18.75 4.97ZM5.25 4.97A48.4 48.4 0 0 1 18.75 4.97"/></svg>' },
       { id: 'uretici', ad: 'Üretici & Finans', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.13a9.38 9.38 0 0 0 2.63.37 9.34 9.34 0 0 0 4.12-.95 4.13 4.13 0 0 0-7.53-2.49M15 19.13v-.01c0-1.11-.29-2.16-.79-3.07M15 19.13v.11A12.32 12.32 0 0 1 8.62 21c-2.33 0-4.51-.65-6.37-1.76v-.11a6.38 6.38 0 0 1 11.96-3.08M12 6.38a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0Zm8.25 2.25a2.63 2.63 0 1 1-5.25 0 2.63 2.63 0 0 1 5.25 0Z"/></svg>' },
       { id: 'fiyat', ad: 'Fiyat & Depo', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.13C3 12.5 3.5 12 4.13 12h2.25c.62 0 1.12.5 1.12 1.13v6.75C7.5 20.5 7 21 6.38 21H4.13C3.5 21 3 20.5 3 19.88v-6.75ZM9.75 8.63c0-.63.5-1.13 1.13-1.13h2.25c.62 0 1.12.5 1.12 1.13v11.25c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V8.63ZM16.5 4.13c0-.63.5-1.13 1.13-1.13h2.25C20.5 3 21 3.5 21 4.13v15.75c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V4.13Z"/></svg>' },
+      { id: 'kullanicilar', ad: 'Kullanıcılar', yetki: 'kullanici_yonet', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.13a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0ZM3 19.24v-.12a6.38 6.38 0 0 1 12.75 0v.12A12.32 12.32 0 0 1 9.37 21 12.3 12.3 0 0 1 3 19.24Z"/></svg>' },
     ],
     tab: 'kantar',
     // Ekranda sayarak değişen sayılar (özet kartları ve tahmini net ödeme)
@@ -108,16 +110,26 @@ document.addEventListener('alpine:init', () => {
     girisGerekli: false,
     girisForm: { kullanici_adi: '', sifre: '' },
     girisHata: '',
+    girisBilgi: '',
     girisYapiliyor: false,
+    girisModu: 'giris',           // 'giris' | 'talep'
+    talepForm: bosTalep(),
     demoHesaplar: [],
     rolBilgisi: {
-      ADMIN: { aciklama: 'Tüm işlemler', sekme: 'kantar', renk: 'from-emerald-600 to-fistik-700' },
-      SCALE_OPERATOR: { aciklama: 'Tartım ve fiş kesme', sekme: 'kantar', renk: 'from-emerald-500 to-teal-600' },
-      ACCOUNTING: { aciklama: 'Üretici, avans ve ödeme', sekme: 'uretici', renk: 'from-teal-500 to-cyan-700' },
-      PRICE_MANAGER: { aciklama: 'Günlük fiyat belirleme', sekme: 'fiyat', renk: 'from-amber-400 to-amber-600' },
-      WAREHOUSE: { aciklama: 'Stok ve raporları izleme', sekme: 'fiyat', renk: 'from-lime-500 to-fistik-600' },
-      QUALITY: { aciklama: 'Kalite analizlerini izleme', sekme: 'kantar', renk: 'from-sky-500 to-indigo-600' },
+      ADMIN: { ad: 'Yönetici', aciklama: 'Tüm işlemler', sekme: 'kantar', renk: 'from-emerald-600 to-fistik-700' },
+      SCALE_OPERATOR: { ad: 'Kantar memuru', aciklama: 'Tartım ve fiş kesme', sekme: 'kantar', renk: 'from-emerald-500 to-teal-600' },
+      QUALITY: { ad: 'Kalite sorumlusu', aciklama: 'Kalite analizlerini izleme', sekme: 'kantar', renk: 'from-sky-500 to-indigo-600' },
+      ACCOUNTING: { ad: 'Muhasebe', aciklama: 'Üretici, avans ve ödeme', sekme: 'uretici', renk: 'from-teal-500 to-cyan-700' },
+      WAREHOUSE: { ad: 'Depo sorumlusu', aciklama: 'Stok ve raporları izleme', sekme: 'fiyat', renk: 'from-lime-500 to-fistik-600' },
+      PRICE_MANAGER: { ad: 'Fiyat yöneticisi', aciklama: 'Günlük fiyat belirleme', sekme: 'fiyat', renk: 'from-amber-400 to-amber-600' },
     },
+
+    // kullanıcı yönetimi
+    kullanicilar: [],
+    onayRolleri: {},              // talep id → onaylanırken verilecek rol
+    kullaniciForm: {},
+    sifirlamaForm: {},
+    sifreForm: {},
 
     async init() {
       this.saatGuncelle();
@@ -146,7 +158,9 @@ document.addEventListener('alpine:init', () => {
     async girisEkraniAc(mesaj = '') {
       tokenYaz(null);
       this.oturum = null;
+      this.kullanicilar = [];
       this.girisGerekli = true;
+      this.girisModuAc();
       this.girisHata = mesaj;
       try { this.demoHesaplar = await api('/oturum/demo-hesaplar'); } catch { this.demoHesaplar = []; }
     },
@@ -161,9 +175,43 @@ document.addEventListener('alpine:init', () => {
         this.girisForm = { kullanici_adi: '', sifre: '' };
         this.tab = this.rolBilgisi[this.oturum.rol]?.sekme || 'kantar';
         this.bildir(`Hoş geldiniz, ${this.oturum.ad_soyad} (${this.oturum.rol_adi})`);
+        if (this.oturum.sifre_degistirmeli) this.sifreModalAc();
         await this.hepsiniYenile();
       } catch (e) {
         this.girisHata = e.detaylar?.length ? 'Kullanıcı adı ve şifre zorunludur.' : e.message;
+      }
+      this.girisYapiliyor = false;
+    },
+    girisModuAc() {
+      this.girisModu = 'giris';
+      this.girisHata = '';
+      this.girisBilgi = '';
+      this.alanHatalari = {};
+    },
+    talepEkraniAc() {
+      this.girisModuAc();
+      this.talepForm = bosTalep();
+      this.girisModu = 'talep';
+    },
+    async talepGonder() {
+      const f = this.talepForm;
+      this.girisHata = '';
+      this.alanHatalari = {};
+      if (f.sifre !== f.tekrar) { this.alanHatalari = { tekrar: 'Şifreler aynı değil.' }; return; }
+      this.girisYapiliyor = true;
+      try {
+        const sonuc = await api('/oturum/hesap-talebi', {
+          method: 'POST',
+          body: { ad_soyad: f.ad_soyad, kullanici_adi: f.kullanici_adi, istenen_rol: f.istenen_rol, sifre: f.sifre,
+                  aciklama: bosIseNull(f.aciklama) },
+        });
+        const kullanici_adi = f.kullanici_adi.trim().toLowerCase();
+        this.girisModuAc();
+        this.girisForm = { kullanici_adi, sifre: '' };
+        this.girisBilgi = sonuc.mesaj;
+      } catch (e) {
+        this.alanHatalari = Object.fromEntries((e.detaylar || []).map((d) => [d.alan, d.mesaj]));
+        this.girisHata = e.detaylar?.length ? 'Lütfen işaretli alanları düzeltin.' : e.message;
       }
       this.girisYapiliyor = false;
     },
@@ -193,12 +241,94 @@ document.addEventListener('alpine:init', () => {
                     avans_ver: 'muhasebe', odeme_yap: 'muhasebe' }[islem];
       return this.yetkili(islem) ? '' : `Bu işlem için ${kim} veya yönetici yetkisi gerekir.`;
     },
+    /** Yetki gerektiren sekmeler (Kullanıcılar) yalnızca girişli sürümde ve yetkiliye görünür. */
+    get gorunurSekmeler() {
+      return this.sekmeler.filter((s) => !s.yetki || (this.kimlikDogrulama && this.yetkili(s.yetki)));
+    },
+    get roller() {
+      return Object.entries(this.rolBilgisi).map(([rol, b]) => ({ rol, rol_adi: b.ad }));
+    },
+    get talepRolleri() { return this.roller.filter((r) => r.rol !== 'ADMIN'); },
+
+    // ─── Kullanıcı yönetimi ───
+    get bekleyenTalepler() { return this.kullanicilar.filter((u) => u.durum === 'BEKLIYOR'); },
+    get kayitliKullanicilar() { return this.kullanicilar.filter((u) => u.durum !== 'BEKLIYOR'); },
+    async yukleKullanicilar() {
+      if (!this.kimlikDogrulama || !this.yetkili('kullanici_yonet')) { this.kullanicilar = []; return; }
+      this.kullanicilar = await api('/kullanicilar');
+      for (const u of this.bekleyenTalepler) if (!this.onayRolleri[u.id]) this.onayRolleri[u.id] = u.rol;
+    },
+    async talepOnayla(u) {
+      await this.islem(async () => {
+        const k = await api(`/kullanicilar/${u.id}/onayla`, { method: 'POST', body: { rol: this.onayRolleri[u.id] || u.rol } });
+        this.bildir(`${k.ad_soyad} onaylandı (${k.rol_adi}). Artık giriş yapabilir.`);
+        await this.yukleKullanicilar();
+      });
+    },
+    async talepReddet(u) {
+      if (!confirm(`${u.ad_soyad} (@${u.kullanici_adi}) talebi reddedilsin mi? Talep silinir.`)) return;
+      await this.islem(async () => {
+        await api(`/kullanicilar/${u.id}/talep`, { method: 'DELETE' });
+        this.bildir(`${u.ad_soyad} talebi reddedildi.`);
+        await this.yukleKullanicilar();
+      });
+    },
+    async kullaniciGuncelle(u, degisiklik, mesaj) {
+      await this.islem(async () => {
+        await api(`/kullanicilar/${u.id}`, { method: 'PATCH', body: degisiklik });
+        this.bildir(mesaj);
+      });
+      await this.yukleKullanicilar().catch((e) => this.hataGoster(e));   // hata olsa da seçim kutusu gerçek rolü göstersin
+    },
+    kullaniciModalAc() {
+      this.kullaniciForm = { ad_soyad: '', kullanici_adi: '', rol: 'SCALE_OPERATOR', gecici_sifre: '' };
+      this.alanHatalari = {};
+      this.modal = 'kullanici';
+    },
+    async kullaniciEkle() {
+      await this.islem(async () => {
+        const k = await api('/kullanicilar', { method: 'POST', body: this.kullaniciForm });
+        this.modal = null;
+        this.bildir(`${k.ad_soyad} eklendi (${k.rol_adi}). Geçici şifreyi kullanıcıya iletin.`);
+        await this.yukleKullanicilar();
+      });
+    },
+    sifreSifirlaModalAc(u) {
+      this.sifirlamaForm = { kullanici: u, yeni_sifre: '' };
+      this.alanHatalari = {};
+      this.modal = 'sifre-sifirla';
+    },
+    async sifreSifirla() {
+      const f = this.sifirlamaForm;
+      await this.islem(async () => {
+        await api(`/kullanicilar/${f.kullanici.id}/sifre-sifirla`, { method: 'POST', body: { yeni_sifre: f.yeni_sifre } });
+        this.modal = null;
+        this.bildir(`${f.kullanici.ad_soyad} için geçici şifre belirlendi.`);
+        await this.yukleKullanicilar();
+      });
+    },
+    sifreModalAc() {
+      this.sifreForm = { mevcut_sifre: '', yeni_sifre: '', tekrar: '' };
+      this.alanHatalari = {};
+      this.modal = 'sifre';
+    },
+    async sifreDegistir() {
+      const f = this.sifreForm;
+      if (f.yeni_sifre !== f.tekrar) { this.alanHatalari = { tekrar: 'Şifreler aynı değil.' }; return; }
+      await this.islem(async () => {
+        const s = await api('/oturum/sifre-degistir', { method: 'POST', body: { mevcut_sifre: f.mevcut_sifre, yeni_sifre: f.yeni_sifre } });
+        this.modal = null;
+        this.oturum.sifre_degistirmeli = false;
+        this.bildir(s.mesaj);
+      });
+    },
 
     // ─── Yükleme ───
     async hepsiniYenile() {
       this.yenileniyor = true;
       try {
-        await Promise.all([this.yukleOzet(), this.yukleUreticiler(), this.yukleTartimlar(), this.yukleFiyatlar(), this.yukleDepo()]);
+        await Promise.all([this.yukleOzet(), this.yukleUreticiler(), this.yukleTartimlar(), this.yukleFiyatlar(), this.yukleDepo(),
+                           this.yukleKullanicilar()]);
         if (this.secili) await this.yukleEkstre();
       } catch (e) { this.hataGoster(e); }
       this.yenileniyor = false;

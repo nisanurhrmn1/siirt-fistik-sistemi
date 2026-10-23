@@ -37,7 +37,8 @@ public class WebAyarlari {
                                 .description("POST /api/v1/oturum/giris yanıtındaki token")))
                 .addSecurityItem(new io.swagger.v3.oas.models.security.SecurityRequirement().addList("jwt"))
                 .tags(java.util.List.of(
-                        etiket("Oturum", "Giriş, demo girişi ve oturumdaki kullanıcı"),
+                        etiket("Oturum", "Giriş, demo girişi, hesap talebi, şifre değiştirme ve oturumdaki kullanıcı"),
+                        etiket("Kullanıcılar", "Hesap talepleri, kullanıcı ekleme, rol ve şifre işlemleri (yalnızca Yönetici)"),
                         etiket("Üreticiler", "Üretici kaydı, listeleme ve cari hesap ekstresi"),
                         etiket("Kantar ve Alım", "Tartım, kalite analizi, fiyat kilidi, hakediş ve stok girişi"),
                         etiket("Fiyat Yönetimi", "Kalite sınıfı bazlı günlük taban fiyatlar"),

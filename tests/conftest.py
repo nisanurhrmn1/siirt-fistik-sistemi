@@ -59,6 +59,8 @@ def db_engine(request):
         engine = create_db_engine(os.environ["TEST_DATABASE_URL"])
         with engine.begin() as conn:
             conn.exec_driver_sql(f"TRUNCATE {ISLEM_TABLOLARI} RESTART IDENTITY CASCADE")
+            # Testlerin eklediği kullanıcılar ve hesap talepleri (demo hesapları kalır)
+            conn.exec_driver_sql("DELETE FROM users WHERE username NOT IN ('admin', 'kantar', 'muhasebe', 'fiyat', 'depo')")
         yield engine
         engine.dispose()
         return
