@@ -28,11 +28,143 @@ async function api(yol, { method = 'GET', body, params } = {}) {
   return veri;
 }
 
+// ─── Kantar indikatörü (Web Serial API) ───────────────────────────────────────
+// İndikatörler genellikle sürekli ASCII satır gönderir, ör. "ST,GS,+004800kg", "US,GS,+004780kg", "   4800 kg".
+// ST = kararlı, US = kararsız (araç hâlâ sallanıyor). Durum bayrağı yoksa art arda 3 aynı değer kararlı sayılır.
+
+/** Tek bir indikatör satırını çözer → { kg, durum: 'kararli'|'kararsiz'|'bilinmiyor' } ya da null. */
+function kantarSatiriniCoz(satir) {
+  const temiz = String(satir).replace(/[\x00-\x1f\x7f]/g, ' ').trim();
+  if (!temiz) return null;
+  const ust = temiz.toUpperCase();
+  const kararsiz = /(^|[^A-Z])(US|MO)([^A-Z]|$)/.test(ust);
+  const kararli = /(^|[^A-Z])ST([^A-Z]|$)/.test(ust);
+  // Sayı: binlik gruplu ("4 800", "4.800", "12.345,5") ya da düz ("004800", "4800.0", "48,5")
+  const sayilar = [...temiz.matchAll(/([+-])?\s*(\d{1,3}(?:[ .,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d+)?)\s*(kg)?/gi)];
+  if (!sayilar.length) return null;
+  const kgli = sayilar.filter((m) => m[3]);
+  const m = (kgli.length ? kgli : sayilar).at(-1);
+  const gruplu = m[2].match(/^(\d{1,3}(?:[ .,]\d{3})+)(?:[.,](\d{1,2}))?$/);
+  let kg = Number(gruplu ? `${gruplu[1].replace(/\D/g, '')}.${gruplu[2] || 0}` : m[2].replace(',', '.'));
+  if (!Number.isFinite(kg)) return null;
+  if (m[1] === '-') kg = -kg;
+  return { kg, durum: kararsiz ? 'kararsiz' : kararli ? 'kararli' : 'bilinmiyor' };
+}
+
+class SeriKantar {
+  constructor() {
+    this.port = null;
+    this.okuyucu = null;
+    this.tampon = '';
+    this.son = [];             // son okumalar (kararlılık için)
+    this.bekleyenler = [];     // oku() çağrıları
+    this.dinleyici = () => {}; // durum değişince panele haber verir
+  }
+  static get destekleniyor() { return 'serial' in navigator && window.isSecureContext; }
+  get bagli() { return !!this.port; }
+
+  /** Daha önce izin verilmiş portu sormadan açmayı dener; yoksa (soru=true ise) tarayıcının port seçicisini açar. */
+  async baglan(baud, soru = true) {
+    if (!SeriKantar.destekleniyor) throw new Error('Bu tarayıcı seri portu desteklemiyor (Chrome veya Edge masaüstü ve HTTPS gerekir). Ağırlığı elle girebilirsiniz.');
+    if (this.port) return;
+    let port = (await navigator.serial.getPorts())[0];
+    if (!port) {
+      if (!soru) return;
+      try { port = await navigator.serial.requestPort(); } catch (e) {
+        if (e.name === 'NotFoundError') throw new Error('Port seçilmedi.');
+        throw e;
+      }
+    }
+    try {
+      await port.open({ baudRate: Number(baud) || 9600, dataBits: 8, stopBits: 1, parity: 'none' });
+    } catch (e) {
+      throw new Error(e.name === 'InvalidStateError' || e.name === 'NetworkError'
+        ? 'Port açılamadı: başka bir program (ör. eski kantar yazılımı) kullanıyor olabilir ya da cihaz takılı değil.'
+        : `Port açılamadı: ${e.message}`);
+    }
+    this.port = port;
+    this.son = [];
+    if (!this._kopmaDinleniyor) {
+      navigator.serial.addEventListener('disconnect', (e) => { if (e.target === this.port) this.kapat('Kantar bağlantısı koptu.'); });
+      this._kopmaDinleniyor = true;
+    }
+    this.dinleyici({ bagli: true, mesaj: `Bağlı · ${baud} baud` });
+    this.okumaDongusu();
+  }
+
+  async okumaDongusu() {
+    const cozucu = new TextDecoder();
+    try {
+      while (this.port?.readable) {
+        this.okuyucu = this.port.readable.getReader();
+        try {
+          for (;;) {
+            const { value, done } = await this.okuyucu.read();
+            if (done) break;
+            this.veriGeldi(cozucu.decode(value, { stream: true }));
+          }
+        } finally {
+          this.okuyucu.releaseLock();
+          this.okuyucu = null;
+        }
+      }
+    } catch (e) {
+      this.kapat(`Kantardan okuma hatası: ${e.message}`);
+    }
+  }
+
+  veriGeldi(parca) {
+    this.tampon += parca;
+    const satirlar = this.tampon.split(/\r\n|\r|\n|\x03/);
+    this.tampon = satirlar.pop().slice(-200);
+    for (const s of satirlar) {
+      const okuma = kantarSatiriniCoz(s);
+      if (!okuma) continue;
+      this.son = [...this.son.slice(-4), okuma];
+      this.dinleyici({ sonOkuma: okuma });
+      const kararli = okuma.durum === 'kararli'
+        || (okuma.durum === 'bilinmiyor' && this.son.length >= 3 && this.son.slice(-3).every((o) => o.kg === okuma.kg));
+      if (kararli) { this.bekleyenler.forEach((b) => b.coz(okuma.kg)); this.bekleyenler = []; }
+    }
+  }
+
+  /** Bir sonraki KARARLI değeri bekler (araç sallanırken okunmaz). */
+  oku(sureMs = 6000) {
+    if (!this.port) return Promise.reject(new Error('Kantar bağlı değil.'));
+    return new Promise((coz, reddet) => {
+      const b = { coz: (kg) => { clearTimeout(b.z); coz(kg); } };
+      b.z = setTimeout(() => {
+        this.bekleyenler = this.bekleyenler.filter((x) => x !== b);
+        reddet(new Error(this.son.length ? 'Kararlı değer alınamadı (araç hareket ediyor olabilir). Tekrar deneyin.'
+          : 'Kantardan veri gelmiyor. Kablo ve baud hızını kontrol edin.'));
+      }, sureMs);
+      this.bekleyenler.push(b);
+    });
+  }
+
+  async kapat(mesaj = 'Bağlantı kapatıldı.') {
+    const port = this.port;
+    this.port = null;
+    this.bekleyenler.forEach((b) => { clearTimeout(b.z); }); this.bekleyenler = [];
+    try { await this.okuyucu?.cancel(); } catch { /* yok say */ }
+    try { await port?.close(); } catch { /* yok say */ }
+    this.dinleyici({ bagli: false, mesaj, sonOkuma: null });
+  }
+}
+const seriKantar = new SeriKantar();   // Alpine'in reaktif vekiline sokulmaz (SerialPort nesneleri vekillenemez)
+
+// Kantar bilgisayarına özgü ayarlar (tarayıcıda saklanır)
+const SAHA_ANAHTARI = 'fistik_saha';
+const SAHA_VARSAYILAN = { baud: 9600, cuval_darasi: '1', otomatik_yazdir: true, kagit: '80' };
+const sahaAyarOku = () => { try { return { ...SAHA_VARSAYILAN, ...JSON.parse(localStorage.getItem(SAHA_ANAHTARI) || '{}') }; } catch { return { ...SAHA_VARSAYILAN }; } };
+const sahaAyarYaz = (a) => { try { localStorage.setItem(SAHA_ANAHTARI, JSON.stringify(a)); } catch { /* yok say */ } };
+
 /** Boş metinleri null'a çevirir (API boş string yerine alanın hiç olmamasını bekler). */
 const bosIseNull = (v) => (v === '' || v === undefined ? null : v);
 
 const bosKantar = () => ({
   uretici_id: '', plaka: '', sofor_adi: '', brut_kg: '', dara_kg: '', silo_id: '',
+  urun_turu: 'DRY', cuval_sayisi: '', brut_kaynagi: 'MANUAL', dara_kaynagi: 'MANUAL',
   kalite: { numune_gram: '500', catlak_orani: '', randiman: '', bos_orani: '', curuk_orani: '0', nem_orani: '' },
 });
 const bosTalep = () => ({ ad_soyad: '', kullanici_adi: '', istenen_rol: 'SCALE_OPERATOR', sifre: '', tekrar: '', aciklama: '' });
@@ -78,6 +210,12 @@ document.addEventListener('alpine:init', () => {
     onizlemeYukleniyor: false,
     kaydediliyor: false,
     fis: null,
+    ayarlar: sahaAyarOku(),       // baud, çuval darası, otomatik yazdır, kâğıt genişliği (bu bilgisayara özgü)
+    sahaAyarAcik: false,
+    kantarDestek: SeriKantar.destekleniyor,
+    kantarDurum: { bagli: false, mesaj: 'Bağlı değil', sonOkuma: null },
+    kantarOkunan: '',             // şu an kantardan okunan alan: 'brut' | 'dara'
+    urunTurleri: { DRY: 'Kuru-kavlak', FRESH: 'Yaş fıstık' },
     _onizlemeZamanlayici: null,
     _onizlemeSira: 0,
     kaliteAlanlari: [
@@ -136,6 +274,11 @@ document.addEventListener('alpine:init', () => {
       setInterval(() => this.saatGuncelle(), 30_000);
       setInterval(() => { if (!this.girisGerekli) this.yukleOzet().catch(() => {}); }, 60_000);
       this.$watch('kantar', () => this.onizlemeIste());
+      this.$watch('ayarlar', (a) => { sahaAyarYaz(a); this.onizlemeIste(); });
+      // Fiş kapanınca operatör doğrudan bir sonraki aracın plakasına geçer
+      this.$watch('modal', (m) => { if (!m && this.tab === 'kantar' && !this.girisGerekli) this.$nextTick(() => this.$refs.plaka?.focus()); });
+      seriKantar.dinleyici = (d) => Object.assign(this.kantarDurum, d);
+      if (this.kantarDestek) seriKantar.baglan(this.ayarlar.baud, false).catch(() => {});   // izinli port varsa sormadan aç
       window.addEventListener('oturum-dustu', (e) => this.oturumuKapat(e.detail || 'Oturum süresi doldu; lütfen tekrar giriş yapın.'));
       await this.oturumKontrol();
     },
@@ -364,9 +507,28 @@ document.addEventListener('alpine:init', () => {
     },
 
     // ─── Kantar ───
+    /** Ürün türü, çuval darası ve ağırlık kaynağı yalnızca Java sürümünde var (Python prototipi bu alanları reddeder). */
+    get sahaModu() { return this.kimlikDogrulama; },
+    get cuvalDarasiToplam() {
+      if (!this.sahaModu) return 0;
+      const n = parseInt(this.kantar.cuval_sayisi, 10), d = parseFloat(this.ayarlar.cuval_darasi);
+      return Number.isFinite(n) && Number.isFinite(d) ? n * d : 0;
+    },
+    /** Net = Brüt − Araç darası − (Çuval sayısı × Çuval darası) */
     get netKg() {
       const b = parseFloat(this.kantar.brut_kg), d = parseFloat(this.kantar.dara_kg);
-      return Number.isFinite(b) && Number.isFinite(d) ? b - d : null;
+      return Number.isFinite(b) && Number.isFinite(d) ? Math.round((b - d - this.cuvalDarasiToplam) * 100) / 100 : null;
+    },
+    /** API'ye giden ağırlık alanları (önizleme ve kayıt için ortak). */
+    agirlikGovdesi() {
+      const k = this.kantar;
+      const g = { brut_kg: k.brut_kg, dara_kg: k.dara_kg };
+      if (this.sahaModu) {
+        g.urun_turu = k.urun_turu;
+        g.cuval_sayisi = k.cuval_sayisi === '' ? 0 : Number(k.cuval_sayisi);
+        g.cuval_darasi_kg = this.ayarlar.cuval_darasi === '' ? 0 : this.ayarlar.cuval_darasi;
+      }
+      return g;
     },
     get kantarUreticileri() {
       const q = this.kantarArama.toLocaleLowerCase('tr');
@@ -397,7 +559,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const sonuc = await api('/tartimlar/onizleme', {
           method: 'POST',
-          body: { uretici_id: bosIseNull(k.uretici_id) && Number(k.uretici_id), brut_kg: k.brut_kg, dara_kg: k.dara_kg, kalite: { ...k.kalite } },
+          body: { uretici_id: bosIseNull(k.uretici_id) && Number(k.uretici_id), ...this.agirlikGovdesi(), kalite: { ...k.kalite } },
         });
         if (sira !== this._onizlemeSira) return; // eski yanıt
         this.onizleme = sonuc;
@@ -420,12 +582,14 @@ document.addEventListener('alpine:init', () => {
           body: {
             uretici_id: k.uretici_id ? Number(k.uretici_id) : null,
             plaka: k.plaka, sofor_adi: bosIseNull(k.sofor_adi),
-            brut_kg: k.brut_kg, dara_kg: k.dara_kg, kalite: { ...k.kalite },
+            ...this.agirlikGovdesi(), kalite: { ...k.kalite },
             silo_id: k.silo_id ? Number(k.silo_id) : null,
+            ...(this.sahaModu ? { brut_kaynagi: k.brut_kaynagi, dara_kaynagi: k.dara_kaynagi } : {}),
           },
         });
         this.fis = sonuc;
         this.modal = 'fis';
+        if (this.ayarlar.otomatik_yazdir) this.$nextTick(() => setTimeout(() => this.fisYazdir(), 350));
         this.bildir(`${sonuc.fis_no} kesildi · ${this.kg(sonuc.net_kg)} · ${this.tl(sonuc.fiyat.birim_fiyat)}/kg kilitlendi`);
         const uretici = k.uretici_id;
         this.kantar = bosKantar();
@@ -434,6 +598,98 @@ document.addEventListener('alpine:init', () => {
         await Promise.all([this.yukleOzet(), this.yukleTartimlar(), this.yukleDepo(), this.yukleUreticiler()]);
       } catch (e) { this.hataGoster(e); }
       this.kaydediliyor = false;
+    },
+    get fisKesilebilir() { return !this.kaydediliyor && !!this.onizleme?.birim_fiyat && this.yetkili('tartim'); },
+
+    // ─── Kantar indikatörü ───
+    async kantarBaglan() {
+      try {
+        await seriKantar.baglan(this.ayarlar.baud);
+        if (seriKantar.bagli) this.bildir('Kantar bağlandı. F2: brüt, F3: dara oku.');
+      } catch (e) {
+        this.bildir(e.message, 'hata');
+      }
+    },
+    async kantarKes() { await seriKantar.kapat(); },
+    /** Kantardan kararlı değeri okuyup alana kilitli yazar. Okunamazsa elle girişe bırakır (sistem durmaz). */
+    async kantardanOku(alan) {
+      const girdi = () => document.getElementById(`k_${alan}`);
+      try {
+        if (!seriKantar.bagli) await seriKantar.baglan(this.ayarlar.baud);
+        if (!seriKantar.bagli) return;
+        this.kantarOkunan = alan;
+        const kg = await seriKantar.oku();
+        if (kg <= 0) throw new Error(`Kantar ${kg} kg gösteriyor; araç kantarın üzerinde mi?`);
+        this.kantar[`${alan}_kg`] = String(kg);
+        this.kantar[`${alan}_kaynagi`] = 'SCALE';
+        this.bildir(`${alan === 'brut' ? 'Brüt' : 'Dara'}: ${this.kg(kg)} kantardan okundu.`);
+        this.$nextTick(() => this.sonrakiAlan(girdi()));
+      } catch (e) {
+        this.bildir(e.message, 'hata', ['Ağırlığı elle girebilirsiniz; fişte "elle girildi" yazar.']);
+        girdi()?.focus();
+      } finally {
+        this.kantarOkunan = '';
+      }
+    },
+    /** Kantardan okunan (kilitli) değeri elle düzeltmeye açar; kaynak "elle" olur. */
+    agirlikKilidiAc(alan) {
+      this.kantar[`${alan}_kaynagi`] = 'MANUAL';
+      this.$nextTick(() => document.getElementById(`k_${alan}`)?.select());
+    },
+
+    // ─── Klavye ───
+    /** Formda Enter bir sonraki alana geçer (Tab gibi); son alanda fişi keser. */
+    kantarTus(e) {
+      if (e.key !== 'Enter' || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
+      e.preventDefault();
+      this.sonrakiAlan(e.target);
+    },
+    sonrakiAlan(el) {
+      const form = this.$refs.kantarForm;
+      const alanlar = [...form.querySelectorAll('input, select, button[type="submit"]')].filter((x) =>
+        !x.disabled && x.tabIndex >= 0 && x.offsetParent !== null && !(x.type === 'radio' && !x.checked));
+      const sonraki = alanlar[alanlar.indexOf(el) + 1];
+      if (!sonraki || sonraki.type === 'submit') this.fisKesKisayol();
+      else { sonraki.focus(); if (sonraki.select && sonraki.type !== 'radio') sonraki.select(); }
+    },
+    /** Sayfa genelindeki kısayollar (yalnızca Kantar sekmesinde, açık pencere yokken). */
+    kisayol(e) {
+      if (this.girisGerekli || this.modal || this.tab !== 'kantar') return;
+      if (e.key === 'F9' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); this.fisKesKisayol(); }
+      else if (e.key === 'F2') { e.preventDefault(); this.kantardanOku('brut'); }
+      else if (e.key === 'F3') { e.preventDefault(); this.kantardanOku('dara'); }
+    },
+    fisKesKisayol() {
+      if (this.fisKesilebilir) return this.fisKes();
+      const neden = !this.yetkili('tartim') ? this.yetkiYok('tartim')
+        : this.onizleme && !this.onizleme.birim_fiyat ? this.onizleme.uyarilar?.[0] || 'Bu sınıf için fiyat yok.'
+          : this.onizlemeMesaj;
+      this.bildir(neden || 'Fiş kesilemiyor; eksik alanları doldurun.', 'hata');
+    },
+    /** Üretici arama kutusu: Enter ilk eşleşeni seçer, ↑/↓ eşleşenler arasında gezer. */
+    ureticiAramaTus(e) {
+      const liste = this.kantarUreticileri;
+      if (!liste.length) return;
+      const i = liste.findIndex((u) => String(u.id) === String(this.kantar.uretici_id));
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const j = e.key === 'ArrowDown' ? Math.min(i + 1, liste.length - 1) : Math.max(i - 1, 0);
+        this.kantar.uretici_id = String(liste[j].id);
+      } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (i < 0) this.kantar.uretici_id = String(liste[0].id);
+        this.sonrakiAlan(e.target);
+      }
+    },
+    get seciliKantarUreticisi() { return this.ureticiler.find((u) => String(u.id) === String(this.kantar.uretici_id)) || null; },
+
+    // ─── Termal fiş ───
+    fisYazdir() {
+      const genislik = this.ayarlar.kagit === '58' ? '58mm' : '80mm';
+      document.getElementById('sayfa-boyutu').textContent = `@page { size: ${genislik} auto; margin: 0; }`;
+      window.print();
     },
     async fisGoster(id) {
       try { this.fis = await api(`/tartimlar/${id}`); this.modal = 'fis'; } catch (e) { this.hataGoster(e); }
@@ -603,6 +859,9 @@ document.addEventListener('alpine:init', () => {
         A: { rozet: 'bg-fistik-100 text-fistik-800 ring-fistik-300', dolgu: 'bg-fistik-500' },
         B: { rozet: 'bg-amber-100 text-amber-800 ring-amber-300', dolgu: 'bg-amber-400' },
         ISK: { rozet: 'bg-rose-100 text-rose-800 ring-rose-300', dolgu: 'bg-rose-400' },
+        YA: { rozet: 'bg-teal-100 text-teal-800 ring-teal-300', dolgu: 'bg-teal-500' },
+        YB: { rozet: 'bg-orange-100 text-orange-800 ring-orange-300', dolgu: 'bg-orange-400' },
+        YISK: { rozet: 'bg-rose-100 text-rose-800 ring-rose-300', dolgu: 'bg-rose-300' },
       })[kod] || { rozet: 'bg-stone-100 text-stone-700 ring-stone-300', dolgu: 'bg-kabuk-500' };
     },
     durumAd(d) {

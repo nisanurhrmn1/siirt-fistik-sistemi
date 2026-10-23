@@ -8,7 +8,10 @@
     </div>
 
     <div class="space-y-3">
-      <template x-for="k in fiyatlar" :key="k.kalite_kodu">
+      <template x-for="(k, i) in fiyatlar" :key="k.kalite_kodu">
+        <div>
+        <p x-show="k.urun_turu_adi && (i === 0 || fiyatlar[i - 1].urun_turu !== k.urun_turu)"
+           class="alt-baslik mt-2 mb-2" x-text="k.urun_turu_adi"></p>
         <div class="mini-kart p-3 flex items-center gap-3">
           <span class="sinif-rozet" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span>
           <div class="min-w-0 flex-1">
@@ -21,6 +24,7 @@
                    :placeholder="k.fiyat ? Number(k.fiyat.birim_fiyat).toFixed(2) : '0,00'" class="girdi pr-12 text-right">
             <span class="birim">₺/kg</span>
           </div>
+        </div>
         </div>
       </template>
     </div>

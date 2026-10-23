@@ -104,7 +104,9 @@ public final class Yanitlar {
     public record TartimYaniti(Long id, String fisNo, String lotNo, TicketStatus durum, Long ureticiId,
                                String ureticiAdi, String plaka, String soforAdi, BigDecimal brutKg, BigDecimal daraKg,
                                BigDecimal netKg, OffsetDateTime tartimZamani, KaliteSonucu kalite, FiyatKilidi fiyat,
-                               HakedisYaniti hakedis, List<StokKaydi> stok, BigDecimal ureticiGuncelBakiye) {
+                               HakedisYaniti hakedis, List<StokKaydi> stok, BigDecimal ureticiGuncelBakiye,
+                               ProductType urunTuru, String urunTuruAdi, BigDecimal aracDarasiKg, int cuvalSayisi,
+                               BigDecimal cuvalDarasiKg, WeightSource brutKaynagi, WeightSource daraKaynagi) {
     }
 
     public record KesintiOnizleme(String kod, String ad, BigDecimal tutar) {
@@ -119,7 +121,7 @@ public final class Yanitlar {
     public record TartimOzeti(Long id, String fisNo, String lotNo, OffsetDateTime tartimZamani, Long ureticiId,
                               String ureticiAdi, String plaka, BigDecimal netKg, String kaliteKodu,
                               BigDecimal birimFiyat, Long hakedisId, BigDecimal netOdenecek, BigDecimal kalan,
-                              String hakedisDurumu) {
+                              String hakedisDurumu, ProductType urunTuru) {
     }
 
     // ─── Fiyat ───
@@ -128,7 +130,8 @@ public final class Yanitlar {
                               OffsetDateTime onayZamani) {
     }
 
-    public record GuncelFiyatKalemi(String kaliteKodu, String kaliteAdi, FiyatYaniti fiyat) {
+    public record GuncelFiyatKalemi(String kaliteKodu, String kaliteAdi, FiyatYaniti fiyat, ProductType urunTuru,
+                                    String urunTuruAdi) {
     }
 
     public record GuncelFiyatlar(OffsetDateTime sorguZamani, List<GuncelFiyatKalemi> kalemler) {

@@ -1,4 +1,4 @@
-<div x-show="modal" x-transition.opacity class="fixed inset-0 z-40 bg-stone-900/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
+<div x-show="modal" x-transition.opacity class="modal-katman fixed inset-0 z-40 bg-stone-900/40 flex items-start sm:items-center justify-center p-4 overflow-y-auto"
      @keydown.escape.window="modal = null" @click.self="modal = null">
 
   <!-- ─── Yeni üretici ─── -->
@@ -215,58 +215,80 @@
     </div>
   </form>
 
-  <!-- ─── Kantar fişi (yazdırılabilir) ─── -->
-  <div x-show="modal === 'fis'" class="modal-kutu max-w-lg">
+  <!-- ─── Kantar fişi: 80 / 58 mm termal rulo için (ekranda da aynı görünüm) ─── -->
+  <div x-show="modal === 'fis'" class="modal-kutu fis-kutu max-w-md">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
-    <template x-if="fis">
-      <div class="print-area p-6 space-y-4 text-sm">
-        <div class="flex items-start justify-between border-b border-dashed border-stone-300 pb-4">
-          <div>
-            <p class="font-semibold">Siirt Fıstığı Alım Merkezi</p>
-            <p class="text-xs text-stone-500">Kantar ve Hakediş Fişi</p>
+    <div class="fis-zemin p-4 sm:p-6 bg-stone-100/70 flex justify-center">
+      <template x-if="fis">
+        <div class="print-area fis-termal" :class="ayarlar.kagit === '58' && 'fis-58'">
+          <div class="fis-orta">
+            <p class="fis-buyuk">SİİRT FISTIĞI ALIM MERKEZİ</p>
+            <p>Kantar ve Müstahsil Fişi</p>
           </div>
-          <div class="text-right">
-            <p class="font-mono font-semibold" x-text="fis.fis_no"></p>
-            <p class="font-mono text-xs text-stone-500" x-text="fis.lot_no"></p>
-            <p class="text-xs text-stone-500" x-text="tarihYaz(fis.tartim_zamani)"></p>
-          </div>
-        </div>
-        <dl class="grid grid-cols-2 gap-x-6 gap-y-1">
-          <dt class="text-stone-500">Üretici</dt><dd class="text-right font-medium" x-text="fis.uretici_adi"></dd>
-          <dt class="text-stone-500">Plaka</dt><dd class="text-right font-mono" x-text="fis.plaka"></dd>
-          <dt class="text-stone-500">Brüt</dt><dd class="text-right tabular-nums" x-text="kg(fis.brut_kg)"></dd>
-          <dt class="text-stone-500">Dara</dt><dd class="text-right tabular-nums" x-text="kg(fis.dara_kg)"></dd>
-          <dt class="font-semibold">Net</dt><dd class="text-right tabular-nums font-semibold" x-text="kg(fis.net_kg)"></dd>
-        </dl>
-        <div class="border-t border-dashed border-stone-300 pt-3" x-show="fis.kalite">
-          <p class="font-medium mb-1" x-text="fis.kalite && `Kalite: ${fis.kalite.sinif_kodu} — ${fis.kalite.sinif_adi}${fis.kalite.manuel_atama ? ' (manuel)' : ''}`"></p>
-          <p class="text-xs text-stone-500" x-text="fis.kalite && `Çatlak ${yuzde(fis.kalite.catlak_orani)} · Randıman ${yuzde(fis.kalite.randiman)} · Boş ${yuzde(fis.kalite.bos_orani)} · Çürük ${yuzde(fis.kalite.curuk_orani)} · Nem ${yuzde(fis.kalite.nem_orani)}`"></p>
-        </div>
-        <div class="border-t border-dashed border-stone-300 pt-3 space-y-1" x-show="fis.hakedis">
-          <div class="satir"><dt>Kilitli birim fiyat</dt><dd class="tabular-nums" x-text="tl(fis.fiyat?.birim_fiyat) + ' /kg'"></dd></div>
-          <div class="satir"><dt>Brüt tutar</dt><dd class="tabular-nums" x-text="tl(fis.hakedis?.brut_tutar)"></dd></div>
-          <template x-for="k in (fis.hakedis?.kesintiler || [])" :key="k.kod">
-            <div class="satir text-stone-500"><dt x-text="k.hesaplama === 'PERCENT' ? `${k.ad} (${yuzde(k.oran)})` : k.ad"></dt><dd class="tabular-nums" x-text="'− ' + tl(k.tutar)"></dd></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Fiş No</span><b x-text="fis.fis_no"></b></div>
+          <div class="fis-satir"><span>Lot No</span><span x-text="fis.lot_no || '—'"></span></div>
+          <div class="fis-satir"><span>Tarih</span><span x-text="tarihYaz(fis.tartim_zamani)"></span></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Müstahsil</span><b class="fis-sag" x-text="fis.uretici_adi"></b></div>
+          <div class="fis-satir"><span>Plaka</span><span x-text="fis.plaka"></span></div>
+          <div class="fis-satir" x-show="fis.sofor_adi"><span>Şoför</span><span x-text="fis.sofor_adi"></span></div>
+          <div class="fis-satir" x-show="fis.urun_turu_adi"><span>Ürün</span><span x-text="fis.urun_turu_adi"></span></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Brüt</span>
+            <span><span x-text="kg(fis.brut_kg)"></span><small x-show="fis.brut_kaynagi" x-text="fis.brut_kaynagi === 'SCALE' ? ' (K)' : ' (E)'"></small></span></div>
+          <div class="fis-satir"><span>Araç darası</span>
+            <span><span x-text="'− ' + kg(fis.arac_darasi_kg ?? fis.dara_kg)"></span><small x-show="fis.dara_kaynagi" x-text="fis.dara_kaynagi === 'SCALE' ? ' (K)' : ' (E)'"></small></span></div>
+          <div class="fis-satir" x-show="fis.cuval_sayisi > 0">
+            <span x-text="`Çuval ${fis.cuval_sayisi} × ${kg(fis.cuval_darasi_kg)}`"></span>
+            <span x-text="'− ' + kg(fis.cuval_sayisi * Number(fis.cuval_darasi_kg))"></span></div>
+          <div class="fis-satir fis-buyuk"><span>NET</span><span x-text="kg(fis.net_kg)"></span></div>
+          <p class="fis-not" x-show="fis.brut_kaynagi">K: kantardan okundu · E: elle girildi</p>
+          <div class="fis-cizgi"></div>
+          <template x-if="fis.kalite">
+            <div>
+              <div class="fis-satir"><span>Kalite</span><b x-text="`${fis.kalite.sinif_kodu} · ${fis.kalite.sinif_adi}${fis.kalite.manuel_atama ? ' (M)' : ''}`"></b></div>
+              <p class="fis-not" x-text="`Çatlak ${yuzde(fis.kalite.catlak_orani)} Randıman ${yuzde(fis.kalite.randiman)} Nem ${yuzde(fis.kalite.nem_orani)} Boş ${yuzde(fis.kalite.bos_orani)} Çürük ${yuzde(fis.kalite.curuk_orani)}`"></p>
+            </div>
           </template>
-          <div class="satir text-amber-700" x-show="Number(fis.hakedis?.avans_mahsubu_toplami) > 0">
-            <dt>Avans mahsubu</dt><dd class="tabular-nums" x-text="'− ' + tl(fis.hakedis?.avans_mahsubu_toplami)"></dd>
+          <template x-if="fis.hakedis">
+            <div>
+              <div class="fis-satir"><span>Birim fiyat</span><span x-text="tl(fis.fiyat?.birim_fiyat) + '/kg'"></span></div>
+              <div class="fis-satir"><span>Brüt tutar</span><span x-text="tl(fis.hakedis.brut_tutar)"></span></div>
+              <template x-for="k in fis.hakedis.kesintiler" :key="k.kod">
+                <div class="fis-satir"><span x-text="k.hesaplama === 'PERCENT' ? `${k.ad} ${yuzde(k.oran)}` : k.ad"></span><span x-text="'− ' + tl(k.tutar)"></span></div>
+              </template>
+              <div class="fis-satir" x-show="Number(fis.hakedis.avans_mahsubu_toplami) > 0">
+                <span>Avans mahsubu</span><span x-text="'− ' + tl(fis.hakedis.avans_mahsubu_toplami)"></span></div>
+              <div class="fis-cizgi"></div>
+              <div class="fis-satir fis-buyuk"><span>NET ÖDENECEK</span><span x-text="tl(fis.hakedis.net_odenecek)"></span></div>
+              <template x-if="Number(fis.hakedis.odenen) > 0">
+                <div>
+                  <div class="fis-satir"><span>Ödenen</span><span x-text="'− ' + tl(fis.hakedis.odenen)"></span></div>
+                  <div class="fis-satir"><b>KALAN</b><b x-text="tl(fis.hakedis.kalan)"></b></div>
+                </div>
+              </template>
+              <p class="fis-not" x-text="`${fis.hakedis.hakedis_no} · ${durumAd(fis.hakedis.durum)}`"></p>
+            </div>
+          </template>
+          <div class="fis-cizgi"></div>
+          <p class="fis-not" x-text="`Depo: ${fis.stok.map((s) => s.silo_kodu + ' ' + kg(s.miktar_kg)).join(', ') || '—'}`"></p>
+          <p class="fis-not" x-text="`Cari bakiye: ${tl(fis.uretici_guncel_bakiye)}`"></p>
+          <div class="fis-imzalar">
+            <div><div class="fis-imza"></div>Müstahsil İmzası</div>
+            <div><div class="fis-imza"></div>Kantar Görevlisi İmzası</div>
           </div>
-          <div class="satir text-base font-bold pt-2 border-t border-stone-200">
-            <dt>Net hakediş</dt><dd class="tabular-nums" x-text="tl(fis.hakedis?.net_odenecek)"></dd>
-          </div>
-          <p class="text-xs text-stone-500" x-text="fis.hakedis && `${fis.hakedis.hakedis_no} · ${durumAd(fis.hakedis.durum)}`"></p>
+          <p class="fis-orta fis-not">Fiyat tartım anında kilitlenmiştir. Bu fişi saklayınız.</p>
         </div>
-        <div class="border-t border-dashed border-stone-300 pt-3 text-xs text-stone-500"
-             x-text="`Depo: ${fis.stok.map(s => s.silo_kodu + ' (' + kg(s.miktar_kg) + ')').join(', ')} · Cari bakiye: ${tl(fis.uretici_guncel_bakiye)}`"></div>
-        <div class="grid grid-cols-2 gap-6 pt-8 text-xs text-center text-stone-500">
-          <div class="border-t border-stone-300 pt-1">Kantar memuru</div>
-          <div class="border-t border-stone-300 pt-1">Üretici</div>
-        </div>
-      </div>
-    </template>
+      </template>
+    </div>
     <div class="modal-alt no-print">
+      <select x-model="ayarlar.kagit" class="girdi w-36 py-1.5 text-sm mr-auto" aria-label="Kâğıt genişliği">
+        <option value="80">80 mm rulo</option>
+        <option value="58">58 mm rulo</option>
+      </select>
       <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
-      <button type="button" class="btn-birincil" @click="window.print()">Yazdır</button>
+      <button type="button" class="btn-birincil" @click="fisYazdir()">Yazdır</button>
     </div>
   </div>
 </div>

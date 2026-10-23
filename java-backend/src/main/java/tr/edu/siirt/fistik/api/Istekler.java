@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import tr.edu.siirt.fistik.alan.PaymentMethod;
 import tr.edu.siirt.fistik.alan.ProducerType;
+import tr.edu.siirt.fistik.alan.ProductType;
+import tr.edu.siirt.fistik.alan.WeightSource;
 import tr.edu.siirt.fistik.kural.Dogrulama;
 import tr.edu.siirt.fistik.kural.Hatalar.AlanHatasi;
 
@@ -142,20 +144,38 @@ public final class Istekler {
             @NotNull(message = ZORUNLU) @Valid KaliteAnalizi kalite,
             @Schema(description = "Boşsa kaliteye uygun ilk silo otomatik seçilir") Long siloId,
             @Size(max = 10) String manuelKaliteKodu,
-            @Size(max = 500) String manuelKaliteGerekcesi) implements ModelKontrollu {
+            @Size(max = 500) String manuelKaliteGerekcesi,
+            @Schema(description = "Boşsa DRY (kuru-kavlak)") ProductType urunTuru,
+            @Min(value = 0, message = NEGATIF_OLAMAZ) @Max(value = 5000, message = "En fazla 5000 olabilir.")
+            @Schema(description = "Çuval sayısı (boşsa 0)", example = "40") Integer cuvalSayisi,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "10", message = "En fazla 10 olabilir.")
+            @Digits(integer = 2, fraction = 2, message = IKI_ONDALIK)
+            @Schema(description = "Çuval başına dara, kg (boşsa 0)", example = "1") BigDecimal cuvalDarasiKg,
+            @Schema(description = "Brüt ağırlık kantardan mı okundu (SCALE), elle mi girildi (MANUAL)? Boşsa MANUAL") WeightSource brutKaynagi,
+            @Schema(description = "Dara için aynısı") WeightSource daraKaynagi) implements ModelKontrollu {
 
         public TartimGirisi {
             soforAdi = kirp(soforAdi);
             manuelKaliteKodu = kirp(manuelKaliteKodu);
             manuelKaliteGerekcesi = kirp(manuelKaliteGerekcesi);
+            urunTuru = urunTuru == null ? ProductType.DRY : urunTuru;
+            cuvalSayisi = cuvalSayisi == null ? 0 : cuvalSayisi;
+            cuvalDarasiKg = cuvalDarasiKg == null ? BigDecimal.ZERO : cuvalDarasiKg;
+            brutKaynagi = brutKaynagi == null ? WeightSource.MANUAL : brutKaynagi;
+            daraKaynagi = daraKaynagi == null ? WeightSource.MANUAL : daraKaynagi;
+        }
+
+        /** Araç darası + çuval sayısı × çuval darası. */
+        public BigDecimal toplamDara() {
+            return toplamDaraHesapla(daraKg, cuvalSayisi, cuvalDarasiKg);
         }
 
         @Override
         public List<AlanHatasi> modelHatalari() {
             List<AlanHatasi> h = new ArrayList<>(kalite.hatalar());
             if (!h.isEmpty()) return h;
-            if (daraKg.compareTo(brutKg) >= 0)
-                h.add(new AlanHatasi("istek", "Dara ağırlığı brüt ağırlıktan küçük olmalıdır (net kg pozitif olmalı)."));
+            if (toplamDara().compareTo(brutKg) >= 0)
+                h.add(new AlanHatasi("istek", DARA_MESAJI));
             else if (manuelKaliteKodu != null && manuelKaliteGerekcesi == null)
                 h.add(new AlanHatasi("istek", "Manuel kalite ataması için manuel_kalite_gerekcesi zorunludur."));
             return h;
@@ -169,19 +189,36 @@ public final class Istekler {
             @NotNull(message = ZORUNLU) @DecimalMin(value = "0", message = NEGATIF_OLAMAZ)
             @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.") @Digits(integer = 10, fraction = 2, message = IKI_ONDALIK) BigDecimal daraKg,
             @NotNull(message = ZORUNLU) @Valid KaliteAnalizi kalite,
-            @Size(max = 10) String manuelKaliteKodu) implements ModelKontrollu {
+            @Size(max = 10) String manuelKaliteKodu,
+            ProductType urunTuru,
+            @Min(value = 0, message = NEGATIF_OLAMAZ) @Max(value = 5000, message = "En fazla 5000 olabilir.") Integer cuvalSayisi,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "10", message = "En fazla 10 olabilir.")
+            @Digits(integer = 2, fraction = 2, message = IKI_ONDALIK) BigDecimal cuvalDarasiKg) implements ModelKontrollu {
 
         public OnizlemeGirisi {
             manuelKaliteKodu = kirp(manuelKaliteKodu);
+            urunTuru = urunTuru == null ? ProductType.DRY : urunTuru;
+            cuvalSayisi = cuvalSayisi == null ? 0 : cuvalSayisi;
+            cuvalDarasiKg = cuvalDarasiKg == null ? BigDecimal.ZERO : cuvalDarasiKg;
+        }
+
+        public BigDecimal toplamDara() {
+            return toplamDaraHesapla(daraKg, cuvalSayisi, cuvalDarasiKg);
         }
 
         @Override
         public List<AlanHatasi> modelHatalari() {
             List<AlanHatasi> h = new ArrayList<>(kalite.hatalar());
-            if (h.isEmpty() && daraKg.compareTo(brutKg) >= 0)
-                h.add(new AlanHatasi("istek", "Dara ağırlığı brüt ağırlıktan küçük olmalıdır (net kg pozitif olmalı)."));
+            if (h.isEmpty() && toplamDara().compareTo(brutKg) >= 0)
+                h.add(new AlanHatasi("istek", DARA_MESAJI));
             return h;
         }
+    }
+
+    static final String DARA_MESAJI = "Dara ağırlığı (araç darası + çuval darası) brüt ağırlıktan küçük olmalıdır (net kg pozitif olmalı).";
+
+    static BigDecimal toplamDaraHesapla(BigDecimal aracDarasi, int cuvalSayisi, BigDecimal cuvalDarasi) {
+        return aracDarasi.add(cuvalDarasi.multiply(BigDecimal.valueOf(cuvalSayisi)));
     }
 
     // ─── Fiyat ───

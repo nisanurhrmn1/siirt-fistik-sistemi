@@ -52,7 +52,10 @@ public class WebAyarlari {
         return new io.swagger.v3.oas.models.tags.Tag().name(ad).description(aciklama);
     }
 
+    /** API_DOKUMANI=false iken /docs ve /redoc da yoktur (404). */
     @Controller
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "springdoc.api-docs.enabled",
+            havingValue = "true", matchIfMissing = true)
     public static class Dokumanlar {
         @GetMapping("/docs")
         public String swagger() {

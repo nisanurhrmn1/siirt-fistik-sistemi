@@ -100,11 +100,17 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-KNT-02 | Negatif ağırlık, brütten büyük veya brüte eşit dara ve geçersiz plaka reddedilmelidir. | Yüksek | ✅ |
 | FG-KNT-03 | **Bir üretici aynı gün birden fazla teslimat yapabilmeli; her teslimat benzersiz fiş ve lot numarası almalıdır.** | Yüksek | ✅ |
 | FG-KNT-04 | Çatlak, randıman, boş, çürük ve nem oranları girilmeli; her oran 0–100 aralığında olmalıdır. | Yüksek | ✅ |
-| FG-KNT-05 | Kalite sınıfı, tanımlı eşiklere göre otomatik belirlenmelidir (A / B / Iskarta). | Yüksek | ✅ |
+| FG-KNT-05 | Kalite sınıfı, tanımlı eşiklere göre otomatik belirlenmelidir (kuru-kavlak: A / B / Iskarta; yaş: YA / YB / Yaş Iskarta). | Yüksek | ✅ |
 | FG-KNT-06 | Kalite sınıfı gerekçe yazılarak elle atanabilmelidir. | Düşük | 🟡 API'de var, panelde yok |
 | FG-KNT-07 | Kayıt yapılmadan, girilen değerlerle tahmini hakediş anında gösterilmelidir. | Orta | ✅ |
 | FG-KNT-08 | Kesilen fiş yazdırılabilmelidir. | Orta | ✅ |
 | FG-KNT-09 | Hakedişi oluşmamış bir teslimat gerekçe yazılarak iptal edilebilmelidir. | Düşük | 🟡 |
+| FG-KNT-10 | Brüt ve dara, kantar indikatöründen seri portla (Web Serial) okunabilmeli; yalnızca kararlı değer alınmalı, okunan değer kilitli yazılmalıdır. Tarayıcı desteklemiyorsa veya cihaz yoksa elle giriş mümkün olmalıdır. | Yüksek | ✅ |
+| FG-KNT-11 | Ağırlığın kaynağı (kantar / elle) kaydedilmeli ve fişte gösterilmelidir. | Orta | ✅ |
+| FG-KNT-12 | Çuval sayısı girilmeli; net = brüt − araç darası − çuval sayısı × çuval darası olmalıdır. Çuval darası ayarlanabilir olmalıdır. | Yüksek | ✅ |
+| FG-KNT-13 | Ürün türü (kuru-kavlak / yaş) seçilmeli; kalite sınıfları, fiyatlar ve silolar türe göre ayrı olmalıdır. | Yüksek | ✅ |
+| FG-KNT-14 | Tartım formu fare olmadan doldurulabilmeli (Enter ile sonraki alan; F9 / Ctrl+Enter ile kaydet ve fiş bas). | Orta | ✅ |
+| FG-KNT-15 | Fiş 80 mm ve 58 mm termal rulo kâğıda sığmalı; müstahsil ve kantar görevlisi imza alanları bulunmalıdır. | Orta | ✅ |
 
 ### 3.3 Fiyat yönetimi (FYT)
 | No | Gereksinim | Öncelik | Durum |
@@ -286,6 +292,6 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 | GDG-01 | Satış/sevkiyat modülü ve stok çıkışı (FG-DEP-06) |
 | GDG-02 | Silolar arası transfer ve fiyat iptali için API ve arayüz (FG-DEP-05, FG-FYT-08) |
 | GDG-03 | PDF/Excel rapor dışa aktarımı (FG-RAP-05) |
-| GDG-04 | Kantar göstergesinden seri port/TCP ile otomatik ağırlık okuma |
+| GDG-04 | TCP/IP indikatör desteği ve indikatör verisini sunucuya imzalı gönderen kantar servisi (tarayıcıdan bağımsız kanıt) |
 | GDG-05 | E-postayla şifre sıfırlama bağlantısı ve art arda hatalı girişte geçici hesap kilidi |
 | GDG-06 | Alembic ile veritabanı sürüm yönetimi |

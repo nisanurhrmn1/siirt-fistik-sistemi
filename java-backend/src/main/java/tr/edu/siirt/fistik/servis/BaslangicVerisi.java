@@ -48,26 +48,47 @@ public class BaslangicVerisi implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (!etkin) return;
         hesaplariHazirla();
-        if (bos(QualityGrade.class)) {
-            em.persist(sinif("A", "1. Sınıf", 1, "85", "55", "5", "8"));
-            em.persist(sinif("B", "2. Sınıf", 2, "70", "48", "10", "10"));
-            em.persist(sinif("ISK", "Iskarta", 9, null, null, null, null));
-            em.flush();
-        }
+        // Sınıflar ve silolar koda göre tek tek eklenir: sonradan eklenen yaş fıstık sınıfları mevcut veritabanlarına da gelir.
+        // ÖRNEK eşikler — merkezin kendi kalite yönergesine göre güncelleyin. Yaş fıstıkta nem sınırı yoktur.
+        sinifEkle("A", "1. Sınıf", ProductType.DRY, 1, "85", "55", "5", "8");
+        sinifEkle("B", "2. Sınıf", ProductType.DRY, 2, "70", "48", "10", "10");
+        sinifEkle("ISK", "Iskarta", ProductType.DRY, 9, null, null, null, null);
+        sinifEkle("YA", "Yaş 1. Sınıf", ProductType.FRESH, 11, "80", "45", "8", null);
+        sinifEkle("YB", "Yaş 2. Sınıf", ProductType.FRESH, 12, "65", "38", "15", null);
+        sinifEkle("YISK", "Yaş Iskarta", ProductType.FRESH, 19, null, null, null, null);
+        em.flush();
         if (bos(DeductionType.class)) {
             // ÖRNEK oranlar — güncel mevzuat ve borsa tarifesine göre güncelleyin.
             em.persist(kesinti("STOPAJ", "Gelir vergisi stopajı", "2", 1));
             em.persist(kesinti("BORSA", "Borsa tescil ücreti", "0.2", 2));
             em.persist(kesinti("KOMISYON", "Komisyon", "1", 3));
         }
-        if (bos(Silo.class)) {
-            Map<String, Long> s = em.createQuery("select g from QualityGrade g", QualityGrade.class).getResultStream()
-                    .collect(Collectors.toMap(QualityGrade::getCode, QualityGrade::getId));
-            em.persist(silo("S-A1", "A Sınıfı Silo 1", "12000", s.get("A")));
-            em.persist(silo("S-A2", "A Sınıfı Silo 2", "12000", s.get("A")));
-            em.persist(silo("S-B1", "B Sınıfı Silo", "10000", s.get("B")));
-            em.persist(silo("S-ISK", "Iskarta Deposu", "4000", s.get("ISK")));
-        }
+        Map<String, Long> s = em.createQuery("select g from QualityGrade g", QualityGrade.class).getResultStream()
+                .collect(Collectors.toMap(QualityGrade::getCode, QualityGrade::getId));
+        siloEkle("S-A1", "A Sınıfı Silo 1", "12000", s.get("A"));
+        siloEkle("S-A2", "A Sınıfı Silo 2", "12000", s.get("A"));
+        siloEkle("S-B1", "B Sınıfı Silo", "10000", s.get("B"));
+        siloEkle("S-ISK", "Iskarta Deposu", "4000", s.get("ISK"));
+        siloEkle("S-YA", "Yaş Fıstık 1. Sınıf Sergisi", "8000", s.get("YA"));
+        siloEkle("S-YB", "Yaş Fıstık 2. Sınıf Sergisi", "6000", s.get("YB"));
+        siloEkle("S-YISK", "Yaş Iskarta Deposu", "3000", s.get("YISK"));
+    }
+
+    private boolean kodVar(Class<?> varlik, String kod) {
+        return em.createQuery("select count(x) from " + varlik.getSimpleName() + " x where x.code = :k", Long.class)
+                .setParameter("k", kod).getSingleResult() > 0;
+    }
+
+    private void sinifEkle(String kod, String ad, ProductType tur, int oncelik, String catlak, String randiman, String kusur,
+                           String nem) {
+        if (kodVar(QualityGrade.class, kod)) return;
+        QualityGrade g = sinif(kod, ad, oncelik, catlak, randiman, kusur, nem);
+        g.setProductType(tur);
+        em.persist(g);
+    }
+
+    private void siloEkle(String kod, String ad, String kapasite, Long sinifId) {
+        if (sinifId != null && !kodVar(Silo.class, kod)) em.persist(silo(kod, ad, kapasite, sinifId));
     }
 
     /**

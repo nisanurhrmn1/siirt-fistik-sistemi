@@ -1,67 +1,134 @@
 <div class="grid lg:grid-cols-5 gap-6">
 
-  <!-- Form -->
-  <form class="lg:col-span-3 panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg space-y-6"
-        @submit.prevent="fisKes()">
-    <div class="flex items-center justify-between">
+  <!-- Klavye akışı: Plaka → Üretici → Ürün türü → Brüt → Dara → Çuval → Kalite → Kaydet.
+       Enter bir sonraki alana geçer; Ctrl+Enter / F9 fişi keser; F2 / F3 kantardan brüt / dara okur. -->
+  <form x-ref="kantarForm" class="lg:col-span-3 panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg space-y-6"
+        @submit.prevent="fisKesKisayol()" @keydown="kantarTus($event)">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
       <h2 class="baslik flex items-center gap-2">
         <span class="ikon-kutu h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-fistik-600 text-emerald-600">
           <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25m0 0c-1.47 0-2.87.3-4.15.84m4.15-.84c1.47 0 2.87.3 4.15.84M5.25 4.97 2.63 15.7c-.12.5.12 1.02.59 1.2a6 6 0 0 0 4.06 0c.47-.18.71-.7.59-1.2L5.25 4.97Zm13.5 0-2.62 10.72c-.12.5.12 1.02.59 1.2a6 6 0 0 0 4.06 0c.47-.18.71-.7.59-1.2L18.75 4.97ZM5.25 4.97A48.4 48.4 0 0 1 12 4.5c2.29 0 4.55.16 6.75.47"/></svg>
         </span>
         Kantar Tartımı
       </h2>
-      <span class="text-xs text-stone-500">Fiyat, fiş kesildiği an kilitlenir</span>
+      <!-- Kantar indikatörü bağlantısı ve saha ayarları -->
+      <div class="flex items-center gap-2 text-xs">
+        <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold"
+              :class="kantarDurum.bagli ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-600'"
+              :title="kantarDestek ? '' : 'Bu tarayıcı seri portu desteklemiyor (Chrome/Edge masaüstü gerekir)'">
+          <span class="h-2 w-2 rounded-full" :class="kantarDurum.bagli ? 'bg-emerald-500 animate-pulse' : 'bg-stone-400'"></span>
+          <span x-text="kantarDurum.bagli
+                ? 'Kantar' + (kantarDurum.sonOkuma ? ': ' + kg(kantarDurum.sonOkuma.kg) + (kantarDurum.sonOkuma.durum === 'kararsiz' ? ' ~' : '') : ' bağlı')
+                : (kantarDestek ? 'Kantar bağlı değil' : 'Seri port yok · elle giriş')"></span>
+        </span>
+        <button type="button" tabindex="-1" class="btn-ghost text-xs" x-show="kantarDestek"
+                @click="kantarDurum.bagli ? kantarKes() : kantarBaglan()" x-text="kantarDurum.bagli ? 'Kes' : 'Bağlan'"></button>
+        <button type="button" tabindex="-1" class="btn-ghost text-xs" @click="sahaAyarAcik = !sahaAyarAcik" title="Saha ayarları">⚙</button>
+      </div>
     </div>
 
-    <!-- Üretici & araç -->
-    <div class="grid sm:grid-cols-2 gap-4">
-      <div class="sm:col-span-2">
-        <label class="etiket">Üretici</label>
-        <div class="flex gap-2">
-          <input type="search" x-model="kantarArama" placeholder="Ad veya TC ile süz…" class="girdi w-40 shrink-0">
-          <select x-model="kantar.uretici_id" class="girdi flex-1" :class="hata('uretici_id') && 'girdi-hata'">
-            <option value="">— Üretici seçin —</option>
-            <template x-for="u in kantarUreticileri" :key="u.id">
-              <option :value="u.id" x-text="`${u.ad_soyad} · ${u.tc_kimlik_no || u.vergi_no}`"></option>
-            </template>
-          </select>
+    <!-- Saha ayarları (bu bilgisayarda saklanır) -->
+    <div x-show="sahaAyarAcik" x-transition class="mini-kart p-4 grid sm:grid-cols-4 gap-4 text-sm">
+      <div>
+        <label class="etiket">Baud hızı</label>
+        <select x-model.number="ayarlar.baud" tabindex="-1" class="girdi">
+          <template x-for="b in [1200, 2400, 4800, 9600, 19200, 38400]"><option :value="b" x-text="b" :selected="b === ayarlar.baud"></option></template>
+        </select>
+      </div>
+      <div x-show="sahaModu">
+        <label class="etiket">Çuval darası</label>
+        <div class="relative">
+          <input type="number" step="0.01" min="0" max="10" x-model="ayarlar.cuval_darasi" tabindex="-1" class="girdi pr-9">
+          <span class="birim">kg</span>
         </div>
+      </div>
+      <div>
+        <label class="etiket">Fiş kâğıdı</label>
+        <select x-model="ayarlar.kagit" tabindex="-1" class="girdi">
+          <option value="80">80 mm termal</option>
+          <option value="58">58 mm termal</option>
+        </select>
+      </div>
+      <label class="flex items-center gap-2 self-end pb-2">
+        <input type="checkbox" x-model="ayarlar.otomatik_yazdir" tabindex="-1" class="h-4 w-4 accent-emerald-600">
+        Kaydedince fişi yazdır
+      </label>
+      <p class="sm:col-span-4 text-xs text-stone-500">
+        Kısayollar: <kbd>Enter</kbd> sonraki alan · <kbd>F2</kbd> brüt oku · <kbd>F3</kbd> dara oku ·
+        <kbd>F9</kbd> veya <kbd>Ctrl</kbd>+<kbd>Enter</kbd> kaydet ve fiş bas. Baud hızı değişince kantarı yeniden bağlayın.
+      </p>
+    </div>
+
+    <!-- Araç & üretici -->
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="etiket" for="k_plaka">Araç plakası</label>
+        <input id="k_plaka" x-ref="plaka" x-model="kantar.plaka" placeholder="56 ABC 123" autocomplete="off"
+               class="girdi uppercase text-lg font-mono" :class="hata('plaka') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('plaka')"></p>
+      </div>
+      <div>
+        <label class="etiket" for="k_uretici">Üretici <span class="text-stone-400 font-normal">(ara, Enter ile seç · ↑↓)</span></label>
+        <input id="k_uretici" type="search" x-model="kantarArama" @keydown="ureticiAramaTus($event)" autocomplete="off"
+               placeholder="Ad veya TC…" class="girdi" :class="hata('uretici_id') && 'girdi-hata'">
+        <select x-model="kantar.uretici_id" tabindex="-1" aria-label="Üretici listesi" class="girdi mt-2 text-sm">
+          <option value="">— Üretici seçin —</option>
+          <template x-for="u in kantarUreticileri" :key="u.id">
+            <option :value="u.id" x-text="`${u.ad_soyad} · ${u.tc_kimlik_no || u.vergi_no}`" :selected="String(u.id) === String(kantar.uretici_id)"></option>
+          </template>
+        </select>
         <p class="hata-yazi" x-text="hata('uretici_id')"></p>
         <p class="mt-1 text-xs text-amber-700" x-show="seciliKantarBakiye && Number(seciliKantarBakiye.acik_avans) > 0"
            x-text="seciliKantarBakiye && `Açık avans: ${tl(seciliKantarBakiye.acik_avans)} — bu teslimattan mahsup edilecek`"></p>
       </div>
-      <div>
-        <label class="etiket">Araç plakası</label>
-        <input x-model="kantar.plaka" placeholder="56 ABC 123" class="girdi uppercase" :class="hata('plaka') && 'girdi-hata'">
-        <p class="hata-yazi" x-text="hata('plaka')"></p>
-      </div>
-      <div>
-        <label class="etiket">Şoför <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
-        <input x-model="kantar.sofor_adi" class="girdi">
-      </div>
     </div>
+
+    <!-- Ürün türü: ok tuşlarıyla değişir -->
+    <fieldset x-show="sahaModu">
+      <legend class="etiket">Ürün türü</legend>
+      <div class="flex gap-2">
+        <template x-for="(ad, kod) in urunTurleri" :key="kod">
+          <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400"
+                 :class="kantar.urun_turu === kod && 'secim-aktif'">
+            <input type="radio" name="urun_turu" class="sr-only" :value="kod" x-model="kantar.urun_turu">
+            <span x-text="ad"></span>
+          </label>
+        </template>
+      </div>
+    </fieldset>
 
     <!-- Ağırlık -->
     <div>
       <h3 class="alt-baslik">Ağırlık</h3>
-      <div class="grid grid-cols-3 gap-4 items-end">
-        <div>
-          <label class="etiket">Brüt (dolu araç)</label>
-          <div class="relative">
-            <input type="number" step="0.01" min="0" x-model="kantar.brut_kg" class="girdi pr-9 text-lg font-medium"
-                   :class="hata('brut_kg') && 'girdi-hata'">
-            <span class="birim">kg</span>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+        <template x-for="a in [{ alan: 'brut', ad: 'Brüt (dolu araç)', tus: 'F2' }, { alan: 'dara', ad: 'Araç darası', tus: 'F3' }]" :key="a.alan">
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="etiket" :for="'k_' + a.alan" x-text="a.ad"></label>
+              <button type="button" tabindex="-1" class="text-[.7rem] font-semibold text-emerald-700 hover:underline disabled:opacity-50"
+                      :disabled="kantarOkunan !== ''" @click="kantardanOku(a.alan)"
+                      x-text="kantarOkunan === a.alan ? 'okunuyor…' : `⚖ Oku (${a.tus})`"></button>
+            </div>
+            <div class="relative">
+              <input :id="'k_' + a.alan" type="number" step="0.01" min="0" inputmode="decimal"
+                     x-model="kantar[a.alan + '_kg']" :readonly="kantar[a.alan + '_kaynagi'] === 'SCALE'"
+                     class="girdi pr-9 text-lg font-medium tabular-nums"
+                     :class="[hata(a.alan + '_kg') && 'girdi-hata', kantar[a.alan + '_kaynagi'] === 'SCALE' && 'bg-emerald-50 border-emerald-300 text-emerald-900']">
+              <span class="birim">kg</span>
+            </div>
+            <p class="mt-1 text-[.7rem]" x-show="kantar[a.alan + '_kaynagi'] === 'SCALE'">
+              <span class="text-emerald-700 font-semibold">🔒 Kantardan</span>
+              <button type="button" tabindex="-1" class="ml-1 text-stone-500 underline" @click="agirlikKilidiAc(a.alan)">elle düzelt</button>
+            </p>
+            <p class="hata-yazi" x-text="hata(a.alan + '_kg')"></p>
           </div>
-          <p class="hata-yazi" x-text="hata('brut_kg')"></p>
-        </div>
-        <div>
-          <label class="etiket">Dara (boş araç)</label>
-          <div class="relative">
-            <input type="number" step="0.01" min="0" x-model="kantar.dara_kg" class="girdi pr-9 text-lg font-medium"
-                   :class="hata('dara_kg') && 'girdi-hata'">
-            <span class="birim">kg</span>
-          </div>
-          <p class="hata-yazi" x-text="hata('dara_kg')"></p>
+        </template>
+        <div x-show="sahaModu">
+          <label class="etiket" for="k_cuval">Çuval sayısı</label>
+          <input id="k_cuval" type="number" step="1" min="0" inputmode="numeric" x-model="kantar.cuval_sayisi" placeholder="0"
+                 class="girdi text-lg font-medium tabular-nums" :class="hata('cuval_sayisi') && 'girdi-hata'">
+          <p class="mt-1 text-[.7rem] text-stone-500" x-text="`× ${ayarlar.cuval_darasi || 0} kg = ${kg(cuvalDarasiToplam)}`"></p>
+          <p class="hata-yazi" x-text="hata('cuval_sayisi')"></p>
         </div>
         <div class="rounded-xl bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200/70 px-3 py-2 transition-shadow"
              x-effect="netKg; if (netKg !== null) parlat($el)">
@@ -80,7 +147,7 @@
           <div>
             <label class="etiket" x-text="a.ad"></label>
             <div class="relative">
-              <input type="number" step="0.01" :min="0" :max="a.birim === '%' ? 100 : null"
+              <input type="number" step="0.01" :min="0" :max="a.birim === '%' ? 100 : null" inputmode="decimal"
                      x-model="kantar.kalite[a.alan]" class="girdi pr-9"
                      :class="hata('kalite.' + a.alan) && 'girdi-hata'">
               <span class="birim" x-text="a.birim"></span>
@@ -92,21 +159,25 @@
       <p class="hata-yazi" x-text="hata('kalite')"></p>
     </div>
 
-    <!-- Silo -->
-    <div class="grid sm:grid-cols-2 gap-4">
+    <!-- Silo, şoför, kaydet -->
+    <div class="grid sm:grid-cols-3 gap-4">
       <div>
         <label class="etiket">Hedef silo</label>
         <select x-model="kantar.silo_id" class="girdi">
-          <option value="">Otomatik (kaliteye uygun ilk silo)</option>
+          <option value="">Otomatik (kaliteye uygun)</option>
           <template x-for="s in silolar" :key="s.silo_id">
             <option :value="s.silo_id" x-text="`${s.silo_kodu} · ${s.adanmis_kalite || 'genel'} · boş ${kg(s.bos_kapasite_kg)}`"></option>
           </template>
         </select>
       </div>
+      <div>
+        <label class="etiket">Şoför <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
+        <input x-model="kantar.sofor_adi" class="girdi">
+      </div>
       <div class="flex items-end">
         <button type="submit" class="btn-birincil w-full h-11" :title="yetkiYok('tartim')"
-                :disabled="kaydediliyor || !onizleme || !onizleme.birim_fiyat || !yetkili('tartim')">
-          <span x-show="!kaydediliyor">Fişi Kes ve Kaydet</span>
+                :class="!fisKesilebilir && 'opacity-50'" :aria-disabled="!fisKesilebilir">
+          <span x-show="!kaydediliyor">Kaydet ve Fiş Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
           <span x-show="kaydediliyor">Kaydediliyor…</span>
         </button>
       </div>

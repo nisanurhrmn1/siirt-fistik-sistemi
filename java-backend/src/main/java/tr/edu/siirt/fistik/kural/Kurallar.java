@@ -165,11 +165,13 @@ public class Kurallar {
 
     // ───────────────────────────── Kalite & fiyat snapshot ─────────────────────────────
 
-    public QualityGrade sinifBelirle(BigDecimal catlak, BigDecimal randiman, BigDecimal bos, BigDecimal curuk,
-                                     BigDecimal nem) {
+    /** Ürün türünün sınıfları öncelik sırasıyla denenir; eşiklerin hepsini sağlayan ilk sınıf seçilir. */
+    public QualityGrade sinifBelirle(ProductType tur, BigDecimal catlak, BigDecimal randiman, BigDecimal bos,
+                                     BigDecimal curuk, BigDecimal nem) {
         BigDecimal kusur = bos.add(curuk);
         List<QualityGrade> siniflar = em.createQuery(
-                "select g from QualityGrade g where g.active = true order by g.priority", QualityGrade.class).getResultList();
+                        "select g from QualityGrade g where g.active = true and g.productType = :t order by g.priority", QualityGrade.class)
+                .setParameter("t", tur).getResultList();
         for (QualityGrade g : siniflar) {
             if (g.getMinSplitRatio() != null && catlak.compareTo(g.getMinSplitRatio()) < 0) continue;
             if (g.getMinYieldRatio() != null && randiman.compareTo(g.getMinYieldRatio()) < 0) continue;
@@ -177,7 +179,7 @@ public class Kurallar {
             if (g.getMaxMoistureRatio() != null && nem.compareTo(g.getMaxMoistureRatio()) > 0) continue;
             return g;
         }
-        throw new IsKuraliHatasi("Hiçbir kalite sınıfına uymuyor; eşiksiz bir son sınıf tanımlayın.");
+        throw new IsKuraliHatasi("%s için hiçbir kalite sınıfına uymuyor; eşiksiz bir son sınıf tanımlayın.".formatted(tur.getAd()));
     }
 
     /** Kalite analizini kaydeder, sınıfı belirler, TARTIM ANINDAKİ fiyatı dondurur ve lotu açar. */
@@ -192,8 +194,11 @@ public class Kurallar {
             if (manuelGerekce == null || manuelGerekce.isBlank())
                 throw new IsKuraliHatasi("Manuel sınıf ataması gerekçe gerektirir.");
             sinif = em.find(QualityGrade.class, manuelSinifId);
+            if (sinif.getProductType() != t.getProductType())
+                throw new IsKuraliHatasi("%s sınıfı %s içindir; bu teslimat %s.".formatted(
+                        sinif.getCode(), sinif.getProductType().getAd(), t.getProductType().getAd()));
         } else {
-            sinif = sinifBelirle(catlak, randiman, bos, curuk, nem);
+            sinif = sinifBelirle(t.getProductType(), catlak, randiman, bos, curuk, nem);
         }
 
         // Referans an: tartım anı. Analiz saatler sonra yapılsa da fiyat tartım anına aittir.

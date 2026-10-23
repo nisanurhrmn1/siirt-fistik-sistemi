@@ -27,6 +27,10 @@ public class QualityGrade {
     @Column(name = "name")
     private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_type")
+    private ProductType productType = ProductType.DRY;
+
     @Column(name = "description")
     private String description;
 

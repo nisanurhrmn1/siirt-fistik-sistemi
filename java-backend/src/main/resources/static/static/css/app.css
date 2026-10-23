@@ -212,13 +212,39 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
-/* ─── Yazdırma: yalnızca kantar fişi ─── */
+/* ─── Termal kantar fişi (80 mm rulo: ~72 mm basılabilir alan; 58 mm: ~48 mm) ─── */
+.fis-termal {
+  width: 72mm; background: #fff; color: #000; padding: 4mm 3mm;
+  font: 12px/1.35 ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  box-shadow: 0 6px 20px -10px rgba(0, 0, 0, .35);
+}
+.fis-termal.fis-58 { width: 48mm; font-size: 10px; padding: 3mm 2mm; }
+.fis-termal b { font-weight: 700; }
+.fis-satir { display: flex; justify-content: space-between; gap: 2mm; }
+.fis-satir > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.fis-satir > :last-child { text-align: right; white-space: nowrap; flex-shrink: 0; }
+.fis-satir > .fis-sag { max-width: 65%; white-space: normal; overflow-wrap: anywhere; }
+.fis-orta { text-align: center; }
+.fis-buyuk { font-size: 1.2em; font-weight: 800; letter-spacing: .02em; }
+.fis-satir.fis-buyuk { margin-top: 1mm; }
+.fis-not { font-size: .85em; margin-top: .5mm; }
+.fis-cizgi { border-top: 1px dashed #000; margin: 2mm 0; }
+.fis-imzalar { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; margin-top: 4mm; text-align: center; font-size: .85em; }
+.fis-imza { height: 12mm; border-bottom: 1px solid #000; margin-bottom: 1mm; }
+kbd { font: 600 .7rem ui-monospace, monospace; border: 1px solid #d6d3d1; border-bottom-width: 2px; border-radius: .3rem; padding: 0 .3rem; background: #fff; }
+
+/* ─── Yazdırma: yalnızca kantar fişi; sayfa boyutu fisYazdir() ile 80/58 mm ayarlanır ───
+   Gizlenen içerik display:none ile tamamen kaldırılır: termal yazıcı rulodan boş kâğıt akıtmaz. */
 @media print {
-  body { background: #fff !important; }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; min-height: 0 !important; }
   body::before { display: none; }
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
-  .modal-kutu { box-shadow: none; border: 0; }
+  body > :not(.modal-katman) { display: none !important; }
+  .modal-katman { position: static !important; display: block !important; padding: 0 !important; background: none !important; overflow: visible !important; }
+  .modal-katman > :not(.fis-kutu) { display: none !important; }
+  .fis-kutu { max-width: none !important; width: auto !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; background: none !important; animation: none !important; }
+  .fis-zemin { display: block !important; padding: 0 !important; background: none !important; }
   .no-print { display: none !important; }
+  .fis-termal { box-shadow: none; padding: 2mm 3mm; }
+  .fis-termal.fis-58 { padding: 1.5mm 2mm; }
+  .fis-termal, .fis-termal * { color: #000 !important; background: #fff !important; }
 }

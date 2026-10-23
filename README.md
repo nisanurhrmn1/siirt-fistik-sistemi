@@ -53,7 +53,7 @@ Bu proje alım sürecinin tamamını kayıt altına alır ve para hesaplarını 
 |---|---|
 | Üretici kaydı | TC/VKN (kontrol basamağı doğrulamalı), iletişim, IBAN (mod-97 doğrulamalı) |
 | Kantar | Brüt / dara / net kg, araç plakası, benzersiz fiş ve lot numarası |
-| Kalite | Çatlak, randıman, boş, çürük ve nem oranından otomatik sınıf (A / B / Iskarta) |
+| Kalite | Çatlak, randıman, boş, çürük ve nem oranından otomatik sınıf; kuru-kavlak (A / B / Iskarta) ve yaş fıstık (YA / YB / YISK) ayrı |
 | Fiyat | Kalite sınıfı bazında, zaman aralığıyla geçerli, onaylı taban fiyat |
 | Avans ve kesinti | Stopaj, borsa tescil ve komisyon kesintileri; avansın sonraki teslimatlardan mahsubu |
 | Ödeme | Net hakediş, parçalı veya tam ödeme, cari hesap ekstresi |
@@ -281,6 +281,26 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `GECE_SIFIRLAMA` | `false` | `true` ise her gece 03:00'te demo verisini sıfırlar |
 | `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
+| `API_DOKUMANI` | `true` | `false` ise Swagger (`/docs`), ReDoc ve `/openapi.json` tamamen kapanır (gerçek kullanımda önerilir). Paneldeki "API" bağlantısı zaten yalnızca Yöneticiye görünür. |
+
+### Kantar sahasında kullanım
+
+Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak şekilde tasarlandı.
+
+**Kantar indikatörü (seri port).** Formun sağ üstündeki **Bağlan** düğmesiyle indikatörün bağlı olduğu COM portu seçilir (⚙ menüsünden baud hızı; çoğu cihazda 9600). Brüt ve dara alanlarındaki **⚖ Oku** düğmeleri (ya da `F2` / `F3`) indikatörden **kararlı** değeri okur:
+
+- `US` (kararsız, araç hâlâ sallanıyor) satırları atlanır, `ST` (kararlı) satırı beklenir. Durum bayrağı göndermeyen cihazlarda art arda 3 aynı değer kararlı sayılır.
+- Okunan değer alana **kilitli** yazılır ve fişte `(K)` olarak görünür. "Elle düzelt" ile kilit açılırsa ya da değer elle yazılırsa fişte `(E)` yazar; kaynak veritabanına da kaydedilir (`gross_source`, `tare_source`).
+- Tarayıcı seri portu desteklemiyorsa (Firefox, Safari, telefon) ya da cihaz takılı değilse sistem durmaz: uyarı verir ve elle girişe izin verir.
+- Web Serial yalnızca **Chrome / Edge masaüstü** ve **HTTPS** (ya da `localhost`) üzerinde çalışır. İzin verilen port bir sonraki açılışta sormadan bağlanır.
+
+**Klavye akışı.** Plaka → Üretici (yazıp `Enter`; `↑` `↓` ile eşleşenler arasında gezilir) → Ürün türü (`←` `→`) → Brüt → Araç darası → Çuval sayısı → Kalite → Kaydet. `Enter` bir sonraki alana geçer; `F9` veya `Ctrl`+`Enter` kaydedip fişi basar. Fiş kapanınca imleç bir sonraki aracın plakasına döner.
+
+**Çuval darası.** Net = Brüt − Araç darası − (Çuval sayısı × Çuval darası). Çuval darası ⚙ menüsünden ayarlanır (varsayılan 1 kg) ve o bilgisayarda saklanır.
+
+**Ürün türü.** Kuru-kavlak ve yaş fıstığın kalite sınıfları, fiyatları ve siloları ayrıdır: `A` / `B` / `ISK` ve `YA` / `YB` / `YISK`. Fiyat ekranında iki grup ayrı görünür. Yaş fıstıkta nem sınırı uygulanmaz. Eşikler örnektir; merkezin kendi yönergesine göre `quality_grades` tablosundan güncellenmelidir.
+
+**Termal fiş.** Fiş 80 mm (veya ⚙ menüsünden 58 mm) rulo kâğıda göre tasarlandı: sayfanın geri kalanı yazdırılmaz, rulodan boş kâğıt akmaz. Yazıcı ayarında kenar boşluğu **Yok**, ölçek **%100** seçilmelidir. Yazdırma penceresini her seferinde görmemek için kantar bilgisayarında Chrome `--kiosk-printing` parametresiyle açılabilir; fiş varsayılan yazıcıya doğrudan basılır.
 
 ### Kullanıcılar ve roller
 
@@ -427,7 +447,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (46 test: 27 + 10 güvenlik + 9 kullanıcı)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (54 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -450,6 +470,10 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_saha.py`** (8 test, yalnızca Java): Kapsam:
+  - çuval darasının nete ve önizlemeye yansıması, neti sıfırlayan çuval darasının reddi
+  - yaş fıstığın kendi sınıfı, fiyatı ve silosuyla alınması (%35 nemle Iskarta sayılmaması); yaş fiyatı yoksa kuru fiyatla alınmaması
+  - elle atanan sınıfın ürün türüyle uyuşması, ağırlık kaynağının (kantar / elle) kaydedilmesi
 
 > PostgreSQL testleri (`--pg`) test veritabanının şemasını silip yeniden kurar. Ardından Java testlerini çalıştıracaksanız Java sunucusunu yeniden başlatın; Flyway şemayı tamamlar.
 
@@ -501,7 +525,7 @@ siirt-fistik-sistemi/
 | Şifre unutma | Şifreyi yalnızca yönetici sıfırlayabilir; hatalı giriş denemesi sınırı yok | E-postayla sıfırlama bağlantısı ve art arda hatalı girişte geçici kilit |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
-| Kantar entegrasyonu | Ağırlık elle girilir | Kantar göstergesinden seri port/TCP ile otomatik okuma |
+| Kantar entegrasyonu | Seri port (Web Serial) ile okunur; yalnızca Chrome/Edge masaüstü. Kantar kaynağı tarayıcıdan bildirildiği için tek başına hileye karşı kesin kanıt değildir | Kantar bilgisayarında indikatörü sunucuya doğrudan imzalı gönderen küçük bir servis; TCP/IP indikatör desteği |
 | Raporlar | Ekranda görüntüleme | PDF/Excel dışa aktarma, sezonluk raporlar |
 
 ---

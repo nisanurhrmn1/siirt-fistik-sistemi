@@ -79,10 +79,11 @@ public class FiyatServisi {
     public GuncelFiyatlar guncel() {
         OffsetDateTime simdi = Dogrulama.simdi();
         List<GuncelFiyatKalemi> kalemler = em.createQuery(
-                        "select g from QualityGrade g where g.active = true order by g.priority", QualityGrade.class)
+                        "select g from QualityGrade g where g.active = true order by g.productType, g.priority", QualityGrade.class)
                 .getResultStream().map(g -> {
                     DailyPrice p = kurallar.gecerliFiyat(g.getId(), simdi);
-                    return new GuncelFiyatKalemi(g.getCode(), g.getName(), p != null ? yanit(p) : null);
+                    return new GuncelFiyatKalemi(g.getCode(), g.getName(), p != null ? yanit(p) : null,
+                            g.getProductType(), g.getProductType().getAd());
                 }).toList();
         return new GuncelFiyatlar(simdi, kalemler);
     }

@@ -48,7 +48,7 @@ flowchart LR
 5. **Apply / Deploy Blueprint** düğmesine basın.
 6. İlk derleme **5–10 dakika** sürer (Maven bağımlılıkları indirilir). **Logs** sekmesinde şu satırları görünce sistem hazırdır:
    ```
-   Successfully applied 4 migrations ... now at version v4
+   Successfully applied 5 migrations ... now at version v5
    Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.
    Started SiirtFistikApplication in ... seconds
    ```
@@ -79,7 +79,7 @@ flowchart LR
   - Demo hesapları kilitlidir: ziyaretçiler onların rolünü veya şifresini değiştiremez.
 - **Yönetici şifresi:** Render, `BASLANGIC_SIFRESI` değişkenini rastgele üretir. Şifreyle giriş yapmak isterseniz değeri Render panelinde **Environment** sekmesinde görebilirsiniz.
 - **Güncelleme:** GitHub'a her `git push` sonrası Render otomatik olarak yeniden derleyip yayınlar (`autoDeploy: true`).
-- **Demoyu kapatmak (gerçek kullanım):** Render → **Environment** → `DEMO_HESAPLARI`, `DEMO_VERISI` ve `GECE_SIFIRLAMA` değerlerini `false` yapın.
+- **Demoyu kapatmak (gerçek kullanım):** Render → **Environment** → `DEMO_HESAPLARI`, `DEMO_VERISI` ve `GECE_SIFIRLAMA` değerlerini `false` yapın. Swagger'ı da kapatmak için `API_DOKUMANI=false` ekleyin.
 - **Ücretsiz plan sınırları:**
   - Render: aylık 750 saat çalışma ve 512 MB bellek. Dockerfile'daki JVM ayarları bu belleğe göre yapıldı.
   - Neon: 0,5 GB depolama.

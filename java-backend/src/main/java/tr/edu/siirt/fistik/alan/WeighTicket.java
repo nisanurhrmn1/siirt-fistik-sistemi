@@ -38,8 +38,28 @@ public class WeighTicket {
     @Column(name = "gross_kg")
     private BigDecimal grossKg;
 
+    /** Toplam dara: araç darası + çuval sayısı × çuval darası. */
     @Column(name = "tare_kg")
     private BigDecimal tareKg;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_type")
+    private ProductType productType = ProductType.DRY;
+
+    @Column(name = "sack_count")
+    private int sackCount;
+
+    /** Çuval başına dara (kg). */
+    @Column(name = "sack_tare_kg")
+    private BigDecimal sackTareKg = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gross_source")
+    private WeightSource grossSource = WeightSource.MANUAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tare_source")
+    private WeightSource tareSource = WeightSource.MANUAL;
 
     @Generated(event = {EventType.INSERT, EventType.UPDATE})  // gross_kg - tare_kg, veritabanında hesaplanır
     @Column(name = "net_kg", insertable = false, updatable = false)

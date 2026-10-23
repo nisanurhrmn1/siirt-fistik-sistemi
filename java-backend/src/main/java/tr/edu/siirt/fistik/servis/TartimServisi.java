@@ -91,7 +91,12 @@ public class TartimServisi {
         // Tek zaman damgası: fiyat bu ana göre kilitlenir.
         OffsetDateTime an = Dogrulama.simdi();
         WeighTicket t = kurallar.tartimOlustur(u.getId(), g.plaka(), g.brutKg(), kullaniciId, an, g.soforAdi());
-        kurallar.daraKaydet(t, g.daraKg(), an);
+        t.setProductType(g.urunTuru());
+        t.setSackCount(g.cuvalSayisi());
+        t.setSackTareKg(g.cuvalDarasiKg());
+        t.setGrossSource(g.brutKaynagi());
+        t.setTareSource(g.daraKaynagi());
+        kurallar.daraKaydet(t, g.toplamDara(), an);      // net = brüt − (araç darası + çuval × çuval darası)
         KaliteAnalizi k = g.kalite();
         kurallar.kaliteAnaliziKaydet(t, k.numuneGram(), k.catlakOrani(), k.randiman(), k.bosOrani(), k.curukOrani(),
                 k.nemOrani(), kullaniciId, an, manuelSinif, g.manuelKaliteGerekcesi());
@@ -137,17 +142,24 @@ public class TartimServisi {
                 t.getProducerId(), u.getFullName(), t.getVehiclePlate(), t.getDriverName(), t.getGrossKg(), t.getTareKg(),
                 t.getNetKg(), t.getGrossWeighedAt(), kalite,
                 p != null ? new FiyatKilidi(p.getId(), t.getUnitPrice(), p.getValidFrom(), p.getApprovedAt(), t.getPricedAt()) : null,
-                s != null ? finans.hakedisYaniti(s) : null, stok, kurallar.ureticiBakiyesi(t.getProducerId()));
+                s != null ? finans.hakedisYaniti(s) : null, stok, kurallar.ureticiBakiyesi(t.getProducerId()),
+                t.getProductType(), t.getProductType().getAd(), aracDarasi(t), t.getSackCount(), t.getSackTareKg(),
+                t.getGrossSource(), t.getTareSource());
+    }
+
+    private static BigDecimal aracDarasi(WeighTicket t) {
+        if (t.getTareKg() == null) return null;
+        return t.getTareKg().subtract(t.getSackTareKg().multiply(BigDecimal.valueOf(t.getSackCount())));
     }
 
     /** Hiçbir şey kaydetmeden, kaydedilseydi oluşacak sınıf/fiyat/hakedişi aynı kurallarla hesaplar. */
     @Transactional(readOnly = true)
     public TartimOnizleme onizle(OnizlemeGirisi g) {
-        BigDecimal netKg = g.brutKg().subtract(g.daraKg());
+        BigDecimal netKg = g.brutKg().subtract(g.toplamDara());
         List<String> uyarilar = new ArrayList<>();
         KaliteAnalizi k = g.kalite();
         QualityGrade sinif = g.manuelKaliteKodu() != null ? sinifKodla(g.manuelKaliteKodu())
-                : kurallar.sinifBelirle(k.catlakOrani(), k.randiman(), k.bosOrani(), k.curukOrani(), k.nemOrani());
+                : kurallar.sinifBelirle(g.urunTuru(), k.catlakOrani(), k.randiman(), k.bosOrani(), k.curukOrani(), k.nemOrani());
 
         BigDecimal acikAvans = ZERO;
         if (g.ureticiId() != null) {
@@ -192,7 +204,7 @@ public class TartimServisi {
                     t.getNetKg(), qi != null ? em.find(QualityGrade.class, qi.getQualityGradeId()).getCode() : null,
                     t.getUnitPrice(), s != null ? s.getId() : null, s != null ? s.getNetPayable() : null,
                     s != null ? s.getNetPayable().subtract(s.getPaidAmount()) : null,
-                    s != null ? s.getStatus().name() : null));
+                    s != null ? s.getStatus().name() : null, t.getProductType()));
         }
         return sonuc;
     }

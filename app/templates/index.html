@@ -23,11 +23,13 @@
     };
   </script>
   <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}?v={{ surum }}">
+  <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
+  <style id="sayfa-boyutu" media="print"></style>
   <script defer src="{{ url_for('static', path='js/app.js') }}?v={{ surum }}"></script>
   <script defer src="{{ url_for('static', path='vendor/alpinejs-3.14.1.min.js') }}"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
-      x-data="panel" x-cloak>
+      x-data="panel" x-cloak @keydown.window="kisayol($event)">
 
   <!-- ─── Üst bar (cam efekti) ─── -->
   <header x-show="!girisGerekli" class="ust-bar no-print sticky top-0 z-30">
@@ -64,7 +66,8 @@
           <svg class="h-4 w-4" :class="yenileniyor && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.6m15.4 2A8 8 0 004.6 9M4.6 9H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"/></svg>
           <span class="hidden sm:inline">Yenile</span>
         </button>
-        <a href="/docs" target="_blank" class="btn-ghost">
+        <!-- API dokümanı bağlantısı yalnızca yöneticiye (girişsiz Python prototipinde herkese) -->
+        <a x-show="!kimlikDogrulama || oturum?.rol === 'ADMIN'" href="/docs" target="_blank" rel="noopener" class="btn-ghost">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
           <span class="hidden sm:inline">API</span>
         </a>
