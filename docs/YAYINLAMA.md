@@ -7,6 +7,8 @@ Sistem iki ücretsiz servisle yayınlanır:
 | **[Neon](https://neon.tech)** | PostgreSQL veritabanı | Ücretsiz planı süresizdir (Render'ın ücretsiz veritabanı 30 günde silinir); `btree_gist` desteklenir |
 | **[Render](https://render.com)** | Java sunucusu (Docker) | GitHub'dan otomatik derler ve yayınlar; ücretsiz planı vardır |
 
+Bu projenin canlı adresi: **https://siirt-fistik.onrender.com**
+
 Toplam süre yaklaşık 15 dakika. Kod tarafında hazırlık tamam: depoda bir [`Dockerfile`](../Dockerfile) ve bir Render kurulum dosyası ([`render.yaml`](../render.yaml)) var.
 
 ```mermaid

@@ -8,6 +8,9 @@ kantar tartımı, kalite analizi, günlük fiyat, üretici hakedişi, avans, öd
 Sistem bir **REST API** (Java 21 · Spring Boot 3 · PostgreSQL) ve bu API'yi kullanan bir **web yönetim paneli**nden oluşur.
 Panel dahil her şey **internetsiz** çalışır.
 
+### 🌐 Canlı demo: **https://siirt-fistik.onrender.com**
+Giriş ekranındaki düğmelerle her rolü (Kantar memuru, Muhasebe, Fiyat yöneticisi…) tek tıkla deneyebilirsiniz. Demo verisi her gece 03:00'te sıfırlanır. Sunucu ücretsiz planda çalıştığı için 15 dakika kullanılmazsa uyur; ilk açılış 30–60 saniye sürebilir.
+
 ![Günlük özet kartları](docs/ekran-goruntuleri/01-ozet-paneli.png)
 
 ---
