@@ -3,7 +3,6 @@ package tr.edu.siirt.fistik.api;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.persistence.EntityManager;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -13,11 +12,12 @@ import jakarta.validation.constraints.Size;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-import tr.edu.siirt.fistik.alan.User;
-import tr.edu.siirt.fistik.alan.UserRole;
 import tr.edu.siirt.fistik.api.Istekler.*;
 import tr.edu.siirt.fistik.api.Yanitlar.*;
 import tr.edu.siirt.fistik.kural.Dogrulama;
@@ -35,8 +35,6 @@ public final class Kontrolculer {
     private Kontrolculer() {
     }
 
-    static final String KULLANICI = "X-Kullanici-Id";
-
     /** Alan kısıtları geçtikten sonra çok alanlı kuralları denetler (aksi halde 422). */
     static <T> T model(T istek) {
         if (istek instanceof ModelKontrollu m) {
@@ -46,25 +44,13 @@ public final class Kontrolculer {
         return istek;
     }
 
-    /** İşlemi yapan kullanıcı. TODO: kimlik doğrulama eklendiğinde token'dan okunacak. */
+    /** İşlemi yapan kullanıcı: giriş token'ındaki "sub" (kullanıcı id'si). Her kayıt bu kullanıcıyla imzalanır. */
     @Component
     public static class KullaniciCozucu {
-        private final EntityManager em;
-
-        public KullaniciCozucu(EntityManager em) {
-            this.em = em;
-        }
-
-        @Transactional(readOnly = true)
-        public Long coz(Long baslikId) {
-            if (baslikId != null) {
-                User u = em.find(User.class, baslikId);
-                if (u == null || !u.isActive()) throw new YetkiHatasi("Kullanıcı bulunamadı veya pasif (id=%d).".formatted(baslikId));
-                return u.getId();
-            }
-            return em.createQuery("select u.id from User u where u.active = true and u.role = :r order by u.id", Long.class)
-                    .setParameter("r", UserRole.ADMIN).setMaxResults(1).getResultStream().findFirst()
-                    .orElseThrow(() -> new YetkiHatasi("Sistemde aktif kullanıcı yok; X-Kullanici-Id başlığı gönderin."));
+        public Long mevcut() {
+            Authentication a = SecurityContextHolder.getContext().getAuthentication();
+            if (a instanceof JwtAuthenticationToken jwt) return Long.valueOf(jwt.getToken().getSubject());
+            throw new YetkiHatasi("Oturum açmanız gerekiyor.");
         }
     }
 
@@ -83,7 +69,8 @@ public final class Kontrolculer {
 
         @PostMapping
         @ResponseStatus(HttpStatus.CREATED)
-        @Operation(summary = "Yeni üretici kaydı",
+        @PreAuthorize(Yetki.URETICI)
+        @Operation(summary = "Yeni üretici kaydı (Yönetici, Muhasebe)",
                 description = "TC Kimlik No (algoritma kontrolü), Vergi No, telefon ve IBAN (mod-97) doğrulanır. Aynı TC/VKN ile ikinci kayıt 409 döner.")
         public UreticiYaniti olustur(@Valid @RequestBody UreticiGirisi g) {
             return servis.olustur(model(g));
@@ -131,14 +118,16 @@ public final class Kontrolculer {
 
         @PostMapping
         @ResponseStatus(HttpStatus.CREATED)
-        @Operation(summary = "Tartım + kalite analizi ile fıstık alımı",
+        @PreAuthorize(Yetki.TARTIM)
+        @Operation(summary = "Tartım + kalite analizi ile fıstık alımı (Yönetici, Kantar memuru)",
                 description = "Tek işlemde: kantar fişi ve net kg, kalite sınıfı, tartım anındaki onaylı fiyatın kilitlenmesi, "
                         + "kesinti ve avans mahsubuyla hakediş, lot ve silo stok girişi. Aynı üretici aynı gün birden çok teslimat yapabilir.")
-        public TartimYaniti kaydet(@Valid @RequestBody TartimGirisi g, @RequestHeader(value = KULLANICI, required = false) Long k) {
-            return servis.kaydet(model(g), kullanici.coz(k));
+        public TartimYaniti kaydet(@Valid @RequestBody TartimGirisi g) {
+            return servis.kaydet(model(g), kullanici.mevcut());
         }
 
         @PostMapping("/onizleme")
+        @PreAuthorize(Yetki.TARTIM)
         @Operation(summary = "Kaydetmeden tahmini hakediş", description = "Kantar ekranındaki canlı hesaplama; veritabanına yazılmaz.")
         public TartimOnizleme onizle(@Valid @RequestBody OnizlemeGirisi g) {
             return servis.onizle(model(g));
@@ -174,10 +163,11 @@ public final class Kontrolculer {
 
         @PostMapping
         @ResponseStatus(HttpStatus.CREATED)
-        @Operation(summary = "Kalite sınıflarına göre taban fiyat girişi",
+        @PreAuthorize(Yetki.FIYAT)
+        @Operation(summary = "Kalite sınıflarına göre taban fiyat girişi (Yönetici, Fiyat yöneticisi)",
                 description = "Fiyatlar onaylı kaydedilir; aynı sınıfın önceki fiyatı yeni fiyatın başladığı anda kapanır. Geçmişe dönük fiyat girilemez.")
-        public List<FiyatYaniti> gir(@Valid @RequestBody FiyatGirisi g, @RequestHeader(value = KULLANICI, required = false) Long k) {
-            return servis.gir(model(g), kullanici.coz(k));
+        public List<FiyatYaniti> gir(@Valid @RequestBody FiyatGirisi g) {
+            return servis.gir(model(g), kullanici.mevcut());
         }
 
         @GetMapping("/guncel")
@@ -202,10 +192,11 @@ public final class Kontrolculer {
 
         @PostMapping("/avanslar")
         @ResponseStatus(HttpStatus.CREATED)
-        @Operation(summary = "Üreticiye avans ver",
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Üreticiye avans ver (Yönetici, Muhasebe)",
                 description = "Avans cari hesaba borç yazılır; bakiye eksiye düşebilir. Sonraki hakedişlerden FIFO ile mahsup edilir.")
-        public AvansYaniti avansVer(@Valid @RequestBody AvansGirisi g, @RequestHeader(value = KULLANICI, required = false) Long k) {
-            return servis.avansVer(g, kullanici.coz(k));
+        public AvansYaniti avansVer(@Valid @RequestBody AvansGirisi g) {
+            return servis.avansVer(g, kullanici.mevcut());
         }
 
         @GetMapping("/hakedisler/{id}")
@@ -215,12 +206,12 @@ public final class Kontrolculer {
         }
 
         @PostMapping("/hakedisler/{id}/odeme-yap")
-        @Operation(summary = "Hakediş ödemesi (kısmi veya tam)",
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Hakediş ödemesi, kısmi veya tam (Yönetici, Muhasebe)",
                 description = "Önce hakediş oluştuktan sonra verilmiş açık avansları kalan tutardan mahsup eder, ardından öder. "
                         + "201: ödeme kaydı oluştu · 200: kalanın tamamı avansa mahsup edildi · 400: kapalı hakediş veya tutar aşımı")
-        public ResponseEntity<OdemeSonucu> odemeYap(@PathVariable Long id, @Valid @RequestBody OdemeGirisi g,
-                                                    @RequestHeader(value = KULLANICI, required = false) Long k) {
-            var islem = servis.odemeYap(id, g, kullanici.coz(k));
+        public ResponseEntity<OdemeSonucu> odemeYap(@PathVariable Long id, @Valid @RequestBody OdemeGirisi g) {
+            var islem = servis.odemeYap(id, g, kullanici.mevcut());
             return ResponseEntity.status(islem.odemeOlustu() ? HttpStatus.CREATED : HttpStatus.OK).body(islem.sonuc());
         }
     }

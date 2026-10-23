@@ -29,7 +29,8 @@
       <label class="etiket">Geçerlilik başlangıcı <span class="text-stone-400 font-normal">(boş = hemen)</span></label>
       <input type="datetime-local" x-model="fiyatGecerlilik" class="girdi">
     </div>
-    <button type="submit" class="btn-birincil w-full" :disabled="fiyatKaydediliyor">Fiyatları Yayınla</button>
+    <button type="submit" class="btn-birincil w-full" :disabled="fiyatKaydediliyor || !yetkili('fiyat_gir')" :title="yetkiYok('fiyat_gir')">Fiyatları Yayınla</button>
+    <p x-show="!yetkili('fiyat_gir')" class="text-xs text-stone-500 text-center" x-text="yetkiYok('fiyat_gir')"></p>
   </form>
 
   <!-- Depo -->

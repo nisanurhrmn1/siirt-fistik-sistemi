@@ -189,6 +189,7 @@ Sistem önce Python (FastAPI) ile prototiplendi, ardından aynı mimariyle Java'
 | Arayüz | **Alpine.js** + **Tailwind CSS** | Node/React derleme adımı olmadan reaktif, modern arayüz |
 | Derleme | **Maven** (`mvnw` sarmalayıcısı) | Maven kurmadan derleme |
 | Test | **JUnit 5** + ortak sözleşme testleri (pytest) | Birim testleri ve uçtan uca API testleri |
+| Güvenlik | **Spring Security** + **JWT** (HS256), BCrypt | Rol bazlı yetki (`@PreAuthorize`), durumsuz (stateless) oturum |
 | Kod kısaltma | **Lombok** | Varlık sınıflarında getter/setter |
 
 Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, ReDoc) `static/vendor/` klasöründedir; Swagger UI jar içinde gelir. Sistem **hiçbir dış adrese istek atmaz**.
@@ -274,6 +275,27 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `--fistik.demo-verisi` | `false` | `true` ise boş veritabanına örnek veri yükler |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 
+### Kullanıcılar ve roller
+
+Panel açıldığında giriş ekranı gelir. Her rol yalnızca kendi işlemlerini yapabilir. Bu kurallar **sunucuda** (`@PreAuthorize`) uygulanır; panel ayrıca yetkisi olmayan butonları kilitler ve nedenini gösterir.
+
+| Rol | Kullanıcı adı | Yapabildikleri |
+|---|---|---|
+| Yönetici | `admin` | Her şey |
+| Kantar memuru | `kantar` | Tartım ve fiş kesme (canlı hakediş önizlemesi dahil) |
+| Muhasebe | `muhasebe` | Üretici kaydı, avans verme, hakediş ödemesi |
+| Fiyat yöneticisi | `fiyat` | Günlük taban fiyat belirleme |
+| Depo sorumlusu | `depo` | Stok, rapor ve ekstreleri izleme (yalnızca okuma) |
+
+Okuma işlemleri (listeler, raporlar, ekstre) giriş yapmış herkese açıktır. Her kayıt, işlemi yapan kullanıcıyla imzalanır (`weighed_by_id`, `created_by_id`…).
+
+- **Demo modu** (varsayılan açık): Giriş ekranında her rol için **tek tıkla giriş** düğmesi vardır. Hesaplar ilk açılışta oluşturulur; başlangıç şifresi `application.properties` içindeki `fistik.baslangic-sifresi` ayarıdır.
+- **Gerçek kullanım:** `DEMO_HESAPLARI=false` ve güçlü bir `BASLANGIC_SIFRESI` ortam değişkeni verin.
+- **Güvenlik ayrıntıları:**
+  - Şifreler BCrypt özeti olarak saklanır.
+  - Token 8 saat (bir vardiya) geçerlidir; `.env` içindeki `JWT_SECRET` ile imzalanır.
+  - Yanlış girişte "kullanıcı adı veya şifre hatalı" denir; hangi kullanıcı adlarının var olduğu sızdırılmaz.
+
 ### Python prototipi (isteğe bağlı)
 
 İnternetsiz ve PostgreSQL'siz hızlı bir gösterim için Python prototipi hâlâ çalışır: **`python-demo.bat`** ayrı bir SQLite dosyasıyla (`demo.db`) açılır. Python sunucusu `.\.venv\Scripts\python.exe -m uvicorn app.main:app` komutuyla da başlatılabilir; `.env` varsa aynı PostgreSQL veritabanını kullanır.
@@ -284,8 +306,15 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 
 Tüm uç noktalar `/api/v1` önekiyle başlar. Ayrıntılı istek/yanıt örnekleri `/docs` adresindedir.
 
+Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>` başlığı ister. Swagger'da sağ üstteki **Authorize** düğmesiyle token girilebilir.
+
 | Metot | Yol | Açıklama | Başarı |
 |---|---|---|---|
+| **Oturum** ||||
+| `POST` | `/oturum/giris` | Kullanıcı adı ve şifreyle giriş → JWT | 200 |
+| `POST` | `/oturum/demo-giris` | Demo hesabıyla tek tıkla giriş (yalnızca demo modunda) | 200 |
+| `GET` | `/oturum/demo-hesaplar` | Giriş ekranındaki demo hesapları (şifre içermez) | 200 |
+| `GET` | `/oturum/ben` | Oturumdaki kullanıcı, rolü ve yetkileri | 200 |
 | **Üreticiler** ||||
 | `POST` | `/ureticiler` | Yeni üretici (TC/VKN, telefon, IBAN doğrulamalı) | 201 |
 | `GET` | `/ureticiler` | Sayfalı, aranabilir üretici listesi | 200 |
@@ -317,7 +346,8 @@ Tüm uç noktalar `/api/v1` önekiyle başlar. Ayrıntılı istek/yanıt örnekl
 | Kod | Ne zaman | Örnek gövde |
 |---|---|---|
 | 400 | İş kuralı ihlali | `{"hata": "A sınıfı için tartım anında (22.10.2026 08:15) onaylı fiyat yok."}` |
-| 401 | Kullanıcı bulunamadı | `{"hata": "Kullanıcı bulunamadı veya pasif (id=9)."}` |
+| 401 | Giriş yok / token geçersiz / yanlış şifre | `{"hata": "Oturum açmanız gerekiyor."}` |
+| 403 | Rolün yetkisi yok | `{"hata": "Bu işlem için yetkiniz yok (rolünüz: Kantar memuru)."}` |
 | 404 | Kayıt yok | `{"hata": "Üretici bulunamadı (id=42)."}` |
 | 409 | Tekrarlı kayıt | `{"hata": "Bu TC Kimlik No ile kayıtlı bir üretici zaten var (id=1)."}` |
 | 422 | Doğrulama hatası | `{"hata": "Gönderilen veriler geçersiz.", "detaylar": [{"alan": "kalite.nem_orani", "mesaj": "En fazla 100 olabilir."}]}` |
@@ -365,12 +395,12 @@ cd java-backend
 
 `KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı.
 
-**Sözleşme testleri (uçtan uca, 27 test)** — aynı test paketi hem Java hem Python sunucusuna karşı çalışır. Böylece iki sürümün aynı davrandığı kanıtlanır:
+**Sözleşme testleri (uçtan uca)** — aynı test paketi hem Java hem Python sunucusuna karşı çalışır. Böylece iki sürümün aynı davrandığı kanıtlanır:
 
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (27 test)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (37 test: 27 + 10 güvenlik)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -382,6 +412,11 @@ cd java-backend
   - parçalı ödeme, stok ve günlük rapor
   - panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmaması
 - **`tests/test_postgres.py`** (8 test): Uygulamayı atlayıp doğrudan SQL ile veri bozmaya çalışır ve PostgreSQL'in reddettiğini doğrular. Kapsam: cari hesap defterinin değiştirilememesi, onaylı ve kilitli fiyatların korunması, çakışan fiyat aralığı, hakediş formülü, yanlış kalitenin siloya girememesi, rapor view'larının API ile aynı sonucu vermesi.
+- **`tests/test_guvenlik.py`** (10 test, yalnızca Java): Kapsam:
+  - giriş yapılmadan API'ye erişilememesi; sahte token ve yanlış şifrenin reddi
+  - yanlış girişte kullanıcı adlarının sızdırılmaması
+  - rol kuralları (kantar memuru ödeme yapamaz, muhasebe tartım yapamaz, depo sorumlusu yalnızca okur)
+  - her kaydın işlemi yapan kullanıcıyla imzalanması
 
 > Java'ya geçişte bu testler bir sıralama hatasını yakaladı: Hibernate, yeni fiyatı onaylayan güncellemeyi eski fiyatı kapatan güncellemeden önce gönderiyordu. O an iki onaylı fiyat çakıştığı için PostgreSQL'in `EXCLUDE` kısıtı işlemi reddetti. Hata `Kurallar.fiyatOnayla` içinde düzeltildi; veritabanı koruması amacına uygun çalıştı.
 
@@ -427,7 +462,7 @@ siirt-fistik-sistemi/
 
 | Konu | Mevcut durum | Öneri |
 |---|---|---|
-| Kimlik doğrulama | Yok. İşlemi yapan kullanıcı `X-Kullanici-Id` başlığıyla verilir; başlık yoksa yönetici kabul edilir. | JWT/OAuth2 ve rol bazlı yetki (kantar memuru, muhasebe, fiyat yöneticisi) |
+| Kullanıcı yönetimi | Hesaplar başlangıç verisiyle oluşturulur; panelden kullanıcı ekleme ve şifre değiştirme yok | Yönetici için kullanıcı/şifre yönetimi ekranı |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
 | Kantar entegrasyonu | Ağırlık elle girilir | Kantar göstergesinden seri port/TCP ile otomatik okuma |

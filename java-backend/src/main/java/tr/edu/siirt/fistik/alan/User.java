@@ -33,6 +33,10 @@ public class User {
     @Column(name = "is_active")
     private boolean active;
 
+    /** BCrypt özeti; düz şifre asla saklanmaz. */
+    @Column(name = "password_hash")
+    private String passwordHash;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -104,7 +104,8 @@
         </select>
       </div>
       <div class="flex items-end">
-        <button type="submit" class="btn-birincil w-full h-11" :disabled="kaydediliyor || !onizleme || !onizleme.birim_fiyat">
+        <button type="submit" class="btn-birincil w-full h-11" :title="yetkiYok('tartim')"
+                :disabled="kaydediliyor || !onizleme || !onizleme.birim_fiyat || !yetkili('tartim')">
           <span x-show="!kaydediliyor">Fişi Kes ve Kaydet</span>
           <span x-show="kaydediliyor">Kaydediliyor…</span>
         </button>

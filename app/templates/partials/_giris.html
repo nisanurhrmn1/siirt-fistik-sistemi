@@ -1,0 +1,71 @@
+<!-- ─── Giriş ekranı (yalnızca kimlik doğrulamalı sunucuda: Java sürümü) ─── -->
+<div x-show="girisGerekli" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50">
+  <div class="min-h-full flex items-center justify-center p-4 sm:p-8">
+    <div class="w-full max-w-4xl grid lg:grid-cols-5 gap-6 items-stretch">
+
+      <!-- Sol: tanıtım -->
+      <div class="serit lg:col-span-2 p-8 flex flex-col">
+        <img src="{{ url_for('static', path='img/fistik-dal.svg') }}" alt="" class="serit-dal">
+        <img src="{{ url_for('static', path='img/logo.svg') }}" alt="Siirt Fıstığı amblemi" class="amblem relative z-10 h-14 w-14">
+        <div class="relative z-10 mt-6">
+          <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
+          <h1 class="mt-2 text-2xl font-bold leading-tight">Alım ve Üretici Ödeme Sistemi</h1>
+          <p class="mt-3 text-sm text-emerald-50/90 leading-relaxed">
+            Kantar tartımı, kalite analizi, günlük fiyat, hakediş, avans ve ödemeler tek sistemde.
+            Her kullanıcı yalnızca kendi rolünün işlemlerini yapabilir.
+          </p>
+        </div>
+        <ul class="relative z-10 mt-auto pt-8 space-y-2 text-sm text-emerald-50/90">
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Tartım anında kilitlenen fiyat</li>
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Otomatik avans mahsubu</li>
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Rol bazlı yetkilendirme</li>
+        </ul>
+      </div>
+
+      <!-- Sağ: giriş formu ve demo hesapları -->
+      <div class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-stone-900">Giriş yap</h2>
+          <p class="text-sm text-stone-500 mt-1">Kullanıcı adınız ve şifrenizle oturum açın.</p>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="girisYap()">
+          <div>
+            <label class="etiket" for="kullanici_adi">Kullanıcı adı</label>
+            <input id="kullanici_adi" x-model="girisForm.kullanici_adi" autocomplete="username" class="girdi">
+          </div>
+          <div>
+            <label class="etiket" for="sifre">Şifre</label>
+            <input id="sifre" type="password" x-model="girisForm.sifre" autocomplete="current-password" class="girdi">
+          </div>
+          <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+          <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
+            <span x-text="girisYapiliyor ? 'Giriş yapılıyor…' : 'Giriş yap'"></span>
+          </button>
+        </form>
+
+        <template x-if="demoHesaplar.length">
+          <div>
+            <div class="flex items-center gap-3 text-xs text-stone-400 uppercase tracking-wider">
+              <span class="h-px flex-1 bg-stone-200"></span>Demo: tek tıkla dene<span class="h-px flex-1 bg-stone-200"></span>
+            </div>
+            <div class="mt-4 grid sm:grid-cols-2 gap-3">
+              <template x-for="h in demoHesaplar" :key="h.kullanici_adi">
+                <button type="button" @click="demoGiris(h.kullanici_adi)" :disabled="girisYapiliyor"
+                        class="mini-kart text-left flex items-center gap-3 hover:border-emerald-300 disabled:opacity-50">
+                  <span class="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br text-white flex items-center justify-center font-bold text-sm shadow"
+                        :class="rolBilgisi[h.rol]?.renk" x-text="basHarfler(h.rol_adi)"></span>
+                  <span class="min-w-0">
+                    <span class="block font-semibold text-sm text-stone-800" x-text="h.rol_adi"></span>
+                    <span class="block text-xs text-stone-500" x-text="rolBilgisi[h.rol]?.aciklama"></span>
+                  </span>
+                </button>
+              </template>
+            </div>
+            <p class="mt-3 text-xs text-stone-400">Demo hesapları sunum içindir; gerçek kullanımda kapatılır.</p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>

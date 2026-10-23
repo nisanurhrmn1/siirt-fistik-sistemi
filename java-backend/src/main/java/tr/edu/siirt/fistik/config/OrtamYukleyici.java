@@ -28,8 +28,11 @@ public final class OrtamYukleyici {
             }
         }
         System.getenv().forEach((k, v) -> {
-            if (k.equals("DATABASE_URL")) env.put(k, v);
+            if (k.equals("DATABASE_URL") || k.equals("JWT_SECRET")) env.put(k, v);
         });
+        if (env.get("JWT_SECRET") != null && System.getProperty("fistik.jwt-anahtar") == null) {
+            System.setProperty("fistik.jwt-anahtar", env.get("JWT_SECRET"));
+        }
         String url = env.get("DATABASE_URL");
         if (url == null || System.getProperty("spring.datasource.url") != null || System.getenv("SPRING_DATASOURCE_URL") != null) {
             return;

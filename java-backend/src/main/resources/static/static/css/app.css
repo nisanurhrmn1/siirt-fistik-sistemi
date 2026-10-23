@@ -132,6 +132,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
 .btn-birincil:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
 .btn-ikincil { background: rgba(236, 253, 245, .8); color: #065f46; border: 1px solid #a7f3d0; padding: .5rem 1rem; }
 .btn-ikincil:hover { background: #d1fae5; box-shadow: 0 6px 14px -8px rgba(5, 150, 105, .6); }
+.btn-ikincil:disabled, .btn-kucuk:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-ghost { color: #44403c; padding: .45rem .8rem; font-size: .875rem; font-weight: 550; }
 .btn-ghost:hover { background: rgba(255, 255, 255, .8); }
 .btn-kucuk { font-size: .75rem; padding: .35rem .7rem; color: #fff; background: linear-gradient(135deg, var(--zumrut), var(--fistik)); }

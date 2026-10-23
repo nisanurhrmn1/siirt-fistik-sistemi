@@ -29,9 +29,15 @@ public class WebAyarlari {
                         Para ve ağırlık değerleri hassasiyet kaybı olmaması için JSON'da **metin** olarak döner
                         (ör. `"300000.00"`); isteklerde sayı veya metin gönderilebilir.
 
-                        Kimlik doğrulama henüz yok: işlemi yapan kullanıcı `X-Kullanici-Id` başlığıyla verilir,
-                        boşsa ilk aktif yönetici kullanılır."""))
+                        **Kimlik doğrulama:** `POST /api/v1/oturum/giris` ile token alın, sağ üstteki **Authorize**
+                        düğmesine yapıştırın. Her rol yalnızca kendi işlemlerini yapabilir (ör. kantar memuru ödeme yapamaz)."""))
+                .components(new io.swagger.v3.oas.models.Components().addSecuritySchemes("jwt",
+                        new io.swagger.v3.oas.models.security.SecurityScheme()
+                                .type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")
+                                .description("POST /api/v1/oturum/giris yanıtındaki token")))
+                .addSecurityItem(new io.swagger.v3.oas.models.security.SecurityRequirement().addList("jwt"))
                 .tags(java.util.List.of(
+                        etiket("Oturum", "Giriş, demo girişi ve oturumdaki kullanıcı"),
                         etiket("Üreticiler", "Üretici kaydı, listeleme ve cari hesap ekstresi"),
                         etiket("Kantar ve Alım", "Tartım, kalite analizi, fiyat kilidi, hakediş ve stok girişi"),
                         etiket("Fiyat Yönetimi", "Kalite sınıfı bazlı günlük taban fiyatlar"),

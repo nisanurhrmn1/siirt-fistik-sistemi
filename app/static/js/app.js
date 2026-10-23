@@ -4,8 +4,13 @@ const fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY
 const fmtSayi = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
 
 class ApiHatasi extends Error {
-  constructor(mesaj, detaylar = []) { super(mesaj); this.detaylar = detaylar; }
+  constructor(mesaj, detaylar = [], durum = 0) { super(mesaj); this.detaylar = detaylar; this.durum = durum; }
 }
+
+// Giriş token'ı (JWT). Sekme kapanınca silinir; sunucu tarafında oturum tutulmaz.
+const TOKEN_ANAHTARI = 'fistik_token';
+const tokenOku = () => { try { return sessionStorage.getItem(TOKEN_ANAHTARI); } catch { return null; } };
+const tokenYaz = (t) => { try { t ? sessionStorage.setItem(TOKEN_ANAHTARI, t) : sessionStorage.removeItem(TOKEN_ANAHTARI); } catch { /* yok say */ } };
 
 async function api(yol, { method = 'GET', body, params } = {}) {
   let url = API + yol;
@@ -13,13 +18,13 @@ async function api(yol, { method = 'GET', body, params } = {}) {
     const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== null && v !== undefined && v !== ''));
     if ([...q].length) url += '?' + q;
   }
-  const res = await fetch(url, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const headers = body ? { 'Content-Type': 'application/json' } : {};
+  const token = tokenOku();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const veri = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiHatasi(veri?.hata || `İstek başarısız (HTTP ${res.status})`, veri?.detaylar || []);
+  if (res.status === 401 && !yol.startsWith('/oturum/')) window.dispatchEvent(new CustomEvent('oturum-dustu', { detail: veri?.hata }));
+  if (!res.ok) throw new ApiHatasi(veri?.hata || `İstek başarısız (HTTP ${res.status})`, veri?.detaylar || [], res.status);
   return veri;
 }
 
@@ -97,12 +102,96 @@ document.addEventListener('alpine:init', () => {
     fiyatGecerlilik: '',
     fiyatKaydediliyor: false,
 
+    // oturum
+    oturum: null,                 // { id, kullanici_adi, ad_soyad, rol, rol_adi, yetkiler }
+    kimlikDogrulama: true,        // Python prototipinde giriş yok → false
+    girisGerekli: false,
+    girisForm: { kullanici_adi: '', sifre: '' },
+    girisHata: '',
+    girisYapiliyor: false,
+    demoHesaplar: [],
+    rolBilgisi: {
+      ADMIN: { aciklama: 'Tüm işlemler', sekme: 'kantar', renk: 'from-emerald-600 to-fistik-700' },
+      SCALE_OPERATOR: { aciklama: 'Tartım ve fiş kesme', sekme: 'kantar', renk: 'from-emerald-500 to-teal-600' },
+      ACCOUNTING: { aciklama: 'Üretici, avans ve ödeme', sekme: 'uretici', renk: 'from-teal-500 to-cyan-700' },
+      PRICE_MANAGER: { aciklama: 'Günlük fiyat belirleme', sekme: 'fiyat', renk: 'from-amber-400 to-amber-600' },
+      WAREHOUSE: { aciklama: 'Stok ve raporları izleme', sekme: 'fiyat', renk: 'from-lime-500 to-fistik-600' },
+      QUALITY: { aciklama: 'Kalite analizlerini izleme', sekme: 'kantar', renk: 'from-sky-500 to-indigo-600' },
+    },
+
     async init() {
       this.saatGuncelle();
       setInterval(() => this.saatGuncelle(), 30_000);
-      setInterval(() => this.yukleOzet(), 60_000);
+      setInterval(() => { if (!this.girisGerekli) this.yukleOzet().catch(() => {}); }, 60_000);
       this.$watch('kantar', () => this.onizlemeIste());
-      await this.hepsiniYenile();
+      window.addEventListener('oturum-dustu', (e) => this.oturumuKapat(e.detail || 'Oturum süresi doldu; lütfen tekrar giriş yapın.'));
+      await this.oturumKontrol();
+    },
+
+    // ─── Oturum ───
+    async oturumKontrol() {
+      try {
+        this.oturum = await api('/oturum/ben');
+        this.girisGerekli = false;
+        await this.hepsiniYenile();
+      } catch (e) {
+        if (e.durum === 404) {            // sunucuda kimlik doğrulama yok (Python prototipi)
+          this.kimlikDogrulama = false;
+          await this.hepsiniYenile();
+        } else {
+          await this.girisEkraniAc();
+        }
+      }
+    },
+    async girisEkraniAc(mesaj = '') {
+      tokenYaz(null);
+      this.oturum = null;
+      this.girisGerekli = true;
+      this.girisHata = mesaj;
+      try { this.demoHesaplar = await api('/oturum/demo-hesaplar'); } catch { this.demoHesaplar = []; }
+    },
+    async oturumAc(istek) {
+      this.girisYapiliyor = true;
+      this.girisHata = '';
+      try {
+        const sonuc = await istek();
+        tokenYaz(sonuc.token);
+        this.oturum = sonuc.kullanici;
+        this.girisGerekli = false;
+        this.girisForm = { kullanici_adi: '', sifre: '' };
+        this.tab = this.rolBilgisi[this.oturum.rol]?.sekme || 'kantar';
+        this.bildir(`Hoş geldiniz, ${this.oturum.ad_soyad} (${this.oturum.rol_adi})`);
+        await this.hepsiniYenile();
+      } catch (e) {
+        this.girisHata = e.detaylar?.length ? 'Kullanıcı adı ve şifre zorunludur.' : e.message;
+      }
+      this.girisYapiliyor = false;
+    },
+    girisYap() {
+      return this.oturumAc(() => api('/oturum/giris', { method: 'POST', body: this.girisForm }));
+    },
+    demoGiris(kullanici_adi) {
+      return this.oturumAc(() => api('/oturum/demo-giris', { method: 'POST', body: { kullanici_adi } }));
+    },
+    cikisYap() {
+      this.bildir('Oturum kapatıldı.');
+      this.oturumuKapat();
+    },
+    oturumuKapat(mesaj = '') {
+      if (this.girisGerekli) return;
+      this.modal = null;
+      this.secili = null;
+      this.ekstre = null;
+      this.girisEkraniAc(mesaj);
+    },
+    /** Oturumdaki kullanıcı bu işlemi yapabilir mi? (Sunucu da ayrıca denetler; bu yalnızca arayüz kilidi.) */
+    yetkili(islem) {
+      return !this.kimlikDogrulama || !!this.oturum?.yetkiler?.includes(islem);
+    },
+    yetkiYok(islem) {
+      const kim = { tartim: 'kantar memuru', fiyat_gir: 'fiyat yöneticisi', uretici_ekle: 'muhasebe',
+                    avans_ver: 'muhasebe', odeme_yap: 'muhasebe' }[islem];
+      return this.yetkili(islem) ? '' : `Bu işlem için ${kim} veya yönetici yetkisi gerekir.`;
     },
 
     // ─── Yükleme ───
@@ -161,6 +250,11 @@ document.addEventListener('alpine:init', () => {
     },
     async onizlemeGetir() {
       const k = this.kantar;
+      if (!this.yetkili('tartim')) {
+        this.onizleme = null;
+        this.onizlemeMesaj = this.yetkiYok('tartim');
+        return;
+      }
       const eksik = ['brut_kg', 'dara_kg'].some((a) => k[a] === '')
         || ['catlak_orani', 'randiman', 'bos_orani', 'nem_orani'].some((a) => k.kalite[a] === '');
       if (eksik) {

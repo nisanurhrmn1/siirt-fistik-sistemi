@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import tr.edu.siirt.fistik.alan.PaymentMethod;
 import tr.edu.siirt.fistik.alan.ProducerType;
 import tr.edu.siirt.fistik.api.Istekler.*;
-import tr.edu.siirt.fistik.api.Kontrolculer.KullaniciCozucu;
 import tr.edu.siirt.fistik.api.Yanitlar.TartimYaniti;
 import tr.edu.siirt.fistik.api.Yanitlar.UreticiYaniti;
 
@@ -31,17 +30,15 @@ public class DemoVerisi implements ApplicationRunner {
     private final FiyatServisi fiyatlar;
     private final FinansServisi finans;
     private final TartimServisi tartimlar;
-    private final KullaniciCozucu kullanici;
 
     public DemoVerisi(@Value("${fistik.demo-verisi:false}") boolean etkin, EntityManager em, UreticiServisi ureticiler,
-                      FiyatServisi fiyatlar, FinansServisi finans, TartimServisi tartimlar, KullaniciCozucu kullanici) {
+                      FiyatServisi fiyatlar, FinansServisi finans, TartimServisi tartimlar) {
         this.etkin = etkin;
         this.em = em;
         this.ureticiler = ureticiler;
         this.fiyatlar = fiyatlar;
         this.finans = finans;
         this.tartimlar = tartimlar;
-        this.kullanici = kullanici;
     }
 
     private static BigDecimal d(String s) {
@@ -55,7 +52,8 @@ public class DemoVerisi implements ApplicationRunner {
             System.out.println("Veritabanında zaten üretici var; demo verisi eklenmedi.");
             return;
         }
-        Long k = kullanici.coz(null);
+        Long k = em.createQuery("select u.id from User u where u.role = :r order by u.id", Long.class)
+                .setParameter("r", tr.edu.siirt.fistik.alan.UserRole.ADMIN).setMaxResults(1).getSingleResult();
         // TC'ler algoritmik olarak geçerli, gerçek kişilere ait olmayan test numaralarıdır.
         List<UreticiYaniti> u = new ArrayList<>();
         u.add(ureticiler.olustur(new UreticiGirisi(null, "10000000146", null, null, "Ahmet Yılmaz", "0532 111 22 33", null, null,

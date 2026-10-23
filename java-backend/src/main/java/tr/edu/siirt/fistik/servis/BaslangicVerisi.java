@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tr.edu.siirt.fistik.alan.*;
@@ -13,7 +14,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * İlk açılışta başlangıç verisi: yönetici kullanıcı, kalite sınıfları, kesinti türleri ve silolar.
+ * İlk açılışta başlangıç verisi: kullanıcı hesapları, kalite sınıfları, kesinti türleri ve silolar.
  * Yalnızca ilgili tablo boşsa ekler; tekrar çalışması güvenlidir. Fiyatlar panelden / API'den girilir.
  */
 @Component
@@ -21,10 +22,19 @@ public class BaslangicVerisi implements ApplicationRunner {
 
     private final EntityManager em;
     private final boolean etkin;
+    private final boolean demoHesaplari;
+    private final String baslangicSifresi;
+    private final PasswordEncoder sifreleyici;
 
-    public BaslangicVerisi(EntityManager em, @Value("${fistik.seed-demo-data:true}") boolean etkin) {
+    public BaslangicVerisi(EntityManager em, PasswordEncoder sifreleyici,
+                           @Value("${fistik.seed-demo-data:true}") boolean etkin,
+                           @Value("${fistik.demo-hesaplari:true}") boolean demoHesaplari,
+                           @Value("${fistik.baslangic-sifresi}") String baslangicSifresi) {
         this.em = em;
+        this.sifreleyici = sifreleyici;
         this.etkin = etkin;
+        this.demoHesaplari = demoHesaplari;
+        this.baslangicSifresi = baslangicSifresi;
     }
 
     private boolean bos(Class<?> varlik) {
@@ -35,14 +45,7 @@ public class BaslangicVerisi implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         if (!etkin) return;
-        if (bos(User.class)) {
-            User u = new User();
-            u.setUsername("admin");
-            u.setFullName("Sistem Yöneticisi");
-            u.setRole(UserRole.ADMIN);
-            u.setActive(true);
-            em.persist(u);
-        }
+        hesaplariHazirla();
         if (bos(QualityGrade.class)) {
             em.persist(sinif("A", "1. Sınıf", 1, "85", "55", "5", "8"));
             em.persist(sinif("B", "2. Sınıf", 2, "70", "48", "10", "10"));
@@ -63,6 +66,30 @@ public class BaslangicVerisi implements ApplicationRunner {
             em.persist(silo("S-B1", "B Sınıfı Silo", "10000", s.get("B")));
             em.persist(silo("S-ISK", "Iskarta Deposu", "4000", s.get("ISK")));
         }
+    }
+
+    /**
+     * Yönetici hesabı her zaman; demo modunda her rol için birer hesap. Şifresi olmayan mevcut hesaplara
+     * (ör. Python sürümünün oluşturduğu "admin") şifre atanır. Şifreler BCrypt özeti olarak saklanır.
+     */
+    private void hesaplariHazirla() {
+        for (Object[] h : tr.edu.siirt.fistik.api.Oturum.DEMO_HESAPLARI) {
+            String ad = (String) h[0];
+            UserRole rol = (UserRole) h[2];
+            if (!demoHesaplari && rol != UserRole.ADMIN) continue;
+            User u = em.createQuery("select u from User u where u.username = :a", User.class).setParameter("a", ad)
+                    .getResultStream().findFirst().orElse(null);
+            if (u == null) {
+                u = new User();
+                u.setUsername(ad);
+                u.setFullName((String) h[1]);
+                u.setRole(rol);
+                u.setActive(true);
+                em.persist(u);
+            }
+            if (u.getPasswordHash() == null) u.setPasswordHash(sifreleyici.encode(baslangicSifresi));
+        }
+        em.flush();
     }
 
     private static BigDecimal d(String s) {

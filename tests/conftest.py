@@ -74,6 +74,10 @@ def client(request, db_engine):
     java_url = request.config.getoption("--java")
     if java_url:
         with httpx.Client(base_url=java_url, follow_redirects=True, timeout=30) as c:
+            # Java sürümünde API giriş ister: testler yönetici (tüm yetkiler) olarak çalışır
+            r = c.post("/api/v1/oturum/demo-giris", json={"kullanici_adi": "admin"})
+            assert r.status_code == 200, r.text
+            c.headers["Authorization"] = f"Bearer {r.json()['token']}"
             yield c
         return
     engine = db_engine

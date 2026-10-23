@@ -4,7 +4,7 @@
   <div class="panel-kutu">
     <div class="flex items-center justify-between gap-2 mb-4">
       <h2 class="baslik">Üreticiler</h2>
-      <button class="btn-birincil" @click="ureticiModalAc()">+ Yeni Üretici</button>
+      <button class="btn-birincil" @click="ureticiModalAc()" :disabled="!yetkili('uretici_ekle')" :title="yetkiYok('uretici_ekle')">+ Yeni Üretici</button>
     </div>
     <input type="search" x-model="ureticiArama" placeholder="Ad, TC veya telefon ara…" class="girdi mb-3">
     <ul class="divide-y divide-stone-100 -mx-2 max-h-[34rem] overflow-y-auto">
@@ -49,7 +49,7 @@
                  x-text="secili.banka_hesaplari[0] && `${secili.banka_hesaplari[0].banka_adi} · ${ibanYaz(secili.banka_hesaplari[0].iban)}`"></p>
             </div>
             <div class="ml-auto flex gap-2">
-              <button class="btn-ikincil" @click="avansModalAc()">Avans Ver</button>
+              <button class="btn-ikincil" @click="avansModalAc()" :disabled="!yetkili('avans_ver')" :title="yetkiYok('avans_ver')">Avans Ver</button>
             </div>
           </div>
 
@@ -100,7 +100,7 @@
                       <span class="durum" :class="durumRenk(t.hakedis_durumu)" x-text="durumAd(t.hakedis_durumu)"></span>
                     </td>
                     <td class="text-right">
-                      <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)">Ödeme Yap</button>
+                      <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)" :disabled="!yetkili('odeme_yap')" :title="yetkiYok('odeme_yap')">Ödeme Yap</button>
                     </td>
                   </tr>
                 </template>

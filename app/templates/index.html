@@ -30,7 +30,7 @@
       x-data="panel" x-cloak>
 
   <!-- ─── Üst bar (cam efekti) ─── -->
-  <header class="ust-bar no-print sticky top-0 z-30">
+  <header x-show="!girisGerekli" class="ust-bar no-print sticky top-0 z-30">
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] flex items-center gap-3">
       <img src="{{ url_for('static', path='img/logo.svg') }}" alt="Siirt Fıstığı amblemi" class="amblem">
       <div class="min-w-0">
@@ -42,6 +42,20 @@
         </p>
       </div>
       <div class="ml-auto flex items-center gap-1">
+        <!-- Oturumdaki kullanıcı -->
+        <template x-if="oturum">
+          <div class="flex items-center gap-2 mr-1 pr-2 border-r border-stone-200">
+            <span class="avatar h-8 w-8 text-[.7rem]" x-text="basHarfler(oturum.ad_soyad)"></span>
+            <div class="hidden md:block leading-tight">
+              <p class="text-sm font-semibold text-stone-800" x-text="oturum.ad_soyad"></p>
+              <p class="text-[.7rem] font-medium text-emerald-700" x-text="oturum.rol_adi"></p>
+            </div>
+            <button @click="cikisYap()" class="btn-ghost" title="Çıkış yap">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+              <span class="hidden sm:inline">Çıkış</span>
+            </button>
+          </div>
+        </template>
         <button @click="hepsiniYenile()" class="btn-ghost" title="Verileri yenile">
           <svg class="h-4 w-4" :class="yenileniyor && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.6m15.4 2A8 8 0 004.6 9M4.6 9H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"/></svg>
           <span class="hidden sm:inline">Yenile</span>
@@ -54,7 +68,7 @@
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 no-print">
+  <main x-show="!girisGerekli" class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 no-print">
 
     <!-- ─── Karşılama şeridi ─── -->
     <section class="serit px-6 py-5 sm:px-8 sm:py-6">
@@ -105,6 +119,7 @@
   </main>
 
   {% include "partials/_modallar.html" %}
+  {% include "partials/_giris.html" %}
 
   <!-- ─── Bildirimler ─── -->
   <div class="no-print fixed bottom-4 right-4 z-50 space-y-2 w-[22rem] max-w-[calc(100vw-2rem)]">

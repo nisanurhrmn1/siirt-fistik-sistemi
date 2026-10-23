@@ -22,15 +22,15 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.0.0">
-  <script defer src="/static/js/app.js?v=2.0.0"></script>
+  <link rel="stylesheet" href="/static/css/app.css?v=2.1.0">
+  <script defer src="/static/js/app.js?v=2.1.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
       x-data="panel" x-cloak>
 
   <!-- ─── Üst bar (cam efekti) ─── -->
-  <header class="ust-bar no-print sticky top-0 z-30">
+  <header x-show="!girisGerekli" class="ust-bar no-print sticky top-0 z-30">
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 h-[4.5rem] flex items-center gap-3">
       <img src="/static/img/logo.svg" alt="Siirt Fıstığı amblemi" class="amblem">
       <div class="min-w-0">
@@ -42,6 +42,20 @@
         </p>
       </div>
       <div class="ml-auto flex items-center gap-1">
+        <!-- Oturumdaki kullanıcı -->
+        <template x-if="oturum">
+          <div class="flex items-center gap-2 mr-1 pr-2 border-r border-stone-200">
+            <span class="avatar h-8 w-8 text-[.7rem]" x-text="basHarfler(oturum.ad_soyad)"></span>
+            <div class="hidden md:block leading-tight">
+              <p class="text-sm font-semibold text-stone-800" x-text="oturum.ad_soyad"></p>
+              <p class="text-[.7rem] font-medium text-emerald-700" x-text="oturum.rol_adi"></p>
+            </div>
+            <button @click="cikisYap()" class="btn-ghost" title="Çıkış yap">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+              <span class="hidden sm:inline">Çıkış</span>
+            </button>
+          </div>
+        </template>
         <button @click="hepsiniYenile()" class="btn-ghost" title="Verileri yenile">
           <svg class="h-4 w-4" :class="yenileniyor && 'animate-spin'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.6m15.4 2A8 8 0 004.6 9M4.6 9H9m11 11v-5h-.6m0 0a8 8 0 01-15.4-2m15.4 2H15"/></svg>
           <span class="hidden sm:inline">Yenile</span>
@@ -54,7 +68,7 @@
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 no-print">
+  <main x-show="!girisGerekli" class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 no-print">
 
     <!-- ─── Karşılama şeridi ─── -->
     <section class="serit px-6 py-5 sm:px-8 sm:py-6">
@@ -243,7 +257,8 @@
         </select>
       </div>
       <div class="flex items-end">
-        <button type="submit" class="btn-birincil w-full h-11" :disabled="kaydediliyor || !onizleme || !onizleme.birim_fiyat">
+        <button type="submit" class="btn-birincil w-full h-11" :title="yetkiYok('tartim')"
+                :disabled="kaydediliyor || !onizleme || !onizleme.birim_fiyat || !yetkili('tartim')">
           <span x-show="!kaydediliyor">Fişi Kes ve Kaydet</span>
           <span x-show="kaydediliyor">Kaydediliyor…</span>
         </button>
@@ -351,7 +366,7 @@
   <div class="panel-kutu">
     <div class="flex items-center justify-between gap-2 mb-4">
       <h2 class="baslik">Üreticiler</h2>
-      <button class="btn-birincil" @click="ureticiModalAc()">+ Yeni Üretici</button>
+      <button class="btn-birincil" @click="ureticiModalAc()" :disabled="!yetkili('uretici_ekle')" :title="yetkiYok('uretici_ekle')">+ Yeni Üretici</button>
     </div>
     <input type="search" x-model="ureticiArama" placeholder="Ad, TC veya telefon ara…" class="girdi mb-3">
     <ul class="divide-y divide-stone-100 -mx-2 max-h-[34rem] overflow-y-auto">
@@ -396,7 +411,7 @@
                  x-text="secili.banka_hesaplari[0] && `${secili.banka_hesaplari[0].banka_adi} · ${ibanYaz(secili.banka_hesaplari[0].iban)}`"></p>
             </div>
             <div class="ml-auto flex gap-2">
-              <button class="btn-ikincil" @click="avansModalAc()">Avans Ver</button>
+              <button class="btn-ikincil" @click="avansModalAc()" :disabled="!yetkili('avans_ver')" :title="yetkiYok('avans_ver')">Avans Ver</button>
             </div>
           </div>
 
@@ -447,7 +462,7 @@
                       <span class="durum" :class="durumRenk(t.hakedis_durumu)" x-text="durumAd(t.hakedis_durumu)"></span>
                     </td>
                     <td class="text-right">
-                      <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)">Ödeme Yap</button>
+                      <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)" :disabled="!yetkili('odeme_yap')" :title="yetkiYok('odeme_yap')">Ödeme Yap</button>
                     </td>
                   </tr>
                 </template>
@@ -519,7 +534,8 @@
       <label class="etiket">Geçerlilik başlangıcı <span class="text-stone-400 font-normal">(boş = hemen)</span></label>
       <input type="datetime-local" x-model="fiyatGecerlilik" class="girdi">
     </div>
-    <button type="submit" class="btn-birincil w-full" :disabled="fiyatKaydediliyor">Fiyatları Yayınla</button>
+    <button type="submit" class="btn-birincil w-full" :disabled="fiyatKaydediliyor || !yetkili('fiyat_gir')" :title="yetkiYok('fiyat_gir')">Fiyatları Yayınla</button>
+    <p x-show="!yetkili('fiyat_gir')" class="text-xs text-stone-500 text-center" x-text="yetkiYok('fiyat_gir')"></p>
   </form>
 
   <!-- Depo -->
@@ -574,7 +590,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.0.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.1.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -767,6 +783,77 @@
     <div class="modal-alt no-print">
       <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
       <button type="button" class="btn-birincil" @click="window.print()">Yazdır</button>
+    </div>
+  </div>
+</div>
+  <!-- ─── Giriş ekranı (yalnızca kimlik doğrulamalı sunucuda: Java sürümü) ─── -->
+<div x-show="girisGerekli" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50">
+  <div class="min-h-full flex items-center justify-center p-4 sm:p-8">
+    <div class="w-full max-w-4xl grid lg:grid-cols-5 gap-6 items-stretch">
+
+      <!-- Sol: tanıtım -->
+      <div class="serit lg:col-span-2 p-8 flex flex-col">
+        <img src="/static/img/fistik-dal.svg" alt="" class="serit-dal">
+        <img src="/static/img/logo.svg" alt="Siirt Fıstığı amblemi" class="amblem relative z-10 h-14 w-14">
+        <div class="relative z-10 mt-6">
+          <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
+          <h1 class="mt-2 text-2xl font-bold leading-tight">Alım ve Üretici Ödeme Sistemi</h1>
+          <p class="mt-3 text-sm text-emerald-50/90 leading-relaxed">
+            Kantar tartımı, kalite analizi, günlük fiyat, hakediş, avans ve ödemeler tek sistemde.
+            Her kullanıcı yalnızca kendi rolünün işlemlerini yapabilir.
+          </p>
+        </div>
+        <ul class="relative z-10 mt-auto pt-8 space-y-2 text-sm text-emerald-50/90">
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Tartım anında kilitlenen fiyat</li>
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Otomatik avans mahsubu</li>
+          <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Rol bazlı yetkilendirme</li>
+        </ul>
+      </div>
+
+      <!-- Sağ: giriş formu ve demo hesapları -->
+      <div class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-stone-900">Giriş yap</h2>
+          <p class="text-sm text-stone-500 mt-1">Kullanıcı adınız ve şifrenizle oturum açın.</p>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="girisYap()">
+          <div>
+            <label class="etiket" for="kullanici_adi">Kullanıcı adı</label>
+            <input id="kullanici_adi" x-model="girisForm.kullanici_adi" autocomplete="username" class="girdi">
+          </div>
+          <div>
+            <label class="etiket" for="sifre">Şifre</label>
+            <input id="sifre" type="password" x-model="girisForm.sifre" autocomplete="current-password" class="girdi">
+          </div>
+          <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+          <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
+            <span x-text="girisYapiliyor ? 'Giriş yapılıyor…' : 'Giriş yap'"></span>
+          </button>
+        </form>
+
+        <template x-if="demoHesaplar.length">
+          <div>
+            <div class="flex items-center gap-3 text-xs text-stone-400 uppercase tracking-wider">
+              <span class="h-px flex-1 bg-stone-200"></span>Demo: tek tıkla dene<span class="h-px flex-1 bg-stone-200"></span>
+            </div>
+            <div class="mt-4 grid sm:grid-cols-2 gap-3">
+              <template x-for="h in demoHesaplar" :key="h.kullanici_adi">
+                <button type="button" @click="demoGiris(h.kullanici_adi)" :disabled="girisYapiliyor"
+                        class="mini-kart text-left flex items-center gap-3 hover:border-emerald-300 disabled:opacity-50">
+                  <span class="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br text-white flex items-center justify-center font-bold text-sm shadow"
+                        :class="rolBilgisi[h.rol]?.renk" x-text="basHarfler(h.rol_adi)"></span>
+                  <span class="min-w-0">
+                    <span class="block font-semibold text-sm text-stone-800" x-text="h.rol_adi"></span>
+                    <span class="block text-xs text-stone-500" x-text="rolBilgisi[h.rol]?.aciklama"></span>
+                  </span>
+                </button>
+              </template>
+            </div>
+            <p class="mt-3 text-xs text-stone-400">Demo hesapları sunum içindir; gerçek kullanımda kapatılır.</p>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </div>

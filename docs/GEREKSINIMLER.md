@@ -58,7 +58,7 @@ Sistem bir REST API ve tarayıcıdan kullanılan bir yönetim panelinden oluşur
 | Yönetici | Raporları izler, tüm işlemleri yapabilir | `ADMIN` |
 | Üretici | Sistemi kullanmaz; fiş ve ekstre alır | — |
 
-> Roller veritabanında tanımlıdır, ancak sürüm 1.0'da kimlik doğrulama yoktur (bkz. GDG-05).
+> Sürüm 2.0'dan itibaren her kullanıcı şifreyle giriş yapar; işlemler role göre yetkilendirilir (bkz. 3.8 ve FOG-12).
 
 ---
 
@@ -147,6 +147,17 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-DEP-05 | Lotlar silolar arası transfer edilebilmelidir. | Düşük | 🟡 |
 | FG-DEP-06 | Satış/sevk çıkışı kaydedilebilmelidir. | Düşük | ⏳ |
 
+### 3.8 Kimlik doğrulama ve yetkilendirme (GUV)
+| No | Gereksinim | Öncelik | Durum |
+|---|---|---|---|
+| FG-GUV-01 | Kullanıcılar kullanıcı adı ve şifreyle giriş yapmalı; şifreler geri döndürülemez biçimde (BCrypt) saklanmalıdır. | Yüksek | ✅ |
+| FG-GUV-02 | Giriş yapılmadan API kullanılamamalıdır (401). | Yüksek | ✅ |
+| FG-GUV-03 | Tartım yalnızca kantar memuru ve yönetici; fiyat girişi yalnızca fiyat yöneticisi ve yönetici; üretici, avans ve ödeme yalnızca muhasebe ve yönetici tarafından yapılabilmelidir (403). | Yüksek | ✅ |
+| FG-GUV-04 | Her kayıt, işlemi yapan kullanıcıyla ilişkilendirilmelidir. | Yüksek | ✅ |
+| FG-GUV-05 | Hatalı girişte hangi kullanıcı adlarının var olduğu sızdırılmamalıdır. | Orta | ✅ |
+| FG-GUV-06 | Sunum için her rolde tek tıkla demo girişi olmalı ve gerçek kullanımda kapatılabilmelidir. | Orta | ✅ |
+| FG-GUV-07 | Yönetici panelden kullanıcı ekleyip şifre değiştirebilmelidir. | Düşük | ⏳ |
+
 ### 3.7 Raporlama (RAP)
 | No | Gereksinim | Öncelik | Durum |
 |---|---|---|---|
@@ -173,7 +184,7 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FOG-09 | Dokümantasyon | API, OpenAPI standardında otomatik belgelenmelidir (Swagger, ReDoc). | `/docs`, `/redoc` | ✅ |
 | FOG-10 | Test edilebilirlik | İş kuralları HTTP'den bağımsız bir katmanda olmalı ve otomatik testlerle doğrulanmalıdır. | 27 sözleşme testi + 6 JUnit testi | ✅ |
 | FOG-11 | Kurulum | Sistem tek komutla (`baslat.bat`) derlenip çalıştırılabilmelidir. | Elle deneme | ✅ |
-| FOG-12 | Güvenlik | Kullanıcılar kimlik doğrulamasıyla girmeli; işlemler role göre yetkilendirilmelidir. | — | ⏳ |
+| FOG-12 | Güvenlik | Kullanıcılar kimlik doğrulamasıyla girmeli; işlemler role göre yetkilendirilmelidir (Spring Security, JWT). | `tests/test_guvenlik.py` | ✅ |
 | FOG-13 | Gizlilik | Veritabanı şifreleri kaynak koda veya Git'e girmemelidir (`.env`). | `.gitignore` | ✅ |
 
 ---
@@ -273,5 +284,5 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 | GDG-02 | Silolar arası transfer ve fiyat iptali için API ve arayüz (FG-DEP-05, FG-FYT-08) |
 | GDG-03 | PDF/Excel rapor dışa aktarımı (FG-RAP-05) |
 | GDG-04 | Kantar göstergesinden seri port/TCP ile otomatik ağırlık okuma |
-| GDG-05 | JWT ile kimlik doğrulama ve rol bazlı yetkilendirme (FOG-12) |
+| GDG-05 | Yönetici için kullanıcı ve şifre yönetimi ekranı (FG-GUV-07) |
 | GDG-06 | Alembic ile veritabanı sürüm yönetimi |

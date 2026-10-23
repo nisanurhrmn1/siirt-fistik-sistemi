@@ -85,7 +85,10 @@ def main() -> None:
         sys.exit("\nKurulum başarısız. Şifre yanlış olabilir; tekrar deneyin.")
 
     url = f"postgresql+psycopg://{KULLANICI}:{sifre}@{HOST}:{PORT}"
-    env_yaz({"DATABASE_URL": f"{url}/{VERITABANLARI[0]}", "TEST_DATABASE_URL": f"{url}/{VERITABANLARI[1]}"})
+    degerler = {"DATABASE_URL": f"{url}/{VERITABANLARI[0]}", "TEST_DATABASE_URL": f"{url}/{VERITABANLARI[1]}"}
+    if "JWT_SECRET" not in env_oku():   # Java sunucusunun giriş token'larını imzaladığı anahtar
+        degerler["JWT_SECRET"] = secrets.token_urlsafe(48)
+    env_yaz(degerler)
     print(f"\n✓ '{KULLANICI}' kullanıcısı ve {', '.join(VERITABANLARI)} veritabanları hazır.")
     print(f"✓ Bağlantı bilgileri {ENV_FILE.name} dosyasına yazıldı (Git'e yüklenmez).")
     print("  Uygulama artık PostgreSQL ile çalışır: .\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --reload")
