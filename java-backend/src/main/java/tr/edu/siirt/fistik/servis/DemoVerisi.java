@@ -24,6 +24,8 @@ import java.util.List;
 @Order(10)   // BaslangicVerisi'nden sonra
 public class DemoVerisi implements ApplicationRunner {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DemoVerisi.class);
+
     private final boolean etkin;
     private final EntityManager em;
     private final UreticiServisi ureticiler;
@@ -49,16 +51,22 @@ public class DemoVerisi implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (!etkin) return;
         if (em.createQuery("select count(p) from Producer p", Long.class).getSingleResult() > 0) {
-            System.out.println("Veritabanında zaten üretici var; demo verisi eklenmedi.");
+            log.info("Veritabanında zaten üretici var; demo verisi eklenmedi.");
             return;
         }
-        yukle();
+        try {
+            yukle();
+        } catch (RuntimeException e) {
+            // Demo verisi isteğe bağlıdır: yüklenemezse site yine de açılmalı.
+            log.error("Demo verisi yüklenemedi; sistem demo verisi olmadan çalışmaya devam ediyor.", e);
+        }
     }
 
     /** Örnek veriyi yükler. Veritabanında üretici olmadığı varsayılır (bkz. GeceSifirlama). */
     public void yukle() {
-        Long k =em.createQuery("select u.id from User u where u.role = :r order by u.id", Long.class)
-                .setParameter("r", tr.edu.siirt.fistik.alan.UserRole.ADMIN).setMaxResults(1).getSingleResult();
+        Long k = em.createQuery("select u.id from User u where u.role = :r order by u.id", Long.class)
+                .setParameter("r", tr.edu.siirt.fistik.alan.UserRole.ADMIN).setMaxResults(1).getResultList().stream().findFirst()
+                .orElseThrow(() -> new IllegalStateException("Demo verisi için yönetici hesabı bulunamadı."));
         // TC'ler algoritmik olarak geçerli, gerçek kişilere ait olmayan test numaralarıdır.
         List<UreticiYaniti> u = new ArrayList<>();
         u.add(ureticiler.olustur(new UreticiGirisi(null, "10000000146", null, null, "Ahmet Yılmaz", "0532 111 22 33", null, null,
@@ -89,6 +97,6 @@ public class DemoVerisi implements ApplicationRunner {
             if (ilk == null) ilk = y;
         }
         finans.odemeYap(ilk.hakedis().id(), new OdemeGirisi(d("150000"), null, null, "EFT-DEMO-1", null), k);
-        System.out.println("Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.");
+        log.info("Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.");
     }
 }
