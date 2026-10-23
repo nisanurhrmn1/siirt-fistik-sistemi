@@ -6,7 +6,7 @@ services:
     name: siirt-fistik
     runtime: docker
     plan: free
-    region: frankfurt            # Türkiye'ye en yakın bölge
+    region: ohio                 # Neon veritabanıyla aynı bölge (AWS US East 2 · Ohio)
     dockerfilePath: ./Dockerfile
     healthCheckPath: /saglik
     autoDeploy: true             # GitHub'a her yüklemede yeniden yayınlanır

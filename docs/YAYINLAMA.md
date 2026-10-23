@@ -11,7 +11,7 @@ Toplam süre yaklaşık 15 dakika. Kod tarafında hazırlık tamam: depoda bir [
 
 ```mermaid
 flowchart LR
-    U["👤 Hoca / jüri<br/>tarayıcı"] -- HTTPS --> R["Render<br/>Java 21 · Spring Boot<br/>(Docker, Frankfurt)"]
+    U["👤 Hoca / jüri<br/>tarayıcı"] -- HTTPS --> R["Render<br/>Java 21 · Spring Boot<br/>(Docker, Ohio)"]
     R -- "JDBC + SSL" --> N[("Neon<br/>PostgreSQL")]
     G["GitHub<br/>nisanurhrmn1/siirt-fistik-sistemi"] -- "her push'ta<br/>otomatik derleme" --> R
 ```
@@ -24,7 +24,7 @@ flowchart LR
 2. İlk girişte proje oluşturma ekranı açılır:
    - **Project name:** `siirt-fistik`
    - **Postgres version:** en yeni sürüm
-   - **Region:** **AWS Europe Central 1 (Frankfurt)**. Render sunucusuyla aynı bölge olunca yanıtlar hızlı olur.
+   - **Region:** Veritabanı ile sunucu **aynı bölgede** olmalıdır, yoksa her sorgu okyanusu geçer ve site yavaşlar. Bu projede **AWS US East 2 (Ohio)** kullanıldı ve `render.yaml` da `region: ohio` olarak ayarlandı. Farklı bir bölge seçerseniz `render.yaml`'daki `region` değerini de eşleştirin (ör. Frankfurt → `frankfurt`).
    - **Create project**
 3. Açılan panelde **Connect** düğmesine basın. **Connection string** kutusunda şuna benzer bir adres görünür:
    ```
