@@ -220,7 +220,7 @@ def test_cevrimdisi_calisir_dis_kaynak_yok(client):
     for yol in ("/", "/docs", "/redoc"):
         html = client.get(yol).text
         dis = [u for u in re.findall(r'(?:src|href)=["\'](https?://[^"\']+)', html)
-               if not u.startswith("http://testserver/")]
+               if not u.startswith(str(client.base_url))]
         assert dis == [], f"{yol} dış kaynak içeriyor: {dis}"
     for dosya in ("tailwindcss-3.4.5.js", "alpinejs-3.14.1.min.js", "swagger-ui-5.17.14/swagger-ui-bundle.js",
                   "redoc-2.1.5.standalone.js", "fonts/inter-latin-ext-wght-normal.woff2"):

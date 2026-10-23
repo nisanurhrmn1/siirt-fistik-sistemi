@@ -1,6 +1,6 @@
 # UML Diyagramları
 
-**Proje:** Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · **Sürüm:** 1.0
+**Proje:** Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · **Sürüm:** 2.0 (Java / Spring Boot)
 
 Diyagramlar [Mermaid](https://mermaid.js.org) ile yazılmıştır; GitHub'da doğrudan çizilir.
 Gereksinimler: [GEREKSINIMLER.md](GEREKSINIMLER.md) · Veritabanı ER diyagramı: [ER.md](ER.md)
@@ -77,7 +77,7 @@ flowchart LR
 
 ## 2. Sınıf diyagramı — alan modeli
 
-Kalıcı varlıklar (`app/db/models.py`). Tüm para alanları `Decimal` (`NUMERIC`), zamanlar UTC `datetime`.
+Kalıcı varlıklar (`java-backend/.../alan/*.java`, JPA). Tüm para alanları `BigDecimal` (`NUMERIC`), zamanlar `OffsetDateTime` (`timestamptz`).
 
 ```mermaid
 classDiagram
@@ -239,68 +239,68 @@ classDiagram
 classDiagram
     direction TB
 
-    class TartimlarRouter {
-        <<API · app/api/v1>>
-        +POST tartimlar(TartimGirisi) TartimYaniti
-        +POST onizleme(OnizlemeGirisi) TartimOnizleme
-        +GET tartimlar(tarih) List~TartimOzeti~
+    class Tartimlar {
+        <<@RestController · api/Kontrolculer>>
+        +kaydet(TartimGirisi, kullaniciId) TartimYaniti
+        +onizle(OnizlemeGirisi) TartimOnizleme
+        +listele(tarih, ureticiId) List~TartimOzeti~
     }
-    class FinansRouter {
-        <<API · app/api/v1>>
-        +POST avanslar(AvansGirisi) AvansYaniti
-        +POST odemeYap(id, OdemeGirisi) OdemeSonucu
+    class Finans {
+        <<@RestController · api/Kontrolculer>>
+        +avansVer(AvansGirisi, kullaniciId) AvansYaniti
+        +odemeYap(id, OdemeGirisi, kullaniciId) OdemeSonucu
     }
     class TartimGirisi {
-        <<Pydantic şema>>
-        +int uretici_id
-        +str plaka
-        +Decimal brut_kg
-        +Decimal dara_kg
-        +KaliteAnalizi kalite
-        +validate() plaka, dara < brüt
+        <<record · api/Istekler>>
+        +Long ureticiId
+        +String plaka «@Gecerli PLAKA»
+        +BigDecimal brutKg «@DecimalMin»
+        +BigDecimal daraKg
+        +KaliteAnalizi kalite «@Valid»
+        +modelHatalari() dara < brüt
     }
-    class TartimService {
-        <<servis · app/services>>
-        +register_delivery(db, giris, kullanici) WeighTicket
-        +preview_delivery(db, giris) TartimOnizleme
-        -choose_silo(db, lot) Silo
+    class TartimServisi {
+        <<@Service @Transactional>>
+        +kaydet(giris, kullaniciId) TartimYaniti
+        +onizle(giris) TartimOnizleme
+        -siloSec(lot) Silo
     }
-    class FinansService {
-        <<servis · app/services>>
-        +give_advance(db, giris, kullanici) AvansYaniti
-        +pay_settlement(db, id, giris, kullanici) OdemeSonucu
-        +producer_statement(db, id, baslangic, bitis) UreticiEkstre
+    class FinansServisi {
+        <<@Service @Transactional>>
+        +avansVer(giris, kullaniciId) AvansYaniti
+        +odemeYap(id, giris, kullaniciId) OdemeIslemi
+        +ekstre(id, baslangic, bitis) UreticiEkstre
     }
-    class Rules {
-        <<alan katmanı · app/domain/rules.py>>
-        +find_effective_price(grade, an) DailyPrice
-        +determine_grade(oranlar) QualityGrade
-        +create_weigh_ticket(...) WeighTicket
-        +record_quality_inspection(...) QualityInspection
-        +create_settlement(ticket) Settlement
-        +offset_advances_into_settlement(s) Decimal
-        +record_payment(...) Payment
-        +check_silo_accepts(silo, lot, kg)
-        +next_document_no(tur, an) str
-        -plan_advance_offsets(uretici, limit) List
+    class Kurallar {
+        <<@Component · kural/Kurallar>>
+        +gecerliFiyat(sinifId, an) DailyPrice
+        +sinifBelirle(oranlar) QualityGrade
+        +tartimOlustur(...) WeighTicket
+        +kaliteAnaliziKaydet(...) QualityInspection
+        +hakedisOlustur(tartim, ...) Settlement
+        +hakediseSonradanAvansMahsupEt(s) BigDecimal
+        +odemeKaydet(...) Payment
+        +siloKabulEderMi(silo, lot, kg)
+        +sonrakiBelgeNo(tur, an) String
+        -avansMahsupPlani(ureticiId, limit) List
     }
-    class Session {
-        <<SQLAlchemy>>
-        +execute()
+    class EntityManager {
+        <<JPA / Hibernate>>
+        +find(..., PESSIMISTIC_WRITE)
+        +persist()
         +flush()
-        +commit()
     }
 
-    TartimlarRouter ..> TartimGirisi : doğrular
-    TartimlarRouter --> TartimService
-    FinansRouter --> FinansService
-    TartimService --> Rules
-    FinansService --> Rules
-    Rules --> Session
-    TartimService --> Session : commit
+    Tartimlar ..> TartimGirisi : @Valid doğrular
+    Tartimlar --> TartimServisi
+    Finans --> FinansServisi
+    TartimServisi --> Kurallar
+    TartimServisi --> FinansServisi : hakediş yanıtı
+    FinansServisi --> Kurallar
+    Kurallar --> EntityManager
 ```
 
-**Bağımlılık kuralı:** Oklar yalnızca aşağı yönlüdür (API → servis → alan → veri). İş kuralları (`Rules`) HTTP'yi bilmez; bu sayede doğrudan test edilebilir ve Java'ya geçişte birebir taşınabilir.
+**Bağımlılık kuralı:** Oklar yalnızca aşağı yönlüdür (API → servis → alan → veri). İş kuralları (`Kurallar`) HTTP'yi bilmez; bu sayede doğrudan test edilebilir. Bu ayrım sayesinde Python prototipinden Java'ya geçişte mimari değişmeden kalmıştır.
 
 ---
 
@@ -312,39 +312,39 @@ sequenceDiagram
     actor KM as Kantar Memuru
     participant UI as Web Paneli
     participant API as API (tartimlar)
-    participant SV as TartimService
-    participant R as Rules
+    participant SV as TartimServisi
+    participant R as Kurallar
     participant DB as Veritabanı
 
     KM->>UI: Üretici, plaka, brüt/dara, kalite oranları
     loop Her alan değiştiğinde (300 ms gecikmeli)
         UI->>API: POST /tartimlar/onizleme
-        API->>R: determine_grade, find_effective_price(şimdi)
+        API->>R: sinifBelirle, gecerliFiyat(şimdi)
         R->>DB: SELECT (yazma yok)
         API-->>UI: sınıf, fiyat, kesintiler, avans mahsubu, tahmini net
     end
     KM->>UI: Fişi Kes
     UI->>API: POST /tartimlar
-    API->>API: Pydantic doğrulama (aksi halde 422)
-    API->>SV: register_delivery(giriş, kullanıcı)
+    API->>API: Bean Validation (aksi halde 422)
+    API->>SV: kaydet(giriş, kullanıcı)
     activate SV
-    SV->>R: create_weigh_ticket(an = şimdi)
+    SV->>R: tartimOlustur(an = şimdi)
     R->>DB: document_sequences FOR UPDATE → KF-2026-00000N
-    SV->>R: record_tare
-    SV->>R: record_quality_inspection
-    R->>R: determine_grade(oranlar)
-    R->>DB: find_effective_price(sınıf, tartım anı)
+    SV->>R: daraKaydet
+    SV->>R: kaliteAnaliziKaydet
+    R->>R: sinifBelirle(oranlar)
+    R->>DB: gecerliFiyat(sınıf, tartım anı)
     alt Onaylı fiyat yok
-        R-->>API: BusinessRuleError
+        R-->>API: IsKuraliHatasi
         API-->>UI: 400 hata mesajı (işlem geri alınır)
     else Fiyat bulundu
         R->>DB: weigh_tickets.unit_price = fiyat (KİLİT), lots INSERT
-        SV->>R: create_settlement
+        SV->>R: hakedisOlustur
         R->>DB: producers FOR UPDATE
         R->>R: brüt = net × fiyat, kesintiler
         R->>DB: açık avanslar (FIFO) FOR UPDATE
         R->>DB: settlements, advance_offsets, ledger INSERT
-        SV->>R: check_silo_accepts + receive_lot_into_silo
+        SV->>R: siloKabulEderMi + lotuSiloyaAl
         R->>DB: stock_movements INSERT
         SV->>DB: COMMIT
         deactivate SV
@@ -363,27 +363,27 @@ sequenceDiagram
     actor MU as Muhasebe
     participant UI as Web Paneli
     participant API as API (hakedisler)
-    participant FS as FinansService
-    participant R as Rules
+    participant FS as FinansServisi
+    participant R as Kurallar
     participant DB as Veritabanı
 
     MU->>UI: Üretici seç → Ödeme Yap (tutar, yöntem, dekont)
     UI->>API: POST /hakedisler/{id}/odeme-yap
-    API->>FS: pay_settlement
+    API->>FS: odemeYap
     FS->>DB: hakediş getir (yoksa 404)
-    FS->>R: lock_producer
+    FS->>R: ureticiKilitle
     R->>DB: producers FOR UPDATE
     alt Kalan tutar 0
         FS-->>UI: 400 ödenecek tutar kalmadı
     end
-    FS->>R: offset_advances_into_settlement
+    FS->>R: hakediseSonradanAvansMahsupEt
     R->>DB: hakedişten sonra verilen açık avanslar (FIFO)
     R->>DB: advance_offsets INSERT, net_payable azalır
     alt Kalanın tamamı avansa mahsup edildi
         FS->>DB: COMMIT
         API-->>UI: 200 ödeme gerekmedi
     else Kalan > 0
-        FS->>R: record_payment(tutar, settlement_id)
+        FS->>R: odemeKaydet(tutar, hakedisId)
         R->>R: tutar ≤ min(kalan, cari bakiye)?
         alt Aşıyor
             R-->>UI: 400 tutar aşamaz
@@ -400,7 +400,7 @@ sequenceDiagram
 
 ## 6. Etkinlik diyagramı — Hakediş hesabı ve avans mahsubu
 
-`rules.create_settlement` algoritması.
+`Kurallar.hakedisOlustur` algoritması.
 
 ```mermaid
 flowchart TD
@@ -505,33 +505,31 @@ flowchart LR
         SW["Swagger UI / ReDoc"]
     end
 
-    subgraph SRV["🖥️ Uygulama sunucusu · Python 3.11+ / Uvicorn"]
+    subgraph SRV["🖥️ Uygulama sunucusu · Java 21 / Spring Boot 3 (siirt-fistik.jar)"]
         direction TB
-        WEB["web.py<br/>Jinja2 şablonları, /static, /docs"]
-        API["api/v1<br/>REST router'ları"]
-        SCH["schemas<br/>Pydantic doğrulama"]
-        SVC["services<br/>iş akışları"]
-        DOM["domain/rules.py<br/>iş kuralları"]
-        ORM["db<br/>SQLAlchemy modelleri"]
+        WEB["static + web<br/>panel, /docs (springdoc), /redoc"]
+        API["api<br/>@RestController'lar"]
+        SCH["api/Istekler<br/>Bean Validation"]
+        SVC["servis<br/>@Transactional iş akışları"]
+        DOM["kural/Kurallar<br/>iş kuralları"]
+        ORM["alan<br/>JPA varlıkları (Hibernate)"]
         VEN[("static/vendor<br/>çevrimdışı kütüphaneler")]
         WEB --- VEN
         API --> SCH --> SVC --> DOM --> ORM
     end
 
     subgraph DBS["🗄️ Veritabanı sunucusu"]
-        PG[("PostgreSQL 18<br/>siirt_fistik<br/>tablolar, trigger'lar, view'lar")]
-        SQ[("SQLite<br/>demo.db / siirt_fistik.db")]
+        PG[("PostgreSQL 18<br/>siirt_fistik<br/>Flyway: tablolar, trigger'lar, view'lar")]
     end
 
     UI -- "HTTP GET /" --> WEB
     UI -- "HTTP JSON /api/v1" --> API
     SW -- "/openapi.json" --> API
-    ORM -- "psycopg · TCP 5432" --> PG
-    ORM -. "alternatif (kurulumsuz demo)" .-> SQ
+    ORM -- "JDBC (pgjdbc) · TCP 5432" --> PG
 ```
 
 | Düğüm | Yazılım | Not |
 |---|---|---|
 | İstemci | Güncel bir tarayıcı (Chrome, Edge, Firefox) | Kurulum gerekmez; internet bağlantısı gerekmez |
-| Uygulama sunucusu | Python 3.11+, FastAPI, Uvicorn | `demo.bat` veya `uvicorn app.main:app` |
-| Veritabanı | PostgreSQL 18 (birincil), SQLite (demo) | Seçim `.env` dosyasındaki `DATABASE_URL` ile |
+| Uygulama sunucusu | Java 21, Spring Boot 3.3 (gömülü Tomcat) | `baslat.bat` veya `java -jar siirt-fistik.jar` |
+| Veritabanı | PostgreSQL 18 | Bağlantı `.env` dosyasındaki `DATABASE_URL` ile; şema Flyway göçleriyle kurulur |

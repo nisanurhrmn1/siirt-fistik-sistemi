@@ -5,7 +5,7 @@
 
 Siirt fıstığı alım merkezlerinde yapılan işlerin tamamını tek sistemde toplayan bir web uygulaması:
 kantar tartımı, kalite analizi, günlük fiyat, üretici hakedişi, avans, ödeme ve depo stoğu.
-Sistem bir **REST API** (FastAPI) ve bu API'yi kullanan bir **web yönetim paneli**nden oluşur.
+Sistem bir **REST API** (Java 21 · Spring Boot 3 · PostgreSQL) ve bu API'yi kullanan bir **web yönetim paneli**nden oluşur.
 Panel dahil her şey **internetsiz** çalışır.
 
 ![Günlük özet kartları](docs/ekran-goruntuleri/01-ozet-paneli.png)
@@ -119,46 +119,59 @@ Hakedişin net tutarı hiçbir zaman eksi olmaz. Eksi bakiye hakedişte değil, 
 - **Kesinti oranları:** Hakediş oluşurken kesinti oranları hakedişe kopyalanır. Mevzuattaki oran sonradan değişse de eski hakedişler etkilenmez.
 - **Kalite ayrıştırması:** Bir siloya yalnızca kendi kalite sınıfı girebilir. Sınıfa ayrılmamış bir siloda da farklı kaliteler karışamaz. Siloların kapasitesi de kontrol edilir.
 - **Denetlenebilirlik:** Cari hesap kayıtları silinemez ve güncellenemez (trigger ile korunur). Düzeltme ancak ters kayıtla (`REVERSAL`) yapılır.
-- **Para hassasiyeti:** Hiçbir yerde `float` kullanılmaz. Veritabanında `NUMERIC`, Python'da `Decimal` ve `ROUND_HALF_UP` kullanılır. API para değerlerini metin olarak döndürür (`"300000.00"`).
+- **Para hassasiyeti:** Hiçbir yerde `float` kullanılmaz. Veritabanında `NUMERIC`, Java'da `BigDecimal` ve `HALF_UP` yuvarlama kullanılır. API para değerlerini metin olarak döndürür (`"300000.00"`).
 
 ---
 
 ## 3. Sistem mimarisi
 
-Katmanlı bir mimari kullanılır. Her katman yalnızca bir altındaki katmanı bilir.
+Sunucu **Java 21 + Spring Boot 3** ile yazılmıştır ve katmanlı bir mimari kullanır. Her katman yalnızca bir altındaki katmanı bilir.
 
 ```mermaid
 flowchart TB
     subgraph İstemci
-        P["Web Paneli<br/>Jinja2 + Alpine.js + Tailwind"]
-        S["Swagger / ReDoc"]
+        P["Web Paneli<br/>HTML + Alpine.js + Tailwind"]
+        S["Swagger UI / ReDoc"]
     end
-    subgraph "FastAPI Uygulaması"
-        R["API Router'ları<br/>app/api/v1"]
-        V["Pydantic Şemaları<br/>doğrulama, 422"]
-        SV["Servisler<br/>app/services"]
-        D["İş Kuralları<br/>app/domain/rules.py"]
-        M["ORM Modelleri<br/>SQLAlchemy 2.0"]
+    subgraph "Spring Boot Uygulaması (java-backend)"
+        R["REST Kontrolcüleri<br/>api/Kontrolculer"]
+        V["İstek kayıtları + Bean Validation<br/>api/Istekler, 422"]
+        SV["Servisler (@Transactional)<br/>servis/*"]
+        D["İş Kuralları<br/>kural/Kurallar"]
+        M["JPA Varlıkları (Hibernate)<br/>alan/*"]
     end
-    DB[("SQLite / PostgreSQL<br/>+ trigger'lar, view'lar")]
+    DB[("PostgreSQL<br/>Flyway göçleri, trigger'lar, view'lar")]
 
     P -- "fetch /api/v1 (JSON)" --> R
     S --> R
     R --> V --> SV --> D --> M --> DB
 ```
 
-| Katman | Sorumluluk |
-|---|---|
-| **Sunum** (`app/templates`, `app/static`) | Tek sayfalık panel. Veriyi yalnızca REST API'den alır; iş kuralı içermez. |
-| **API** (`app/api`) | HTTP yönlendirmesi, `get_db` bağımlılığı ve hata → HTTP kodu eşlemesi (400, 404, 409, 422). |
-| **Şemalar** (`app/schemas`) | İstek ve yanıt modelleri. TC, IBAN, plaka ve oran doğrulaması burada yapılır; hata alan bazlı Türkçe mesajla döner. |
-| **Servisler** (`app/services`) | İş akışları. Örneğin tartım → kalite → fiyat kilidi → hakediş → stok adımları tek transaction'da çalışır. |
-| **Alan / iş kuralları** (`app/domain/rules.py`) | Fiyat bulma, FIFO avans mahsubu, kesinti hesabı, ödeme dağıtımı. HTTP'den bağımsızdır, doğrudan test edilebilir. |
-| **Veri** (`app/db`) | 19 tablo, CHECK / UNIQUE / EXCLUDE kısıtları, trigger'lar ve rapor view'ları. |
+| Katman | Java paketi | Sorumluluk |
+|---|---|---|
+| **Sunum** | `resources/static` | Tek sayfalık panel. Veriyi yalnızca REST API'den alır; iş kuralı içermez. |
+| **API** | `api` (`Kontrolculer`, `HataYoneticisi`) | HTTP yönlendirmesi, kullanıcı çözümleme, hata → HTTP kodu (400, 401, 404, 409, 422). |
+| **İstek/yanıt** | `api` (`Istekler`, `Yanitlar`, `Gecerli`) | Java `record` sınıfları. TC, IBAN, plaka ve oran doğrulaması Bean Validation ile yapılır; hata alan bazlı Türkçe mesajla döner. |
+| **Servisler** | `servis` | İş akışları. Örneğin tartım → kalite → fiyat kilidi → hakediş → stok adımları tek `@Transactional` işlemde çalışır. |
+| **Alan / iş kuralları** | `kural` (`Kurallar`, `Dogrulama`) | Fiyat bulma, FIFO avans mahsubu, kesinti hesabı, ödeme dağıtımı, satır kilitleri. HTTP'den bağımsızdır. |
+| **Veri** | `alan` + `resources/db/migration` | 19 JPA varlığı; şema Flyway ile kurulur. CHECK / UNIQUE / EXCLUDE kısıtları, trigger'lar ve rapor view'ları. |
 
-Bir kuralın birden fazla katmanda tekrarlanması bilinçli bir tercihtir (derinlemesine savunma). Örneğin "net kg pozitif olmalı" kuralı Pydantic şemasında, servis katmanında ve veritabanındaki `CHECK` kısıtında ayrı ayrı denetlenir.
+Bir kuralın birden fazla katmanda tekrarlanması bilinçli bir tercihtir (derinlemesine savunma). Örneğin "net kg pozitif olmalı" kuralı istek doğrulamasında, iş kuralı katmanında ve veritabanındaki `CHECK` kısıtında ayrı ayrı denetlenir.
 
 Veritabanı şemasının ayrıntıları ve ER diyagramı: **[docs/ER.md](docs/ER.md)** · Sınıf, sıralama ve durum diyagramları: **[docs/UML.md](docs/UML.md)**
+
+### Python prototipinden Java'ya
+
+Sistem önce Python (FastAPI) ile prototiplendi, ardından aynı mimariyle Java'ya taşındı. Python sürümü depoda `app/` klasöründe ve **`python-surum`** Git etiketinde durur. İki sürüm **aynı REST sözleşmesini**, aynı veritabanı şemasını ve aynı paneli kullanır; aynı 27 API testi ikisinde de geçer (bkz. [Testler](#8-testler)).
+
+| Kavram | Python prototipi | Java sürümü |
+|---|---|---|
+| İş kuralları | `app/domain/rules.py` | `kural/Kurallar.java` |
+| Varlıklar / ORM | SQLAlchemy `app/db/models.py` | JPA/Hibernate `alan/*.java` |
+| İstek doğrulama | Pydantic `app/schemas` | Bean Validation `api/Istekler.java` |
+| Servisler | `app/services` | `servis/*Servisi.java` |
+| Uç noktalar | FastAPI router'ları | Spring `@RestController` |
+| Şema kurulumu | `create_all` + SQL dosyası | Flyway `V1__sema.sql`, `V2__tetikleyiciler_ve_viewlar.sql` |
 
 ---
 
@@ -166,16 +179,19 @@ Veritabanı şemasının ayrıntıları ve ER diyagramı: **[docs/ER.md](docs/ER
 
 | Alan | Teknoloji | Neden |
 |---|---|---|
-| Dil | Python 3.11+ | Okunabilirlik; `Decimal` ile kesin para hesabı |
-| Web çatısı | **FastAPI** | Tip tabanlı doğrulama, otomatik OpenAPI/Swagger, yüksek performans |
-| Doğrulama | **Pydantic v2** | İstek/yanıt şemaları, alan bazlı hata mesajları |
-| ORM | **SQLAlchemy 2.0** | Tipli `Mapped[...]` modelleri; hem SQLite hem PostgreSQL desteği |
-| Veritabanı | **PostgreSQL** (18.6 ile test edildi), SQLite (kurulumsuz demo) | PostgreSQL'de `EXCLUDE` kısıtı, trigger'lar, rapor view'ları ve `timestamptz` |
-| Arayüz | **Jinja2** + **Alpine.js** + **Tailwind CSS** | Node/React derleme adımı olmadan reaktif, modern arayüz |
-| Sunucu | Uvicorn | ASGI sunucusu |
-| Test | pytest + FastAPI `TestClient` | Her test temiz bir veritabanında çalışır (SQLite veya PostgreSQL) |
+| Dil | **Java 21** (LTS) | Güçlü tip sistemi; `BigDecimal` ile kesin para hesabı; `record` ile kısa veri sınıfları |
+| Çatı | **Spring Boot 3.3** (Web MVC) | Endüstri standardı; bağımlılık enjeksiyonu, deklaratif transaction |
+| ORM | **Spring Data JPA / Hibernate 6** | Varlık sınıfları, JPQL sorguları, satır kilitleri (`PESSIMISTIC_WRITE`) |
+| Doğrulama | **Jakarta Bean Validation** | Alan kısıtları ve özel `@Gecerli` (TC, IBAN, plaka, telefon) kısıtı |
+| Veritabanı | **PostgreSQL** (18.6 ile test edildi) | `EXCLUDE` kısıtı, trigger'lar, rapor view'ları, `timestamptz` |
+| Şema yönetimi | **Flyway** | Sürümlü SQL göçleri |
+| API dokümanı | **springdoc-openapi** (Swagger UI) | Koddan otomatik OpenAPI 3; jar içinden çalışır |
+| Arayüz | **Alpine.js** + **Tailwind CSS** | Node/React derleme adımı olmadan reaktif, modern arayüz |
+| Derleme | **Maven** (`mvnw` sarmalayıcısı) | Maven kurmadan derleme |
+| Test | **JUnit 5** + ortak sözleşme testleri (pytest) | Birim testleri ve uçtan uca API testleri |
+| Kod kısaltma | **Lombok** | Varlık sınıflarında getter/setter |
 
-Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, Swagger UI, ReDoc) `app/static/vendor/` klasöründedir. Sistem **hiçbir dış adrese istek atmaz**.
+Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, ReDoc) `static/vendor/` klasöründedir; Swagger UI jar içinde gelir. Sistem **hiçbir dış adrese istek atmaz**.
 
 ---
 
@@ -183,44 +199,60 @@ Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, Swagger UI, ReDo
 
 ### Gereksinimler
 - Windows 10/11, macOS veya Linux
-- Python **3.11 veya üstü** (`python --version`)
-- İnternet yalnızca ilk kurulumda, paketleri indirmek için gerekir.
+- **Java 21** (`java -version`) — örn. [Eclipse Temurin](https://adoptium.net)
+- **PostgreSQL 15+** ([indir](https://www.postgresql.org/download/windows/); pgAdmin birlikte gelir)
+- Python 3.11+ — yalnızca veritabanı kurulum betiği ve sözleşme testleri için
+- İnternet yalnızca ilk derlemede, bağımlılıkları indirmek için gerekir. Sonrasında sistem tamamen çevrimdışı çalışır.
 
-### ⚡ Tek komutla demo (önerilen)
-
-**Windows:** proje klasöründeki **`demo.bat`** dosyasına çift tıklayın. Betik şunları yapar:
-1. İlk çalıştırmada sanal ortamı (`.venv`) oluşturur ve bağımlılıkları kurar.
-2. `demo.db` veritabanını sıfırdan kurar ve örnek veriyi yükler: 4 üretici, günlük fiyatlar, 1 avans, 6 teslimat, 1 ödeme.
-3. Sunucuyu başlatır ve paneli tarayıcıda açar.
-
-Sanal ortam zaten kuruluysa aynı işi tek komutla yapabilirsiniz:
-
-```bash
-.\.venv\Scripts\python.exe -m scripts.demo
-```
-
-| Seçenek | Açıklama |
-|---|---|
-| `--koru` | Önceki demo verisini silmeden devam eder |
-| `--port 8080` | Farklı bir port kullanır |
-| `--tarayici-acma` | Tarayıcıyı otomatik açmaz |
-
-Demo, asıl çalışma veritabanına (`siirt_fistik.db`) dokunmaz.
-
-### Adım adım kurulum
+### 1) Veritabanını hazırlayın (bir kez)
 
 ```bash
 git clone https://github.com/nisanurhrmn1/siirt-fistik-sistemi.git
 cd siirt-fistik-sistemi
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m scripts.postgres_kurulum
 ```
-> macOS/Linux'ta `.\.venv\Scripts\python.exe` yerine `.venv/bin/python` yazın.
 
-Sunucuyu başlatmak için (boş veritabanı, `siirt_fistik.db`):
+Kurulum betiği `postgres` yönetici şifresini sorar ve şunları yapar:
+- `fistik` adında ayrı bir uygulama kullanıcısı oluşturur; uygulama yönetici hesabıyla çalışmaz.
+- `siirt_fistik` (asıl) ve `siirt_fistik_test` (testler) veritabanlarını oluşturur.
+- Rastgele üretilen uygulama şifresini yalnızca `.env` dosyasına yazar (`.env` Git'e yüklenmez).
+
+<details><summary>Python kullanmadan, elle kurulum</summary>
+
+pgAdmin'deki Query Tool'da (postgres kullanıcısıyla):
+
+```sql
+CREATE ROLE fistik LOGIN PASSWORD 'kendi-sifreniz';
+CREATE DATABASE siirt_fistik OWNER fistik ENCODING 'UTF8' TEMPLATE template0;
+```
+
+Ardından proje kökünde `.env` dosyası oluşturun:
+
+```
+DATABASE_URL=postgresql://fistik:kendi-sifreniz@localhost:5432/siirt_fistik
+```
+</details>
+
+### 2) ⚡ Tek tıkla başlatma (önerilen)
+
+**Windows:** proje klasöründeki **`baslat.bat`** dosyasına çift tıklayın. Betik ilk seferde Java projesini derler, sunucuyu başlatır ve paneli tarayıcıda açar. Örnek veriyle başlatmak için (üretici tablosu boşsa yükler):
 
 ```bash
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+baslat.bat --fistik.demo-verisi=true
+```
+
+İlk açılışta Flyway tabloları, trigger'ları ve view'ları kurar. Uygulama da yönetici kullanıcıyı, A/B/Iskarta kalite sınıflarını, örnek kesinti türlerini ve siloları otomatik oluşturur.
+
+### Geliştirici komutları
+
+```bash
+cd java-backend
+.\mvnw.cmd spring-boot:run          # geliştirme sunucusu (http://127.0.0.1:8000)
+.\mvnw.cmd test                     # JUnit birim testleri
+.\mvnw.cmd package                  # target/siirt-fistik.jar
+java -jar target\siirt-fistik.jar --server.port=8080
 ```
 
 | Adres | İçerik |
@@ -228,40 +260,23 @@ Sunucuyu başlatmak için (boş veritabanı, `siirt_fistik.db`):
 | http://127.0.0.1:8000/ | Web yönetim paneli |
 | http://127.0.0.1:8000/docs | Swagger UI (API'yi tarayıcıdan deneme) |
 | http://127.0.0.1:8000/redoc | ReDoc (okunabilir API dokümanı) |
+| http://127.0.0.1:8000/openapi.json | OpenAPI 3 tanımı |
 
-İlk açılışta yönetici kullanıcı, A/B/Iskarta kalite sınıfları, örnek kesinti türleri ve silolar otomatik oluşturulur. Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat girilmelidir.
+Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat girilmelidir. Veriler pgAdmin'de `siirt_fistik` veritabanı altında incelenebilir; view'lar (`v_producer_balance`, `v_daily_purchases`, `v_silo_stock` …) doğrudan SQL raporu olarak kullanılabilir.
 
-### Ortam değişkenleri
+### Ayarlar
 
-| Değişken | Varsayılan | Açıklama |
+| Ayar | Varsayılan | Açıklama |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:///./siirt_fistik.db` | PostgreSQL için: `postgresql+psycopg://kullanici:sifre@localhost:5432/siirt_fistik` |
-| `TEST_DATABASE_URL` | — | `pytest --pg` için ayrı PostgreSQL test veritabanı (her testte şema sıfırlanır) |
-| `SEED_DEMO_DATA` | `1` | İlk açılışta kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
-| `SQL_ECHO` | `0` | `1` ise üretilen SQL sorgularını loglar |
+| `DATABASE_URL` (`.env`) | — | `postgresql://kullanici:sifre@localhost:5432/siirt_fistik` |
+| `TEST_DATABASE_URL` (`.env`) | — | Sözleşme testleri için ayrı veritabanı |
+| `--server.port` / `PORT` | `8000` | Sunucu portu |
+| `--fistik.demo-verisi` | `false` | `true` ise boş veritabanına örnek veri yükler |
+| `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 
-Değişkenler proje kökündeki **`.env`** dosyasından da okunur (örnek: [`.env.example`](.env.example)). `.env` şifre içerdiği için Git'e yüklenmez.
+### Python prototipi (isteğe bağlı)
 
-### PostgreSQL ile çalıştırma
-
-Uygulama varsayılan olarak kurulum gerektirmeyen SQLite ile açılır. PostgreSQL'e geçmek için:
-
-1. PostgreSQL'i kurun (https://www.postgresql.org/download/windows/; pgAdmin kurulumla birlikte gelir).
-2. Uygulama kullanıcısını ve veritabanlarını oluşturun. Betik `postgres` yönetici şifresini sorar:
-   ```bash
-   .\.venv\Scripts\python.exe -m scripts.postgres_kurulum
-   ```
-   - `fistik` adında ayrı bir uygulama kullanıcısı oluşturulur; uygulama yönetici hesabıyla çalışmaz.
-   - `siirt_fistik` (asıl) ve `siirt_fistik_test` (testler) veritabanları oluşturulur.
-   - Rastgele üretilen uygulama şifresi yalnızca `.env` dosyasına yazılır.
-3. Sunucuyu her zamanki gibi başlatın; `.env` sayesinde PostgreSQL kullanılır:
-   ```bash
-   .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
-   ```
-
-İlk açılışta uygulama tabloları, `btree_gist` eklentisini, trigger'ları ve rapor view'larını (`db/postgres_triggers_views.sql`) kendisi kurar. Veriler pgAdmin'de `siirt_fistik` veritabanı altında incelenebilir; view'lar (`v_producer_balance`, `v_daily_purchases`, `v_silo_stock` …) doğrudan SQL raporu olarak kullanılabilir.
-
-Saf SQL şeması `db/schema.sql` dosyasındadır; `python -m scripts.export_ddl` komutuyla modellerden yeniden üretilebilir. `demo.bat` / `scripts.demo` her zaman ayrı bir SQLite dosyası (`demo.db`) kullanır; PostgreSQL verisine dokunmaz.
+İnternetsiz ve PostgreSQL'siz hızlı bir gösterim için Python prototipi hâlâ çalışır: **`python-demo.bat`** ayrı bir SQLite dosyasıyla (`demo.db`) açılır. Python sunucusu `.\.venv\Scripts\python.exe -m uvicorn app.main:app` komutuyla da başlatılabilir; `.env` varsa aynı PostgreSQL veritabanını kullanır.
 
 ---
 
@@ -341,15 +356,34 @@ curl -X POST http://127.0.0.1:8000/api/v1/tartimlar -H "Content-Type: applicatio
 
 ## 8. Testler
 
+**Java birim testleri (JUnit 5)** — veritabanı gerektirmez:
+
 ```bash
-.\.venv\Scripts\python.exe -m pytest -q          # SQLite (kurulum gerektirmez)
-.\.venv\Scripts\python.exe -m pytest -q --pg     # PostgreSQL (27 test)
-.\.venv\Scripts\python.exe -m scripts.scenario_test
+cd java-backend
+.\mvnw.cmd test
 ```
 
-- **`tests/test_api.py`** (19 test): Uç noktaların hepsini HTTP üzerinden dener. Doğrulama hataları (negatif kg, %100'ü aşan oran, geçersiz TC/IBAN), fiyat kilidi, aynı gün çoklu teslimat, avansın teslimattan büyük olması, parçalı ödeme, sonradan verilen avansın mahsubu, stok ve günlük rapor kapsanır. Ayrıca panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmadığı denetlenir. Her test temiz bir veritabanında çalışır.
-- **`tests/test_postgres.py`** (8 test, yalnızca `--pg`): Uygulamayı atlayıp doğrudan SQL ile veri bozmaya çalışır ve PostgreSQL'in reddettiğini doğrular. Kapsam: cari hesap defterinin değiştirilememesi, onaylı ve kilitli fiyatların korunması, çakışan fiyat aralığı, hakediş formülü, yanlış kalitenin siloya girememesi. Ayrıca rapor view'larının API ile aynı sonucu verdiği kontrol edilir.
-- **`scripts/scenario_test.py`**: İş kurallarını HTTP olmadan, saat saat kurgulanmış bir gün senaryosuyla doğrular: 07:00 avans, 08:00 / 11:30 / 14:00 teslimatlar, 12:00 fiyat değişimi.
+`KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı.
+
+**Sözleşme testleri (uçtan uca, 27 test)** — aynı test paketi hem Java hem Python sunucusuna karşı çalışır. Böylece iki sürümün aynı davrandığı kanıtlanır:
+
+```bash
+# Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
+#   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (27 test)
+.\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
+.\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
+```
+
+- **`tests/test_api.py`** (19 test): Uç noktaların hepsini HTTP üzerinden dener. Kapsam:
+  - doğrulama hataları (negatif kg, %100'ü aşan oran, geçersiz TC/IBAN)
+  - fiyat kilidi ve aynı gün çoklu teslimat
+  - avansın teslimattan büyük olması ve sonradan verilen avansın mahsubu
+  - parçalı ödeme, stok ve günlük rapor
+  - panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmaması
+- **`tests/test_postgres.py`** (8 test): Uygulamayı atlayıp doğrudan SQL ile veri bozmaya çalışır ve PostgreSQL'in reddettiğini doğrular. Kapsam: cari hesap defterinin değiştirilememesi, onaylı ve kilitli fiyatların korunması, çakışan fiyat aralığı, hakediş formülü, yanlış kalitenin siloya girememesi, rapor view'larının API ile aynı sonucu vermesi.
+
+> Java'ya geçişte bu testler bir sıralama hatasını yakaladı: Hibernate, yeni fiyatı onaylayan güncellemeyi eski fiyatı kapatan güncellemeden önce gönderiyordu. O an iki onaylı fiyat çakıştığı için PostgreSQL'in `EXCLUDE` kısıtı işlemi reddetti. Hata `Kurallar.fiyatOnayla` içinde düzeltildi; veritabanı koruması amacına uygun çalıştı.
 
 ---
 
@@ -357,37 +391,33 @@ curl -X POST http://127.0.0.1:8000/api/v1/tartimlar -H "Content-Type: applicatio
 
 ```
 siirt-fistik-sistemi/
-├── demo.bat                  Tek tıkla kurulum + demo (Windows)
-├── requirements.txt
-├── app/
-│   ├── main.py               FastAPI uygulaması (giriş noktası)
-│   ├── web.py                Panel, /docs ve /redoc (yerel dosyalarla)
-│   ├── api/
-│   │   ├── deps.py           get_db, get_current_user
-│   │   ├── errors.py         Hata → HTTP kodu, Türkçe doğrulama mesajları
-│   │   └── v1/               ureticiler, tartimlar, fiyatlar, finans, depo_rapor
-│   ├── schemas/              Pydantic istek/yanıt modelleri
-│   ├── services/             İş akışları (tartım, finans, fiyat, rapor, üretici)
-│   ├── domain/rules.py       İş kuralları (HTTP'den bağımsız)
-│   ├── db/                   models.py, enums.py, session.py, seed.py
-│   ├── core/                 Ayarlar, hata sınıfları, saat/para biçimlendirme
-│   ├── templates/            Jinja2 şablonları (index.html + partials/)
-│   └── static/               css/, js/app.js, img/, vendor/ (çevrimdışı kütüphaneler)
-├── db/
-│   ├── schema.sql            PostgreSQL DDL (modellerden üretilir)
-│   └── postgres_triggers_views.sql   Trigger'lar ve rapor view'ları
-├── docs/
-│   ├── GEREKSINIMLER.md      Yazılım gereksinimleri belirtimi (SRS)
-│   ├── UML.md                UML diyagramları
-│   ├── ER.md                 ER diyagramı ve iş kuralı → şema eşlemesi
-│   └── ekran-goruntuleri/
+├── baslat.bat                Java sunucusunu derler/başlatır, paneli açar (Windows)
+├── java-backend/             ★ Ana sistem: Java 21 + Spring Boot 3
+│   ├── pom.xml, mvnw.cmd     Maven projesi ve sarmalayıcısı
+│   └── src/
+│       ├── main/java/tr/edu/siirt/fistik/
+│       │   ├── SiirtFistikApplication.java   Giriş noktası
+│       │   ├── alan/         19 JPA varlığı + enum'lar
+│       │   ├── kural/        Kurallar (iş kuralları), Dogrulama, Hatalar
+│       │   ├── servis/       Tartım, Finans, Fiyat, Rapor, Üretici servisleri; başlangıç ve demo verisi
+│       │   ├── api/          REST kontrolcüleri, istek/yanıt record'ları, hata yönetimi, @Gecerli
+│       │   ├── web/          Swagger/ReDoc ve OpenAPI ayarları
+│       │   └── config/       .env okuyucu, JSON (snake_case, BigDecimal → metin)
+│       ├── main/resources/
+│       │   ├── application.properties
+│       │   ├── db/migration/ V1__sema.sql, V2__tetikleyiciler_ve_viewlar.sql (Flyway)
+│       │   └── static/       Panel (index.html, redoc.html, static/css·js·img·vendor)
+│       └── test/java/        JUnit testleri
+├── app/                      Python (FastAPI) prototipi — panelin kaynak şablonları da burada
+├── db/                       schema.sql, postgres_triggers_views.sql
+├── docs/                     GEREKSINIMLER.md, UML.md, ER.md, ekran-goruntuleri/
 ├── scripts/
-│   ├── demo.py               Tek komutla demo
-│   ├── demo_verisi.py        Örnek veri yükleyici
 │   ├── postgres_kurulum.py   PostgreSQL kullanıcı/veritabanı kurulumu, .env üretimi
-│   ├── scenario_test.py      İş kuralı senaryo testi
-│   └── export_ddl.py         Modellerden schema.sql üretimi
-├── tests/                    test_api.py (API), test_postgres.py (trigger/kısıt, --pg)
+│   ├── java_panel_aktar.py   Paneli (app/templates) Java projesine aktarır
+│   ├── demo.py, demo_verisi.py, scenario_test.py, export_ddl.py   Python prototipi araçları
+├── tests/                    Ortak sözleşme testleri (Java: --java, Python: --pg)
+├── python-demo.bat           Python prototipi, SQLite ile çevrimdışı demo
+├── requirements.txt          Python bağımlılıkları (kurulum betiği ve testler için)
 └── .env.example              Ortam değişkenleri örneği (.env Git'e yüklenmez)
 ```
 
@@ -398,7 +428,6 @@ siirt-fistik-sistemi/
 | Konu | Mevcut durum | Öneri |
 |---|---|---|
 | Kimlik doğrulama | Yok. İşlemi yapan kullanıcı `X-Kullanici-Id` başlığıyla verilir; başlık yoksa yönetici kabul edilir. | JWT/OAuth2 ve rol bazlı yetki (kantar memuru, muhasebe, fiyat yöneticisi) |
-| Veritabanı göçleri | Tablolar açılışta `create_all` ile oluşturulur | Alembic migration'ları |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
 | Kantar entegrasyonu | Ağırlık elle girilir | Kantar göstergesinden seri port/TCP ile otomatik okuma |
@@ -410,3 +439,5 @@ siirt-fistik-sistemi/
 
 Bu proje eğitim amaçlı geliştirilmiştir. Arayüzde kullanılan üçüncü taraf kütüphanelerin lisansları için:
 [`app/static/vendor/README.md`](app/static/vendor/README.md)
+
+Önceki Python (FastAPI) sürümüne `git checkout python-surum` ile dönülebilir.

@@ -180,6 +180,7 @@ def approve_price(session: Session, price: DailyPrice, approver_id: int, at: dat
     ).scalars().all()
     for prev in previous:
         prev.valid_to = price.valid_from  # [from, to) — yeni fiyatın başladığı an eski fiyat biter
+    session.flush()  # önce eski fiyatı kapat; yoksa iki onaylı fiyat bir an çakışır (EXCLUDE kısıtı)
 
     price.status = PriceStatus.APPROVED
     price.approved_by_id = approver_id

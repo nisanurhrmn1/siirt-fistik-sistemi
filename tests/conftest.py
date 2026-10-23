@@ -3,6 +3,7 @@ import warnings
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")  # app.db.session import edilmeden önce
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import SAWarning
@@ -20,6 +21,21 @@ IBAN = "TR330006100519786457841326"
 def pytest_addoption(parser):
     parser.addoption("--pg", action="store_true",
                      help="Testleri .env'deki TEST_DATABASE_URL (PostgreSQL) üzerinde çalıştır")
+    parser.addoption("--java", metavar="URL",
+                     help="Aynı testleri çalışan Java (Spring Boot) sunucusuna karşı çalıştır, ör. http://127.0.0.1:8020. "
+                          "Sunucu TEST_DATABASE_URL veritabanına bağlı olmalı.")
+
+
+# Java modunda her testten önce boşaltılan tablolar (başlangıç verisi tabloları korunur: users, quality_grades,
+# deduction_types, silos). TRUNCATE satır trigger'larını tetiklemez.
+ISLEM_TABLOLARI = ("payment_allocations, payments, advance_offsets, settlement_deductions, producer_ledger_entries, "
+                   "stock_movements, lots, settlements, advances, quality_inspections, weigh_tickets, daily_prices, "
+                   "producer_bank_accounts, producers, document_sequences")
+
+
+def pytest_configure(config):
+    if config.getoption("--java"):
+        config.option.pg = True   # Java yalnızca PostgreSQL ile çalışır; PostgreSQL'e özgü testler de koşar
 
 
 def _test_engine(config):
@@ -38,6 +54,14 @@ def _test_engine(config):
 
 @pytest.fixture
 def db_engine(request):
+    if request.config.getoption("--java"):
+        # Şema Java (Flyway) tarafından kurulur; yalnızca işlem verisini temizle
+        engine = create_db_engine(os.environ["TEST_DATABASE_URL"])
+        with engine.begin() as conn:
+            conn.exec_driver_sql(f"TRUNCATE {ISLEM_TABLOLARI} RESTART IDENTITY CASCADE")
+        yield engine
+        engine.dispose()
+        return
     engine = _test_engine(request.config)
     init_db(engine)
     yield engine
@@ -45,8 +69,13 @@ def db_engine(request):
 
 
 @pytest.fixture
-def client(db_engine):
+def client(request, db_engine):
     """Her test için boş veritabanı + başlangıç verisi (kullanıcı, sınıflar, kesintiler, silolar)."""
+    java_url = request.config.getoption("--java")
+    if java_url:
+        with httpx.Client(base_url=java_url, follow_redirects=True, timeout=30) as c:
+            yield c
+        return
     engine = db_engine
     Session = make_session_factory(engine)
     with Session() as db:

@@ -1,6 +1,6 @@
 # Yazılım Gereksinimleri Belirtimi (SRS)
 
-**Proje:** Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · **Sürüm:** 1.0 · **Tarih:** 22.10.2026
+**Proje:** Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · **Sürüm:** 2.0 (Java / Spring Boot) · **Tarih:** 23.10.2026
 **Hazırlayanlar:** Nisanur HARMAN (230304014), Vesile KARADEMİR (230304034) · **Danışman:** Prof. Dr. Musa ATAŞ
 
 > Bu belge IEEE 830 / ISO/IEC/IEEE 29148 yapısı esas alınarak sadeleştirilmiştir.
@@ -65,8 +65,9 @@ Sistem bir REST API ve tarayıcıdan kullanılan bir yönetim panelinden oluşur
 ## 2. Genel tanım
 
 ### 2.1 Ürün bakış açısı
-Bağımsız bir web uygulamasıdır. Katmanlı mimaride FastAPI (Python) sunucusu, SQLAlchemy ORM ve
-PostgreSQL/SQLite veritabanı kullanır. Panel, sunucunun REST API'sini kullanan tek sayfalık bir uygulamadır.
+Bağımsız bir web uygulamasıdır. Katmanlı mimaride Java 21 / Spring Boot 3 sunucusu, JPA (Hibernate) ve
+PostgreSQL veritabanı kullanır. Panel, sunucunun REST API'sini kullanan tek sayfalık bir uygulamadır.
+Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleşmesini ve aynı testleri paylaşır.
 
 ### 2.2 Varsayımlar ve kısıtlar
 - **K-1** Türkiye saati (UTC+3) esas alınır; zaman damgaları veritabanında UTC saklanır.
@@ -161,17 +162,17 @@ PostgreSQL/SQLite veritabanı kullanır. Panel, sunucunun REST API'sini kullanan
 
 | No | Kategori | Gereksinim | Doğrulama | Durum |
 |---|---|---|---|---|
-| FOG-01 | Doğruluk | Para hesaplarında kayan nokta (`float`) kullanılmamalı; `NUMERIC`/`Decimal`, kuruşa yuvarlama (ROUND_HALF_UP) kullanılmalıdır. | Kod incelemesi, testler | ✅ |
+| FOG-01 | Doğruluk | Para hesaplarında kayan nokta (`float`/`double`) kullanılmamalı; `NUMERIC`/`BigDecimal`, kuruşa yuvarlama (HALF_UP) kullanılmalıdır. | Kod incelemesi, JUnit | ✅ |
 | FOG-02 | Veri bütünlüğü | İş kuralları uygulama dışında (doğrudan SQL ile) da korunmalıdır: CHECK, UNIQUE, EXCLUDE kısıtları ve trigger'lar. | `tests/test_postgres.py` | ✅ |
 | FOG-03 | Denetlenebilirlik | Cari hesap kayıtları silinemez ve güncellenemez; düzeltme ters kayıtla yapılır. | `tests/test_postgres.py` | ✅ |
 | FOG-04 | Tutarlılık | Tartım → kalite → fiyat kilidi → hakediş → stok tek transaction'da yapılmalı (hepsi ya da hiçbiri). | Kod incelemesi | ✅ |
 | FOG-05 | Eşzamanlılık | Aynı üreticiye eşzamanlı işlemler avansı iki kez mahsup edememeli; belge numaraları çakışmamalıdır (satır kilidi). | Kod incelemesi | ✅ (PostgreSQL) |
 | FOG-06 | Kullanılabilirlik | Arayüz ve tüm hata mesajları Türkçe olmalı; doğrulama hataları ilgili alanın altında gösterilmelidir. | Arayüz testi | ✅ |
 | FOG-07 | Çevrimdışı çalışma | Panel ve API dokümantasyonu internet bağlantısı olmadan çalışmalıdır. | `test_cevrimdisi_calisir_dis_kaynak_yok` | ✅ |
-| FOG-08 | Taşınabilirlik | Sistem SQLite ve PostgreSQL ile aynı kodla çalışmalıdır. | `pytest` ve `pytest --pg` | ✅ |
+| FOG-08 | Taşınabilirlik | REST sözleşmesi uygulama dilinden bağımsız olmalıdır: aynı testler Java ve Python sürümlerinde geçmelidir. | `pytest --java` ve `pytest --pg` | ✅ |
 | FOG-09 | Dokümantasyon | API, OpenAPI standardında otomatik belgelenmelidir (Swagger, ReDoc). | `/docs`, `/redoc` | ✅ |
-| FOG-10 | Test edilebilirlik | İş kuralları HTTP'den bağımsız bir katmanda olmalı ve otomatik testlerle doğrulanmalıdır. | 27 test + senaryo testi | ✅ |
-| FOG-11 | Kurulum | Demo tek komutla (`demo.bat`) kurulup çalıştırılabilmelidir. | Elle deneme | ✅ |
+| FOG-10 | Test edilebilirlik | İş kuralları HTTP'den bağımsız bir katmanda olmalı ve otomatik testlerle doğrulanmalıdır. | 27 sözleşme testi + 6 JUnit testi | ✅ |
+| FOG-11 | Kurulum | Sistem tek komutla (`baslat.bat`) derlenip çalıştırılabilmelidir. | Elle deneme | ✅ |
 | FOG-12 | Güvenlik | Kullanıcılar kimlik doğrulamasıyla girmeli; işlemler role göre yetkilendirilmelidir. | — | ⏳ |
 | FOG-13 | Gizlilik | Veritabanı şifreleri kaynak koda veya Git'e girmemelidir (`.env`). | `.gitignore` | ✅ |
 
@@ -238,6 +239,8 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 ---
 
 ## 7. İzlenebilirlik matrisi (gereksinim → kod → test)
+
+> Kod sütunu Python prototipindeki adları gösterir; Java karşılıkları için README'deki *Python prototipinden Java'ya* tablosuna bakın (ör. `rules.find_effective_price` → `Kurallar.gecerliFiyat`, `rules.create_settlement` → `Kurallar.hakedisOlustur`). Testler iki sürümde de aynıdır.
 
 | Gereksinim | Uygulama | Test |
 |---|---|---|
