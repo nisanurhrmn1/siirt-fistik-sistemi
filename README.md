@@ -304,6 +304,14 @@ Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak �
 
 **Gün sonu raporu.** Kantar sekmesinde Bugünkü Teslimatlar tablosunun üstünden gün seçilip **Gün Sonu Raporu Al** ile indirilir. CSV dosyası Excel'de çift tıklayınca doğrudan açılır. İçinde özet (kg, tutar, kesinti, avans mahsubu, kalan hakediş), kasa (nakit / havale / çek ödemeler ve avanslar, kasadan çıkan nakit), ürün türü kırılımı, teslimat listesi, kasa hareketleri ve silo bazlı giren stok bulunur.
 
+**Satış ve sevkiyat (depodan çıkış).** **Sevkiyat** sekmesinden alıcı firmaya kamyonla çıkış yapılır (Yönetici ve Depo sorumlusu; diğer roller yalnızca görür). Akış ve klavye sırası: Alıcı → Plaka → Şoför → Çıkış silosu → Dara (boş araç, `F3`) → Brüt (dolu araç, `F2`) → Satış birim fiyatı → Ödeme durumu (nakit alındı / havale alındı / vadeli-açık hesap) → `F9` ile onay.
+
+- Net çıkış kadar silo stoğu düşer. Düşüm, silodaki lotlardan **ilk giren ilk çıkar** sırasıyla yapılır; irsaliyede hangi üreticinin lotundan ne kadar çıktığı görünür.
+- Silodaki stoktan fazla çıkış hem ekranda hem sunucuda reddedilir; veritabanı da bir lotun eksiye düşmesine izin vermez (`trg_stock_non_negative`).
+- Alıcılar müşteri kartı olarak saklanır; "ANTEP FISTIKÇILIK" ile "Antep Fıstıkçılık" aynı müşteridir. Vadeli satışların açık hesap toplamı müşteri listesinde görünür.
+- Onaydan sonra **Kantar Çıkış ve Sevk İrsaliyesi** 80 / 58 mm termal veya A5 olarak basılır. Bu belge kantar çıkış belgesidir; resmî e-irsaliye yerine geçmez.
+- Gün sonu raporunda sevkiyatlar, satış tahsilatı (nakit / havale / vadeli), kasa net nakdi ve silo bazlı giren / çıkan kg da yer alır.
+
 **Termal fiş.** Fiş 80 mm (veya ⚙ menüsünden 58 mm) rulo kâğıda göre tasarlandı: sayfanın geri kalanı yazdırılmaz, rulodan boş kâğıt akmaz. Yazıcı ayarında kenar boşluğu **Yok**, ölçek **%100** seçilmelidir. Yazdırma penceresini her seferinde görmemek için kantar bilgisayarında Chrome `--kiosk-printing` parametresiyle açılabilir; fiş varsayılan yazıcıya doğrudan basılır.
 
 ### Kullanıcılar ve roller
@@ -316,7 +324,7 @@ Panel açıldığında giriş ekranı gelir. Her rol yalnızca kendi işlemlerin
 | Kantar memuru | `kantar` | Tartım ve fiş kesme (canlı hakediş önizlemesi dahil) |
 | Muhasebe | `muhasebe` | Üretici kaydı, avans verme, hakediş ödemesi |
 | Fiyat yöneticisi | `fiyat` | Günlük taban fiyat belirleme |
-| Depo sorumlusu | `depo` | Stok, rapor ve ekstreleri izleme (yalnızca okuma) |
+| Depo sorumlusu | `depo` | Satış ve sevkiyat (depodan çıkış), stok ve raporları izleme |
 
 Okuma işlemleri (listeler, raporlar, ekstre) giriş yapmış herkese açıktır. Her kayıt, işlemi yapan kullanıcıyla imzalanır (`weighed_by_id`, `created_by_id`…).
 
@@ -388,6 +396,11 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `GET` | `/raporlar/gunluk-ozet?tarih=` | Günlük alım (kg), ödenen tutar, ortalama randıman | 200 |
 | `GET` | `/raporlar/uretici-bakiyeleri` | Tüm üreticilerin bakiye ve açık avansı | 200 |
 | `GET` | `/raporlar/gun-sonu?tarih=` | Gün sonu kasa & kantar raporu (JSON) | 200 |
+| **Satış ve Sevkiyat** ||||
+| `POST` | `/sevkiyatlar` | Sevkiyat kaydı; silo stoğu lot bazında düşer (Yönetici, Depo sorumlusu) | 201 |
+| `GET` | `/sevkiyatlar?tarih=` | Sevkiyatlar (tarih yoksa son 100) | 200 |
+| `GET` | `/sevkiyatlar/{id}` | Sevkiyat detayı ve çıkan lotlar (irsaliye) | 200 |
+| `GET` | `/musteriler` | Alıcı firmalar, satış toplamları ve açık hesap | 200 |
 | `GET` | `/raporlar/gun-sonu.csv?tarih=` | Aynı rapor, Excel'de açılan CSV (UTF-8 BOM, `;`, ondalık virgül) | 200 |
 | **Sistem** ||||
 | `GET` | `/saglik` *(önek yok)* | Sağlık kontrolü | 200 |
@@ -453,7 +466,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (58 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (66 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -468,7 +481,7 @@ cd java-backend
 - **`tests/test_guvenlik.py`** (10 test, yalnızca Java): Kapsam:
   - giriş yapılmadan API'ye erişilememesi; sahte token ve yanlış şifrenin reddi
   - yanlış girişte kullanıcı adlarının sızdırılmaması
-  - rol kuralları (kantar memuru ödeme yapamaz, muhasebe tartım yapamaz, depo sorumlusu yalnızca okur)
+  - rol kuralları (kantar memuru ödeme yapamaz, muhasebe tartım yapamaz, depo sorumlusu avans ve ödeme yapamaz)
   - her kaydın işlemi yapan kullanıcıyla imzalanması
 - **`tests/test_kullanicilar.py`** (9 test, yalnızca Java): Kapsam:
   - hesap talebinin onaylanmadan giriş yapamaması, onayda rolün değiştirilebilmesi, reddedilen talebin silinmesi
@@ -476,6 +489,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_sevkiyat.py`** (8 test, yalnızca Java): ilk giren ilk çıkar lot düşümü ve tutar; stoktan fazla ve boş silodan çıkışın reddi; doğrulamalar; yalnızca Yönetici ve Depo sorumlusunun sevkiyat yapabilmesi; müşteri kartının Türkçe harf farkıyla tekrarlanmaması ve açık hesap toplamı; veritabanının eksi stoğu reddetmesi; gün sonu raporunda sevkiyat ve tahsilat.
 - **`tests/test_raporlar.py`** (4 test, yalnızca Java): cari dökümde ürün türü, avans ve ödeme listeleri ve dönem filtresi; gün sonu raporunda nakit/havale ayrımı, kasadan çıkan nakit, kalan hakediş, ürün türü ve silo girişleri; CSV'nin Excel uyumu (BOM, `;`, ondalık virgül).
 - **`tests/test_saha.py`** (8 test, yalnızca Java): Kapsam:
   - çuval darasının nete ve önizlemeye yansıması, neti sıfırlayan çuval darasının reddi

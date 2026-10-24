@@ -346,12 +346,71 @@
     </div>
   </div>
 
+  <!-- ─── Kantar çıkış ve sevk irsaliyesi: 80 / 58 mm termal veya A5 ─── -->
+  <div x-show="modal === 'irsaliye'" class="modal-kutu yazdir-kutu max-w-xl">
+    <div class="modal-baslik no-print"><h3>Kantar Çıkış ve Sevk İrsaliyesi</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="yazdir-zemin p-4 sm:p-6 bg-stone-100/70 flex justify-center">
+      <template x-if="irsaliye">
+        <div class="print-area fis-termal" :class="{ 'fis-58': ayarlar.kagit === '58', 'fis-a5': ayarlar.kagit === 'A5' }">
+          <div class="fis-orta">
+            <p class="fis-buyuk">SİİRT FISTIĞI ALIM MERKEZİ</p>
+            <p>KANTAR ÇIKIŞ VE SEVK İRSALİYESİ</p>
+          </div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>İrsaliye No</span><b x-text="irsaliye.sevkiyat_no"></b></div>
+          <div class="fis-satir"><span>Tarih / Saat</span><span x-text="tarihYaz(irsaliye.tarih)"></span></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Alıcı</span><b class="fis-sag" x-text="irsaliye.musteri_adi"></b></div>
+          <div class="fis-satir" x-show="irsaliye.musteri_vergi_no"><span>Vergi No</span><span x-text="irsaliye.musteri_vergi_no"></span></div>
+          <div class="fis-satir"><span>Plaka</span><span x-text="irsaliye.plaka"></span></div>
+          <div class="fis-satir"><span>Şoför</span><span x-text="irsaliye.sofor_adi || '—'"></span></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Çıkış silosu</span><span x-text="irsaliye.silo_kodu"></span></div>
+          <div class="fis-satir"><span>Ürün</span><span x-text="irsaliye.urun_turu_adi"></span></div>
+          <div class="fis-satir"><span>Kalite</span><b x-text="`${irsaliye.kalite_kodu} · ${irsaliye.kalite_adi}`"></b></div>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Brüt (dolu)</span>
+            <span><span x-text="kg(irsaliye.brut_kg)"></span><small x-text="irsaliye.brut_kaynagi === 'SCALE' ? ' (K)' : ' (E)'"></small></span></div>
+          <div class="fis-satir"><span>Dara (boş)</span>
+            <span><span x-text="'− ' + kg(irsaliye.dara_kg)"></span><small x-text="irsaliye.dara_kaynagi === 'SCALE' ? ' (K)' : ' (E)'"></small></span></div>
+          <div class="fis-satir fis-buyuk"><span>NET ÇIKIŞ</span><span x-text="kg(irsaliye.net_kg)"></span></div>
+          <p class="fis-not">K: kantardan okundu · E: elle girildi</p>
+          <div class="fis-cizgi"></div>
+          <div class="fis-satir"><span>Birim fiyat</span><span x-text="tl(irsaliye.birim_fiyat) + '/kg'"></span></div>
+          <div class="fis-satir fis-buyuk"><span>TUTAR</span><span x-text="tl(irsaliye.toplam_tutar)"></span></div>
+          <div class="fis-satir"><span>Ödeme</span><b x-text="irsaliye.tahsilat_adi"></b></div>
+          <p class="fis-not" x-show="irsaliye.aciklama" x-text="irsaliye.aciklama"></p>
+          <div class="fis-cizgi"></div>
+          <p class="fis-not"><b>Lotlar (izlenebilirlik)</b></p>
+          <template x-for="l in irsaliye.lotlar" :key="l.lot_no">
+            <div class="fis-satir fis-not"><span x-text="`${l.lot_no} · ${l.uretici}`"></span><span x-text="kg(l.kg)"></span></div>
+          </template>
+          <p class="fis-not" x-text="`Silo kalan stok: ${kg(irsaliye.silo_kalan_kg)}`"></p>
+          <div class="fis-imzalar">
+            <div><div class="fis-imza"></div>Kantar Memuru<br><span x-text="irsaliye.kantar_memuru"></span></div>
+            <div><div class="fis-imza"></div>Teslim Alan Şoför<br><span x-text="irsaliye.sofor_adi || ''"></span></div>
+          </div>
+          <p class="fis-orta fis-not">Bu belge kantar çıkış belgesidir; resmî sevk irsaliyesi / e-irsaliye yerine geçmez.</p>
+        </div>
+      </template>
+    </div>
+    <div class="modal-alt no-print">
+      <select x-model="ayarlar.kagit" class="girdi w-36 py-1.5 text-sm mr-auto" aria-label="Kâğıt">
+        <option value="80">80 mm rulo</option>
+        <option value="58">58 mm rulo</option>
+        <option value="A5">A5 sayfa</option>
+      </select>
+      <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
+      <button type="button" class="btn-birincil" @click="fisYazdir()">Yazdır</button>
+    </div>
+  </div>
+
   <!-- ─── Kantar fişi: 80 / 58 mm termal rulo için (ekranda da aynı görünüm) ─── -->
   <div x-show="modal === 'fis'" class="modal-kutu yazdir-kutu max-w-md">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
     <div class="yazdir-zemin p-4 sm:p-6 bg-stone-100/70 flex justify-center">
       <template x-if="fis">
-        <div class="print-area fis-termal" :class="ayarlar.kagit === '58' && 'fis-58'">
+        <div class="print-area fis-termal" :class="{ 'fis-58': ayarlar.kagit === '58', 'fis-a5': ayarlar.kagit === 'A5' }">
           <div class="fis-orta">
             <p class="fis-buyuk">SİİRT FISTIĞI ALIM MERKEZİ</p>
             <p>Kantar ve Müstahsil Fişi</p>
@@ -417,6 +476,7 @@
       <select x-model="ayarlar.kagit" class="girdi w-36 py-1.5 text-sm mr-auto" aria-label="Kâğıt genişliği">
         <option value="80">80 mm rulo</option>
         <option value="58">58 mm rulo</option>
+        <option value="A5">A5 sayfa</option>
       </select>
       <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
       <button type="button" class="btn-birincil" @click="fisYazdir()">Yazdır</button>

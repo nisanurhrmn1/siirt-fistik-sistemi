@@ -174,7 +174,9 @@ public final class Yanitlar {
     public record KasaOzeti(BigDecimal nakitOdeme, BigDecimal havaleOdeme, BigDecimal cekOdeme, BigDecimal toplamOdeme,
                             BigDecimal nakitAvans, BigDecimal havaleAvans, BigDecimal cekAvans, BigDecimal toplamAvans,
                             BigDecimal kasadanCikanNakit, BigDecimal gununNetHakedisi, BigDecimal gununHakedisindenOdenen,
-                            BigDecimal gununKalanHakedisi, BigDecimal tumAcikHakedisler) {
+                            BigDecimal gununKalanHakedisi, BigDecimal tumAcikHakedisler, BigDecimal nakitTahsilat,
+                            BigDecimal havaleTahsilat, BigDecimal vadeliSatis, BigDecimal toplamSatis,
+                            BigDecimal kasaNetNakit) {
     }
 
     public record UrunTuruOzeti(ProductType urunTuru, String urunTuruAdi, int teslimatSayisi, BigDecimal netKg,
@@ -192,13 +194,20 @@ public final class Yanitlar {
                                       PaymentMethod odemeYontemi, BigDecimal tutar, String referansNo) {
     }
 
+    /** O gün siloya giren (alım) ve çıkan (sevkiyat) miktar. */
     public record SiloGirisi(String siloKodu, String siloAdi, String kaliteKodu, int lotSayisi, BigDecimal girenKg,
-                             BigDecimal guncelStokKg) {
+                             BigDecimal guncelStokKg, BigDecimal cikanKg) {
+    }
+
+    public record GunSonuSevkiyat(OffsetDateTime zaman, String sevkiyatNo, String musteri, String plaka, String siloKodu,
+                                  String kaliteKodu, String urunTuruAdi, BigDecimal netKg, BigDecimal birimFiyat,
+                                  BigDecimal toplamTutar, String tahsilatAdi) {
     }
 
     public record GunSonuRaporu(LocalDate tarih, OffsetDateTime olusturulma, GunlukOzet ozet, KasaOzeti kasa,
                                 List<UrunTuruOzeti> urunTurleri, List<GunSonuTeslimat> teslimatlar,
-                                List<GunSonuKasaHareketi> kasaHareketleri, List<SiloGirisi> siloGirisleri) {
+                                List<GunSonuKasaHareketi> kasaHareketleri, List<SiloGirisi> siloGirisleri,
+                                List<GunSonuSevkiyat> sevkiyatlar) {
     }
 
     public record GunlukOzet(LocalDate tarih, int teslimatSayisi, int ureticiSayisi, BigDecimal toplamNetKg,

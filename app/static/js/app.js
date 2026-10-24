@@ -167,6 +167,10 @@ const bosKantar = () => ({
   urun_turu: 'DRY', cuval_sayisi: '', brut_kaynagi: 'MANUAL', dara_kaynagi: 'MANUAL',
   kalite: { numune_gram: '500', catlak_orani: '', randiman: '', bos_orani: '', curuk_orani: '0', nem_orani: '' },
 });
+const bosSevk = () => ({
+  musteri_adi: '', plaka: '', sofor_adi: '', silo_id: '', dara_kg: '', brut_kg: '', birim_fiyat: '',
+  tahsilat: 'BANK_TRANSFER', aciklama: '', brut_kaynagi: 'MANUAL', dara_kaynagi: 'MANUAL',
+});
 const bosTalep = () => ({ ad_soyad: '', kullanici_adi: '', istenen_rol: 'SCALE_OPERATOR', sifre: '', tekrar: '', aciklama: '' });
 const bosUretici = () => ({
   tip: 'INDIVIDUAL', ad_soyad: '', tc_kimlik_no: '', vergi_no: '', vergi_dairesi: '', telefon: '',
@@ -179,6 +183,7 @@ document.addEventListener('alpine:init', () => {
       { id: 'kantar', ad: 'Kantar & Teslimat', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v17.25M5.25 4.97 2.63 15.7a6 6 0 0 0 5.25 1.56L5.25 4.97Zm13.5 0-2.62 10.72a6 6 0 0 0 5.25 1.56L18.75 4.97ZM5.25 4.97A48.4 48.4 0 0 1 18.75 4.97"/></svg>' },
       { id: 'uretici', ad: 'Üretici & Finans', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.13a9.38 9.38 0 0 0 2.63.37 9.34 9.34 0 0 0 4.12-.95 4.13 4.13 0 0 0-7.53-2.49M15 19.13v-.01c0-1.11-.29-2.16-.79-3.07M15 19.13v.11A12.32 12.32 0 0 1 8.62 21c-2.33 0-4.51-.65-6.37-1.76v-.11a6.38 6.38 0 0 1 11.96-3.08M12 6.38a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0Zm8.25 2.25a2.63 2.63 0 1 1-5.25 0 2.63 2.63 0 0 1 5.25 0Z"/></svg>' },
       { id: 'fiyat', ad: 'Fiyat & Depo', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.13C3 12.5 3.5 12 4.13 12h2.25c.62 0 1.12.5 1.12 1.13v6.75C7.5 20.5 7 21 6.38 21H4.13C3.5 21 3 20.5 3 19.88v-6.75ZM9.75 8.63c0-.63.5-1.13 1.13-1.13h2.25c.62 0 1.12.5 1.12 1.13v11.25c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V8.63ZM16.5 4.13c0-.63.5-1.13 1.13-1.13h2.25C20.5 3 21 3.5 21 4.13v15.75c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V4.13Z"/></svg>' },
+      { id: 'sevkiyat', ad: 'Sevkiyat', yalnizJava: true, ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.38a1.13 1.13 0 0 1-1.13-1.13V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.13c.62 0 1.13-.5 1.13-1.13v-5.07a2.25 2.25 0 0 0-.44-1.34l-2.71-3.62a1.13 1.13 0 0 0-.9-.44H14.25M16.5 18.75h-2.25m0-11.25v11.25m0-11.25V4.88c0-.62-.5-1.13-1.13-1.13H3.38c-.62 0-1.13.5-1.13 1.13v9.37m12 0H2.25"/></svg>' },
       { id: 'kullanicilar', ad: 'Kullanıcılar', yetki: 'kullanici_yonet', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.13a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0ZM3 19.24v-.12a6.38 6.38 0 0 1 12.75 0v.12A12.32 12.32 0 0 1 9.37 21 12.3 12.3 0 0 1 3 19.24Z"/></svg>' },
     ],
     tab: 'kantar',
@@ -216,6 +221,13 @@ document.addEventListener('alpine:init', () => {
     kantarDurum: { bagli: false, mesaj: 'Bağlı değil', sonOkuma: null },
     kantarOkunan: '',             // şu an kantardan okunan alan: 'brut' | 'dara'
     urunTurleri: { DRY: 'Kuru-kavlak', FRESH: 'Yaş fıstık' },
+    // sevkiyat (satış / depodan çıkış)
+    sevk: bosSevk(),
+    sevkiyatlar: [],
+    musteriler: [],
+    sevkKaydediliyor: false,
+    irsaliye: null,
+    tahsilatlar: { CASH: 'Nakit alındı', BANK_TRANSFER: 'Havale alındı', ON_ACCOUNT: 'Vadeli / açık hesap' },
     dokum: null,                  // yazdırılabilir cari hesap ekstresi
     dokumForm: { baslangic: '', bitis: '' },
     gunSonuTarihi: '',
@@ -262,7 +274,7 @@ document.addEventListener('alpine:init', () => {
       SCALE_OPERATOR: { ad: 'Kantar memuru', aciklama: 'Tartım ve fiş kesme', sekme: 'kantar', renk: 'from-emerald-500 to-teal-600' },
       QUALITY: { ad: 'Kalite sorumlusu', aciklama: 'Kalite analizlerini izleme', sekme: 'kantar', renk: 'from-sky-500 to-indigo-600' },
       ACCOUNTING: { ad: 'Muhasebe', aciklama: 'Üretici, avans ve ödeme', sekme: 'uretici', renk: 'from-teal-500 to-cyan-700' },
-      WAREHOUSE: { ad: 'Depo sorumlusu', aciklama: 'Stok ve raporları izleme', sekme: 'fiyat', renk: 'from-lime-500 to-fistik-600' },
+      WAREHOUSE: { ad: 'Depo sorumlusu', aciklama: 'Sevkiyat ve stok', sekme: 'sevkiyat', renk: 'from-lime-500 to-fistik-600' },
       PRICE_MANAGER: { ad: 'Fiyat yöneticisi', aciklama: 'Günlük fiyat belirleme', sekme: 'fiyat', renk: 'from-amber-400 to-amber-600' },
     },
 
@@ -281,7 +293,11 @@ document.addEventListener('alpine:init', () => {
       this.$watch('kantar', () => this.onizlemeIste());
       this.$watch('ayarlar', (a) => { sahaAyarYaz(a); this.onizlemeIste(); });
       // Fiş kapanınca operatör doğrudan bir sonraki aracın plakasına geçer
-      this.$watch('modal', (m) => { if (!m && this.tab === 'kantar' && !this.girisGerekli) this.$nextTick(() => this.$refs.plaka?.focus()); });
+      this.$watch('modal', (m) => {
+        if (m || this.girisGerekli) return;
+        if (this.tab === 'kantar') this.$nextTick(() => this.$refs.plaka?.focus());
+        else if (this.tab === 'sevkiyat') this.$nextTick(() => this.$refs.sevkMusteri?.focus());
+      });
       seriKantar.dinleyici = (d) => Object.assign(this.kantarDurum, d);
       if (this.kantarDestek) seriKantar.baglan(this.ayarlar.baud, false).catch(() => {});   // izinli port varsa sormadan aç
       window.addEventListener('oturum-dustu', (e) => this.oturumuKapat(e.detail || 'Oturum süresi doldu; lütfen tekrar giriş yapın.'));
@@ -391,7 +407,7 @@ document.addEventListener('alpine:init', () => {
     },
     /** Yetki gerektiren sekmeler (Kullanıcılar) yalnızca girişli sürümde ve yetkiliye görünür. */
     get gorunurSekmeler() {
-      return this.sekmeler.filter((s) => !s.yetki || (this.kimlikDogrulama && this.yetkili(s.yetki)));
+      return this.sekmeler.filter((s) => (!s.yetki && !s.yalnizJava) || (this.kimlikDogrulama && (!s.yetki || this.yetkili(s.yetki))));
     },
     get roller() {
       return Object.entries(this.rolBilgisi).map(([rol, b]) => ({ rol, rol_adi: b.ad }));
@@ -476,7 +492,7 @@ document.addEventListener('alpine:init', () => {
       this.yenileniyor = true;
       try {
         await Promise.all([this.yukleOzet(), this.yukleUreticiler(), this.yukleTartimlar(), this.yukleFiyatlar(), this.yukleDepo(),
-                           this.yukleKullanicilar()]);
+                           this.yukleKullanicilar(), this.yukleSevkiyatlar()]);
         if (this.secili) await this.yukleEkstre();
       } catch (e) { this.hataGoster(e); }
       this.yenileniyor = false;
@@ -617,16 +633,21 @@ document.addEventListener('alpine:init', () => {
     },
     async kantarKes() { await seriKantar.kapat(); },
     /** Kantardan kararlı değeri okuyup alana kilitli yazar. Okunamazsa elle girişe bırakır (sistem durmaz). */
+    /** Aktif ekranın tartım formu: Kantar (alım) veya Sevkiyat (çıkış). */
+    agirlikFormu() {
+      return this.tab === 'sevkiyat' ? { veri: this.sevk, onek: 's_' } : { veri: this.kantar, onek: 'k_' };
+    },
     async kantardanOku(alan) {
-      const girdi = () => document.getElementById(`k_${alan}`);
+      const { veri, onek } = this.agirlikFormu();
+      const girdi = () => document.getElementById(`${onek}${alan}`);
       try {
         if (!seriKantar.bagli) await seriKantar.baglan(this.ayarlar.baud);
         if (!seriKantar.bagli) return;
         this.kantarOkunan = alan;
         const kg = await seriKantar.oku();
         if (kg <= 0) throw new Error(`Kantar ${kg} kg gösteriyor; araç kantarın üzerinde mi?`);
-        this.kantar[`${alan}_kg`] = String(kg);
-        this.kantar[`${alan}_kaynagi`] = 'SCALE';
+        veri[`${alan}_kg`] = String(kg);
+        veri[`${alan}_kaynagi`] = 'SCALE';
         this.bildir(`${alan === 'brut' ? 'Brüt' : 'Dara'}: ${this.kg(kg)} kantardan okundu.`);
         this.$nextTick(() => this.sonrakiAlan(girdi()));
       } catch (e) {
@@ -638,8 +659,9 @@ document.addEventListener('alpine:init', () => {
     },
     /** Kantardan okunan (kilitli) değeri elle düzeltmeye açar; kaynak "elle" olur. */
     agirlikKilidiAc(alan) {
-      this.kantar[`${alan}_kaynagi`] = 'MANUAL';
-      this.$nextTick(() => document.getElementById(`k_${alan}`)?.select());
+      const { veri, onek } = this.agirlikFormu();
+      veri[`${alan}_kaynagi`] = 'MANUAL';
+      this.$nextTick(() => document.getElementById(`${onek}${alan}`)?.select());
     },
 
     // ─── Klavye ───
@@ -651,17 +673,20 @@ document.addEventListener('alpine:init', () => {
       this.sonrakiAlan(e.target);
     },
     sonrakiAlan(el) {
-      const form = this.$refs.kantarForm;
+      const form = el.closest('form');
       const alanlar = [...form.querySelectorAll('input, select, button[type="submit"]')].filter((x) =>
         !x.disabled && x.tabIndex >= 0 && x.offsetParent !== null && !(x.type === 'radio' && !x.checked));
       const sonraki = alanlar[alanlar.indexOf(el) + 1];
-      if (!sonraki || sonraki.type === 'submit') this.fisKesKisayol();
+      if (!sonraki || sonraki.type === 'submit') form.requestSubmit();
       else { sonraki.focus(); if (sonraki.select && sonraki.type !== 'radio') sonraki.select(); }
     },
-    /** Sayfa genelindeki kısayollar (yalnızca Kantar sekmesinde, açık pencere yokken). */
+    /** Sayfa genelindeki kısayollar (Kantar ve Sevkiyat sekmelerinde, açık pencere yokken). */
     kisayol(e) {
-      if (this.girisGerekli || this.modal || this.tab !== 'kantar') return;
-      if (e.key === 'F9' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); this.fisKesKisayol(); }
+      if (this.girisGerekli || this.modal || !['kantar', 'sevkiyat'].includes(this.tab)) return;
+      if (e.key === 'F9' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault();
+        (this.tab === 'sevkiyat' ? this.$refs.sevkForm : this.$refs.kantarForm)?.requestSubmit();
+      }
       else if (e.key === 'F2') { e.preventDefault(); this.kantardanOku('brut'); }
       else if (e.key === 'F3') { e.preventDefault(); this.kantardanOku('dara'); }
     },
@@ -689,6 +714,61 @@ document.addEventListener('alpine:init', () => {
       }
     },
     get seciliKantarUreticisi() { return this.ureticiler.find((u) => String(u.id) === String(this.kantar.uretici_id)) || null; },
+
+    // ─── Sevkiyat (satış / depodan çıkış) ───
+    async yukleSevkiyatlar() {
+      if (!this.kimlikDogrulama) return;
+      [this.sevkiyatlar, this.musteriler] = await Promise.all([
+        api('/sevkiyatlar', { params: { tarih: this.bugunIso() } }), api('/musteriler')]);
+    },
+    get sevkNetKg() {
+      const b = parseFloat(this.sevk.brut_kg), d = parseFloat(this.sevk.dara_kg);
+      return Number.isFinite(b) && Number.isFinite(d) ? Math.round((b - d) * 100) / 100 : null;
+    },
+    get sevkTutar() {
+      const f = parseFloat(this.sevk.birim_fiyat);
+      return this.sevkNetKg !== null && Number.isFinite(f) ? Math.round(this.sevkNetKg * f * 100) / 100 : null;
+    },
+    /** Stoğu olan silolar (çıkış yalnızca bunlardan yapılabilir). */
+    get stokluSilolar() { return this.silolar.filter((s) => Number(s.stok_kg) > 0); },
+    get sevkSilo() { return this.silolar.find((s) => String(s.silo_id) === String(this.sevk.silo_id)) || null; },
+    get sevkKalan() {
+      return this.sevkSilo && this.sevkNetKg !== null ? Number(this.sevkSilo.stok_kg) - this.sevkNetKg : null;
+    },
+    get sevkUyari() {
+      if (!this.yetkili('sevkiyat')) return 'Sevkiyat için depo sorumlusu veya yönetici yetkisi gerekir.';
+      if (this.sevkNetKg !== null && this.sevkNetKg <= 0) return 'Dara (boş araç) brüt (dolu araç) ağırlığından küçük olmalıdır.';
+      if (this.sevkKalan !== null && this.sevkKalan < 0)
+        return `${this.sevkSilo.silo_kodu} silosunda ${this.kg(this.sevkSilo.stok_kg)} stok var; ${this.kg(this.sevkNetKg)} çıkış yapılamaz.`;
+      return '';
+    },
+    async sevkiyatKaydet() {
+      if (this.sevkUyari) { this.bildir(this.sevkUyari, 'hata'); return; }
+      const f = this.sevk;
+      this.sevkKaydediliyor = true;
+      this.alanHatalari = {};
+      try {
+        const s = await api('/sevkiyatlar', {
+          method: 'POST',
+          body: {
+            musteri_adi: f.musteri_adi, plaka: f.plaka, sofor_adi: bosIseNull(f.sofor_adi),
+            silo_id: f.silo_id ? Number(f.silo_id) : null, brut_kg: bosIseNull(f.brut_kg), dara_kg: bosIseNull(f.dara_kg),
+            birim_fiyat: bosIseNull(f.birim_fiyat), tahsilat: f.tahsilat, aciklama: bosIseNull(f.aciklama),
+            brut_kaynagi: f.brut_kaynagi, dara_kaynagi: f.dara_kaynagi,
+          },
+        });
+        this.irsaliye = s;
+        this.modal = 'irsaliye';
+        this.bildir(`${s.sevkiyat_no}: ${this.kg(s.net_kg)} ${s.silo_kodu} silosundan ${s.musteri_adi} için çıkış yapıldı.`);
+        if (this.ayarlar.otomatik_yazdir) this.$nextTick(() => setTimeout(() => this.fisYazdir(), 350));
+        this.sevk = { ...bosSevk(), tahsilat: f.tahsilat };
+        await Promise.all([this.yukleSevkiyatlar(), this.yukleDepo()]);
+      } catch (e) { this.hataGoster(e); }
+      this.sevkKaydediliyor = false;
+    },
+    async irsaliyeGoster(id) {
+      try { this.irsaliye = await api(`/sevkiyatlar/${id}`); this.modal = 'irsaliye'; } catch (e) { this.hataGoster(e); }
+    },
 
     // ─── Müstahsil cari hesap dökümü ───
     async dokumAc() {
@@ -749,8 +829,9 @@ document.addEventListener('alpine:init', () => {
 
     // ─── Termal fiş ───
     fisYazdir() {
-      const genislik = this.ayarlar.kagit === '58' ? '58mm' : '80mm';
-      document.getElementById('sayfa-boyutu').textContent = `@page { size: ${genislik} auto; margin: 0; }`;
+      document.getElementById('sayfa-boyutu').textContent = this.ayarlar.kagit === 'A5'
+        ? '@page { size: A5 portrait; margin: 10mm; }'
+        : `@page { size: ${this.ayarlar.kagit === '58' ? '58mm' : '80mm'} auto; margin: 0; }`;
       window.print();
     },
     async fisGoster(id) {

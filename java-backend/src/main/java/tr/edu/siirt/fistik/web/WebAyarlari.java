@@ -44,6 +44,7 @@ public class WebAyarlari {
                         etiket("Fiyat Yönetimi", "Kalite sınıfı bazlı günlük taban fiyatlar"),
                         etiket("Finans: Avans, Hakediş, Ödeme", "Avans, avans mahsubu ve parçalı/tam ödeme"),
                         etiket("Depo", "Silo ve kalite bazlı stok"),
+                        etiket("Satış ve Sevkiyat", "Alıcıya kamyonla çıkış, stok düşümü ve sevk irsaliyesi"),
                         etiket("Raporlar", "Günlük alım ve finans özetleri"),
                         etiket("Sistem", "Sağlık kontrolü")));
     }

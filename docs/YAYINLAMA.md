@@ -48,8 +48,8 @@ flowchart LR
 5. **Apply / Deploy Blueprint** düğmesine basın.
 6. İlk derleme **5–10 dakika** sürer (Maven bağımlılıkları indirilir). **Logs** sekmesinde şu satırları görünce sistem hazırdır:
    ```
-   Successfully applied 5 migrations ... now at version v5
-   Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.
+   Successfully applied 6 migrations ... now at version v6
+   Demo verisi: 4 üretici, 6 teslimat, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.
    Started SiirtFistikApplication in ... seconds
    ```
 7. Sayfanın üstündeki adres sistemin internet adresidir, örneğin `https://siirt-fistik.onrender.com`.

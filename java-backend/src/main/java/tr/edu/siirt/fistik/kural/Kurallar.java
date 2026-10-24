@@ -580,4 +580,52 @@ public class Kurallar {
         em.flush();
         return grup;
     }
+
+    /** Sevkiyat için silodaki tek kalite sınıfı; silo boşsa veya (beklenmedik biçimde) karışıksa hata. */
+    public QualityGrade siloSinifi(Silo silo) {
+        List<Long> siniflar = em.createQuery("""
+                        select l.qualityGradeId from StockMovement m, Lot l where m.lotId = l.id and m.siloId = :s
+                        group by l.qualityGradeId having sum(m.quantityKg) > 0""", Long.class)
+                .setParameter("s", silo.getId()).getResultList();
+        if (siniflar.isEmpty()) throw new IsKuraliHatasi(silo.getCode() + " silosu boş; çıkış yapılamaz.");
+        if (siniflar.size() > 1) throw new IsKuraliHatasi(silo.getCode() + " içinde birden çok kalite sınıfı var.");
+        return em.find(QualityGrade.class, siniflar.get(0));
+    }
+
+    /**
+     * Silodan sevkiyat çıkışı: net kg, silodaki lotlardan ilk giren ilk çıkar (FIFO) sırasıyla düşülür; her lot için
+     * bir DISPATCH hareketi yazılır. Böylece hangi üreticinin fıstığının hangi alıcıya gittiği izlenebilir.
+     * Çağıran, silo satırını kilitlemiş olmalıdır (eşzamanlı iki sevkiyat aynı stoğu kullanamasın).
+     */
+    public List<StockMovement> silodanSevkEt(Silo silo, BigDecimal netKg, Long sevkiyatId, Long kullaniciId,
+                                             OffsetDateTime an) {
+        if (netKg.signum() <= 0) throw new IsKuraliHatasi("Çıkış miktarı pozitif olmalı.");
+        BigDecimal stok = siloStogu(silo.getId());
+        if (stok.compareTo(netKg) < 0)
+            throw new IsKuraliHatasi("%s silosunda %s stok var; %s çıkış yapılamaz."
+                    .formatted(silo.getCode(), Dogrulama.kg(stok), Dogrulama.kg(netKg)));
+        List<Object[]> lotlar = em.createQuery("""
+                        select m.lotId, sum(m.quantityKg), min(m.movedAt) from StockMovement m where m.siloId = :s
+                        group by m.lotId having sum(m.quantityKg) > 0 order by min(m.movedAt), m.lotId""", Object[].class)
+                .setParameter("s", silo.getId()).getResultList();
+        List<StockMovement> hareketler = new ArrayList<>();
+        BigDecimal kalan = netKg;
+        for (Object[] r : lotlar) {
+            if (kalan.signum() == 0) break;
+            BigDecimal dus = kalan.min((BigDecimal) r[1]);
+            StockMovement m = new StockMovement();
+            m.setLotId((Long) r[0]);
+            m.setSiloId(silo.getId());
+            m.setMovementType(StockMovementType.DISPATCH);
+            m.setQuantityKg(dus.negate());
+            m.setMovedAt(an);
+            m.setShipmentId(sevkiyatId);
+            m.setCreatedById(kullaniciId);
+            em.persist(m);
+            hareketler.add(m);
+            kalan = kalan.subtract(dus);
+        }
+        em.flush();
+        return hareketler;
+    }
 }

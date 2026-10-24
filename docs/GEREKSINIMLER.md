@@ -151,7 +151,10 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-DEP-03 | Silo kapasitesi aşılamamalıdır. | Orta | ✅ |
 | FG-DEP-04 | Stok silo veya kalite sınıfına göre doluluk oranıyla görüntülenebilmelidir. | Orta | ✅ |
 | FG-DEP-05 | Lotlar silolar arası transfer edilebilmelidir. | Düşük | 🟡 |
-| FG-DEP-06 | Satış/sevk çıkışı kaydedilebilmelidir. | Düşük | ⏳ |
+| FG-DEP-06 | Satış/sevk çıkışı kaydedilebilmelidir: alıcı firma, plaka, şoför, çıkış silosu, brüt / dara (kantar indikatörü desteğiyle), satış birim fiyatı, toplam tutar ve tahsilat durumu (nakit / havale / vadeli). Yalnızca Yönetici ve Depo sorumlusu yapabilir. | Yüksek | ✅ |
+| FG-DEP-07 | Sevkiyatta silo stoğu net kg kadar, lotlardan ilk giren ilk çıkar sırasıyla düşmeli; silodaki stoktan fazla çıkış reddedilmelidir. Veritabanı hiçbir lotun eksi stoğa düşmesine izin vermemelidir. | Yüksek | ✅ |
+| FG-DEP-08 | Sevkiyat için 80 / 58 mm termal veya A5 "Kantar Çıkış ve Sevk İrsaliyesi" basılabilmeli; alıcı, plaka, şoför, silo / ürün / sınıf, tarih-saat, kilolar, çıkan lotlar ve imza alanları bulunmalıdır. | Orta | ✅ |
+| FG-DEP-09 | Alıcı firmalar müşteri kartı olarak saklanmalı (aynı ad Türkçe büyük/küçük harf farkıyla tekrar açılmamalı); vadeli satışların açık hesap toplamı görülebilmelidir. | Orta | ✅ |
 
 ### 3.8 Kimlik doğrulama ve yetkilendirme (GUV)
 | No | Gereksinim | Öncelik | Durum |
@@ -291,7 +294,7 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 
 | No | Gereksinim |
 |---|---|
-| GDG-01 | Satış/sevkiyat modülü ve stok çıkışı (FG-DEP-06) |
+| GDG-01 | Müşteri cari hesabı: vadeli satışların tahsilatı, müşteri ekstresi ve resmî e-irsaliye entegrasyonu |
 | GDG-02 | Silolar arası transfer ve fiyat iptali için API ve arayüz (FG-DEP-05, FG-FYT-08) |
 | GDG-03 | Sezonluk raporlar ve gerçek .xlsx (çok sayfalı) dışa aktarım |
 | GDG-04 | TCP/IP indikatör desteği ve indikatör verisini sunucuya imzalı gönderen kantar servisi (tarayıcıdan bağımsız kanıt) |

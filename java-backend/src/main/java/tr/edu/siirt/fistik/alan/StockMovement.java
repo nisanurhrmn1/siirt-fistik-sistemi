@@ -42,6 +42,10 @@ public class StockMovement {
     @Column(name = "note")
     private String note;
 
+    /** Çıkış (DISPATCH) hareketinin ait olduğu sevkiyat. */
+    @Column(name = "shipment_id")
+    private Long shipmentId;
+
     @Column(name = "created_by_id")
     private Long createdById;
 

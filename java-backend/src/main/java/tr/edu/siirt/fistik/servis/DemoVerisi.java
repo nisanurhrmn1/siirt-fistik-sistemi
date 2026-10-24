@@ -8,7 +8,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import tr.edu.siirt.fistik.alan.PaymentMethod;
 import tr.edu.siirt.fistik.alan.ProducerType;
+import tr.edu.siirt.fistik.alan.SaleCollection;
+import tr.edu.siirt.fistik.alan.WeightSource;
 import tr.edu.siirt.fistik.api.Istekler.*;
+import tr.edu.siirt.fistik.api.Sevkiyatlar.SevkiyatGirisi;
 import tr.edu.siirt.fistik.api.Yanitlar.TartimYaniti;
 import tr.edu.siirt.fistik.api.Yanitlar.UreticiYaniti;
 
@@ -17,7 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Sunum için örnek veri: 4 üretici, günlük fiyatlar, 1 avans, 6 teslimat ve 1 ödeme.
+ * Sunum için örnek veri: 4 üretici, günlük fiyatlar, 1 avans, 6 teslimat, 1 ödeme ve 2 sevkiyat (satış).
  * Yalnızca {@code --fistik.demo-verisi=true} ile ve üretici tablosu boşsa çalışır.
  */
 @Component
@@ -32,15 +35,21 @@ public class DemoVerisi implements ApplicationRunner {
     private final FiyatServisi fiyatlar;
     private final FinansServisi finans;
     private final TartimServisi tartimlar;
+    private final SevkiyatServisi sevkiyatlar;
 
     public DemoVerisi(@Value("${fistik.demo-verisi:false}") boolean etkin, EntityManager em, UreticiServisi ureticiler,
-                      FiyatServisi fiyatlar, FinansServisi finans, TartimServisi tartimlar) {
+                      FiyatServisi fiyatlar, FinansServisi finans, TartimServisi tartimlar, SevkiyatServisi sevkiyatlar) {
         this.etkin = etkin;
         this.em = em;
         this.ureticiler = ureticiler;
         this.fiyatlar = fiyatlar;
         this.finans = finans;
         this.tartimlar = tartimlar;
+        this.sevkiyatlar = sevkiyatlar;
+    }
+
+    private Long silo(String kod) {
+        return em.createQuery("select s.id from Silo s where s.code = :k", Long.class).setParameter("k", kod).getSingleResult();
     }
 
     private static BigDecimal d(String s) {
@@ -98,6 +107,14 @@ public class DemoVerisi implements ApplicationRunner {
             if (ilk == null) ilk = y;
         }
         finans.odemeYap(ilk.hakedis().id(), new OdemeGirisi(d("150000"), null, null, "EFT-DEMO-1", null), k);
-        log.info("Demo verisi: 4 üretici, 6 teslimat, 1 avans ve 1 ödeme eklendi.");
+
+        // Satış: A sınıfı siloyu fabrikaya, B sınıfının bir kısmını toptancıya (vadeli) sevk et
+        sevkiyatlar.kaydet(new SevkiyatGirisi("Antep Fıstıkçılık A.Ş.", null, "27 AF 270", "Hasan Demir", silo("S-A1"),
+                d("11700"), d("8200"), d("420"), SaleCollection.BANK_TRANSFER, WeightSource.SCALE, WeightSource.SCALE,
+                "Kırma tesisi siparişi"), k);
+        sevkiyatlar.kaydet(new SevkiyatGirisi("Gaziantep Kuruyemiş Toptan", null, "27 GK 404", "Ali Kaya", silo("S-B1"),
+                d("3500"), d("3100"), d("360"), SaleCollection.ON_ACCOUNT, WeightSource.SCALE, WeightSource.SCALE,
+                "30 gün vadeli"), k);
+        log.info("Demo verisi: 4 üretici, 6 teslimat, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.");
     }
 }

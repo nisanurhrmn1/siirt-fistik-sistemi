@@ -98,7 +98,7 @@ def test_islemi_yapan_kullanici_kaydedilir(client, anonim, db_engine, uretici):
     assert tartan == kantar["id"]
 
 
-def test_depo_sorumlusu_yalnizca_okur(anonim, uretici):
+def test_depo_sorumlusu_finans_islemi_yapamaz(anonim, uretici):
     giris_yap(anonim, "depo")
     assert anonim.get(f"{API}/depo/stok-durumu").status_code == 200
     assert anonim.post(f"{API}/avanslar", json={"uretici_id": uretici["id"], "tutar": 100}).status_code == 403

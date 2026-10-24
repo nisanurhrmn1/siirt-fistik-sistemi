@@ -163,12 +163,28 @@ public class RaporServisi {
         Function<PaymentMethod, BigDecimal> avans = y -> topla(avanslar.stream().filter(v -> v.getMethod() == y).toList(), Advance::getAmount);
         BigDecimal tumAcik = em.createQuery("select coalesce(sum(s.netPayable - s.paidAmount), 0) from Settlement s", BigDecimal.class)
                 .getSingleResult();
+        // Satış: o gün yapılan sevkiyatlar ve tahsilatları
+        List<Shipment> satislar = em.createQuery(
+                        "select s from Shipment s where s.shippedAt >= :b and s.shippedAt < :son order by s.shippedAt, s.id",
+                        Shipment.class).setParameter("b", a[0]).setParameter("son", a[1]).getResultList();
+        Function<SaleCollection, BigDecimal> satis = c -> topla(satislar.stream().filter(s -> s.getCollection() == c).toList(),
+                Shipment::getTotalAmount);
+        BigDecimal kasadanCikan = odeme.apply(PaymentMethod.CASH).add(avans.apply(PaymentMethod.CASH));
         KasaOzeti kasa = new KasaOzeti(odeme.apply(PaymentMethod.CASH), odeme.apply(PaymentMethod.BANK_TRANSFER),
                 odeme.apply(PaymentMethod.CHEQUE), topla(odemeler, Payment::getAmount),
                 avans.apply(PaymentMethod.CASH), avans.apply(PaymentMethod.BANK_TRANSFER), avans.apply(PaymentMethod.CHEQUE),
-                topla(avanslar, Advance::getAmount),
-                odeme.apply(PaymentMethod.CASH).add(avans.apply(PaymentMethod.CASH)),
-                gununNet, gununOdenen, gununNet.subtract(gununOdenen), q(tumAcik));
+                topla(avanslar, Advance::getAmount), kasadanCikan,
+                gununNet, gununOdenen, gununNet.subtract(gununOdenen), q(tumAcik),
+                satis.apply(SaleCollection.CASH), satis.apply(SaleCollection.BANK_TRANSFER), satis.apply(SaleCollection.ON_ACCOUNT),
+                topla(satislar, Shipment::getTotalAmount), satis.apply(SaleCollection.CASH).subtract(kasadanCikan));
+        Map<Long, String> musteriAdi = em.createQuery("select c.id, c.name from Customer c", Object[].class)
+                .getResultStream().collect(Collectors.toMap(x -> (Long) x[0], x -> (String) x[1]));
+        Map<Long, String> siloKodu = em.createQuery("select s.id, s.code from Silo s", Object[].class)
+                .getResultStream().collect(Collectors.toMap(x -> (Long) x[0], x -> (String) x[1]));
+        List<GunSonuSevkiyat> sevkiyatlar = satislar.stream().map(s -> new GunSonuSevkiyat(s.getShippedAt(), s.getShipmentNo(),
+                musteriAdi.get(s.getCustomerId()), s.getVehiclePlate(), siloKodu.get(s.getSiloId()),
+                siniflar.get(s.getQualityGradeId()).getCode(), s.getProductType().getAd(), s.getNetKg(), s.getUnitPrice(),
+                s.getTotalAmount(), s.getCollection().getAd())).toList();
 
         List<GunSonuKasaHareketi> kasaHareketleri = new ArrayList<>();
         odemeler.forEach(p -> kasaHareketleri.add(new GunSonuKasaHareketi(p.getPaidAt(), "Hakediş ödemesi", p.getPaymentNo(),
@@ -177,21 +193,26 @@ public class RaporServisi {
                 ureticiAdi.get(v.getProducerId()), v.getMethod(), v.getAmount(), null)));
         kasaHareketleri.sort(Comparator.comparing(GunSonuKasaHareketi::zaman));
 
-        // Silo bazlı giren stok (o günkü ilk girişler) ve güncel stok
+        // Silo bazlı giren (alım) ve çıkan (sevkiyat) stok ile güncel stok
         Map<Long, BigDecimal> guncelStok = grupla("select m.siloId, sum(m.quantityKg) from StockMovement m group by m.siloId");
         List<SiloGirisi> siloGirisleri = em.createQuery("""
-                        select s.code, s.name, s.dedicatedGradeId, s.id, count(distinct m.lotId), sum(m.quantityKg)
-                        from StockMovement m, Silo s where m.siloId = s.id and m.movementType = :giris
+                        select s.code, s.name, s.dedicatedGradeId, s.id,
+                        count(distinct case when m.movementType = :giris then m.lotId end),
+                        coalesce(sum(case when m.movementType = :giris then m.quantityKg else 0 end), 0),
+                        coalesce(sum(case when m.movementType = :cikis then -m.quantityKg else 0 end), 0)
+                        from StockMovement m, Silo s where m.siloId = s.id and m.movementType in (:giris, :cikis)
                         and m.movedAt >= :b and m.movedAt < :son group by s.code, s.name, s.dedicatedGradeId, s.id order by s.code""",
                         Object[].class)
-                .setParameter("giris", StockMovementType.RECEIPT).setParameter("b", a[0]).setParameter("son", a[1])
+                .setParameter("giris", StockMovementType.RECEIPT).setParameter("cikis", StockMovementType.DISPATCH)
+                .setParameter("b", a[0]).setParameter("son", a[1])
                 .getResultStream()
                 .map(r -> new SiloGirisi((String) r[0], (String) r[1], r[2] != null ? siniflar.get((Long) r[2]).getCode() : null,
-                        ((Long) r[4]).intValue(), q((BigDecimal) r[5]), q(guncelStok.getOrDefault((Long) r[3], ZERO))))
+                        ((Long) r[4]).intValue(), q((BigDecimal) r[5]), q(guncelStok.getOrDefault((Long) r[3], ZERO)),
+                        q((BigDecimal) r[6])))
                 .toList();
 
         return new GunSonuRaporu(gun, Dogrulama.simdi(), gunlukOzet(gun), kasa, urunTurleri, teslimatlar, kasaHareketleri,
-                siloGirisleri);
+                siloGirisleri, sevkiyatlar);
     }
 
     // ─── Günlük özet ───

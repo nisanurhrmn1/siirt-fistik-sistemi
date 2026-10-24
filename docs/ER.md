@@ -34,6 +34,9 @@ erDiagram
 
     LOTS ||--o{ STOCK_MOVEMENTS : "hareket"
     SILOS ||--o{ STOCK_MOVEMENTS : "hareket"
+    CUSTOMERS ||--o{ SHIPMENTS : "satın alır"
+    SILOS ||--o{ SHIPMENTS : "çıkış"
+    SHIPMENTS ||--o{ STOCK_MOVEMENTS : "lot düşümü (DISPATCH)"
 
     PRODUCERS {
         int id PK
@@ -168,6 +171,25 @@ erDiagram
         int silo_id FK
         varchar movement_type
         numeric quantity_kg "işaretli"
+        int shipment_id FK "yalnızca DISPATCH"
+    }
+    CUSTOMERS {
+        int id PK
+        varchar name UK "Türkçe harf duyarsız"
+        varchar tax_number
+    }
+    SHIPMENTS {
+        int id PK
+        varchar shipment_no UK "SV-YYYY-NNNNNN"
+        int customer_id FK
+        int silo_id FK
+        int quality_grade_id FK
+        numeric gross_kg
+        numeric tare_kg
+        numeric net_kg "hesaplanan"
+        numeric unit_price
+        numeric total_amount "= net × fiyat"
+        varchar collection "CASH, BANK_TRANSFER, ON_ACCOUNT"
     }
 ```
 

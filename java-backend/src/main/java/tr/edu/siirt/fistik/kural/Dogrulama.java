@@ -90,4 +90,11 @@ public final class Dogrulama {
         String s = String.format(java.util.Locale.ROOT, "%,.2f", para(deger));
         return s.replace(",", "_").replace(".", ",").replace("_", ".") + " TL";
     }
+
+    /** 3500 → "3.500 kg", 12.5 → "12,5 kg" (kullanıcıya dönen mesajlar için). */
+    public static String kg(BigDecimal deger) {
+        String s = String.format(java.util.Locale.ROOT, "%,.2f", para(deger));
+        s = s.replace(",", "_").replace(".", ",").replace("_", ".");
+        return s.replaceAll(",?0+$", "").replaceAll(",$", "") + " kg";
+    }
 }

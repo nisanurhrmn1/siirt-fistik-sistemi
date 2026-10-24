@@ -99,6 +99,9 @@ public final class CsvRaporu {
         y.satir("Hakediş ödemeleri (TL)", sayi(k.nakitOdeme()), sayi(k.havaleOdeme()), sayi(k.cekOdeme()), sayi(k.toplamOdeme()));
         y.satir("Verilen avanslar (TL)", sayi(k.nakitAvans()), sayi(k.havaleAvans()), sayi(k.cekAvans()), sayi(k.toplamAvans()));
         y.satir("Kasadan çıkan nakit (TL)", sayi(k.kasadanCikanNakit()));
+        y.satir("SATIŞ TAHSİLATI", "Nakit", "Havale/EFT", "Vadeli / açık hesap", "Toplam satış");
+        y.satir("Sevkiyat satışları (TL)", sayi(k.nakitTahsilat()), sayi(k.havaleTahsilat()), sayi(k.vadeliSatis()), sayi(k.toplamSatis()));
+        y.satir("Kasa net nakit: giren - çıkan (TL)", sayi(k.kasaNetNakit()));
         y.bos();
 
         y.satir("ÜRÜN TÜRÜ", "Teslimat", "Net kg", "Net hakediş (TL)");
@@ -122,11 +125,20 @@ public final class CsvRaporu {
         if (r.kasaHareketleri().isEmpty()) y.satir("Bu gün ödeme veya avans yok.");
         y.bos();
 
-        y.satir("SİLO GİRİŞLERİ");
-        y.satir("Silo", "Ad", "Kalite", "Lot sayısı", "Giren kg", "Güncel stok kg");
+        y.satir("SEVKİYATLAR (SATIŞ)");
+        y.satir("Saat", "Sevkiyat no", "Alıcı", "Plaka", "Silo", "Ürün", "Sınıf", "Net kg", "Birim fiyat", "Tutar", "Tahsilat");
+        for (GunSonuSevkiyat v : r.sevkiyatlar())
+            y.satir(saat(v.zaman()), v.sevkiyatNo(), v.musteri(), v.plaka(), v.siloKodu(), v.urunTuruAdi(), v.kaliteKodu(),
+                    sayi(v.netKg()), sayi(v.birimFiyat()), sayi(v.toplamTutar()), v.tahsilatAdi());
+        if (r.sevkiyatlar().isEmpty()) y.satir("Bu gün sevkiyat yok.");
+        y.bos();
+
+        y.satir("SİLO HAREKETLERİ");
+        y.satir("Silo", "Ad", "Kalite", "Giren lot", "Giren kg", "Çıkan kg", "Güncel stok kg");
         List<SiloGirisi> s = r.siloGirisleri();
-        s.forEach(g -> y.satir(g.siloKodu(), g.siloAdi(), g.kaliteKodu(), g.lotSayisi(), sayi(g.girenKg()), sayi(g.guncelStokKg())));
-        if (s.isEmpty()) y.satir("Bu gün silo girişi yok.");
+        s.forEach(g -> y.satir(g.siloKodu(), g.siloAdi(), g.kaliteKodu(), g.lotSayisi(), sayi(g.girenKg()), sayi(g.cikanKg()),
+                sayi(g.guncelStokKg())));
+        if (s.isEmpty()) y.satir("Bu gün silo hareketi yok.");
         return y.toString();
     }
 }

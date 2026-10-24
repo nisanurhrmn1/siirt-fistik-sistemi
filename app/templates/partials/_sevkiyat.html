@@ -1,0 +1,207 @@
+<div class="grid lg:grid-cols-5 gap-6">
+
+  <!-- Sevkiyat formu. Klavye: Alıcı → Plaka → Şoför → Silo → Dara (boş araç) → Brüt (dolu araç) → Fiyat → Tahsilat → Onayla.
+       Enter sonraki alan; F3 / F2 kantardan dara / brüt okur; F9 veya Ctrl+Enter onaylar. -->
+  <form x-ref="sevkForm" class="lg:col-span-3 panel-kutu space-y-6" @submit.prevent="sevkiyatKaydet()" @keydown="kantarTus($event)">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <h2 class="baslik flex items-center gap-2">
+        <span class="ikon-kutu h-8 w-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600">
+          <svg class="h-4 w-4 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.38a1.13 1.13 0 0 1-1.13-1.13V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.13c.62 0 1.13-.5 1.13-1.13v-5.07a2.25 2.25 0 0 0-.44-1.34l-2.71-3.62a1.13 1.13 0 0 0-.9-.44H14.25M16.5 18.75h-2.25m0-11.25v11.25m0-11.25V4.88c0-.62-.5-1.13-1.13-1.13H3.38c-.62 0-1.13.5-1.13 1.13v9.37m12 0H2.25"/></svg>
+        </span>
+        Satış ve Sevkiyat
+      </h2>
+      <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+            :class="kantarDurum.bagli ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-600'">
+        <span class="h-2 w-2 rounded-full" :class="kantarDurum.bagli ? 'bg-emerald-500 animate-pulse' : 'bg-stone-400'"></span>
+        <span x-text="kantarDurum.bagli ? 'Kantar bağlı' + (kantarDurum.sonOkuma ? ': ' + kg(kantarDurum.sonOkuma.kg) : '') : 'Kantar bağlı değil (Kantar sekmesinden bağlanın)'"></span>
+      </span>
+    </div>
+
+    <!-- Alıcı ve araç -->
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div class="sm:col-span-2">
+        <label class="etiket" for="s_musteri">Alıcı firma / müşteri</label>
+        <input id="s_musteri" x-ref="sevkMusteri" x-model="sevk.musteri_adi" list="musteri-listesi" autocomplete="off"
+               placeholder="Örn. Antep Fıstıkçılık A.Ş." class="girdi" :class="hata('musteri_adi') && 'girdi-hata'">
+        <datalist id="musteri-listesi">
+          <template x-for="m in musteriler" :key="m.id"><option :value="m.ad"></option></template>
+        </datalist>
+        <p class="hata-yazi" x-text="hata('musteri_adi')"></p>
+        <p class="mt-1 text-xs text-stone-500" x-show="musteriler.some((m) => m.ad.toLocaleLowerCase('tr') === sevk.musteri_adi.trim().toLocaleLowerCase('tr'))">
+          Kayıtlı müşteri</p>
+      </div>
+      <div>
+        <label class="etiket" for="s_plaka">Araç plakası</label>
+        <input id="s_plaka" x-model="sevk.plaka" placeholder="27 AF 270" autocomplete="off"
+               class="girdi uppercase font-mono" :class="hata('plaka') && 'girdi-hata'">
+        <p class="hata-yazi" x-text="hata('plaka')"></p>
+      </div>
+      <div>
+        <label class="etiket" for="s_sofor">Şoför</label>
+        <input id="s_sofor" x-model="sevk.sofor_adi" autocomplete="off" class="girdi">
+      </div>
+    </div>
+
+    <!-- Silo / ürün -->
+    <div>
+      <label class="etiket" for="s_silo">Çıkış silosu / ürün</label>
+      <select id="s_silo" x-model="sevk.silo_id" class="girdi" :class="hata('silo_id') && 'girdi-hata'">
+        <option value="">— Silo seçin —</option>
+        <template x-for="s in stokluSilolar" :key="s.silo_id">
+          <option :value="s.silo_id" :selected="String(s.silo_id) === String(sevk.silo_id)"
+                  x-text="`${s.silo_kodu} · ${s.kaliteler.map((k) => k.kalite_kodu).join(', ') || s.adanmis_kalite || ''} · stok ${kg(s.stok_kg)}`"></option>
+        </template>
+      </select>
+      <p class="hata-yazi" x-text="hata('silo_id')"></p>
+      <p class="mt-1 text-xs text-stone-500" x-show="!stokluSilolar.length">Stoklu silo yok; önce alım yapılmalı.</p>
+    </div>
+
+    <!-- Tartım: boş araç girişte, dolu araç çıkışta tartılır -->
+    <div>
+      <h3 class="alt-baslik">Tartım</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 items-end">
+        <template x-for="a in [{ alan: 'dara', ad: 'Dara (boş araç)', tus: 'F3' }, { alan: 'brut', ad: 'Brüt (dolu araç)', tus: 'F2' }]" :key="a.alan">
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="etiket" :for="'s_' + a.alan" x-text="a.ad"></label>
+              <button type="button" tabindex="-1" class="text-[.7rem] font-semibold text-emerald-700 hover:underline disabled:opacity-50"
+                      :disabled="kantarOkunan !== ''" @click="kantardanOku(a.alan)"
+                      x-text="kantarOkunan === a.alan ? 'okunuyor…' : `⚖ Oku (${a.tus})`"></button>
+            </div>
+            <div class="relative">
+              <input :id="'s_' + a.alan" type="number" step="0.01" min="0" inputmode="decimal"
+                     x-model="sevk[a.alan + '_kg']" :readonly="sevk[a.alan + '_kaynagi'] === 'SCALE'"
+                     class="girdi pr-9 text-lg font-medium tabular-nums"
+                     :class="[hata(a.alan + '_kg') && 'girdi-hata', sevk[a.alan + '_kaynagi'] === 'SCALE' && 'bg-emerald-50 border-emerald-300 text-emerald-900']">
+              <span class="birim">kg</span>
+            </div>
+            <p class="mt-1 text-[.7rem]" x-show="sevk[a.alan + '_kaynagi'] === 'SCALE'">
+              <span class="text-emerald-700 font-semibold">🔒 Kantardan</span>
+              <button type="button" tabindex="-1" class="ml-1 text-stone-500 underline" @click="agirlikKilidiAc(a.alan)">elle düzelt</button>
+            </p>
+            <p class="hata-yazi" x-text="hata(a.alan + '_kg')"></p>
+          </div>
+        </template>
+        <div class="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/70 px-3 py-2">
+          <p class="text-xs font-medium text-amber-800">Net çıkış</p>
+          <p class="text-xl font-bold text-amber-900 tabular-nums" x-text="sevkNetKg !== null ? kg(sevkNetKg) : '—'"></p>
+        </div>
+      </div>
+      <p class="hata-yazi" x-text="hata('istek')"></p>
+    </div>
+
+    <!-- Fiyat ve tahsilat -->
+    <div class="grid sm:grid-cols-2 gap-4 items-end">
+      <div>
+        <label class="etiket" for="s_fiyat">Satış birim fiyatı</label>
+        <div class="relative">
+          <input id="s_fiyat" type="number" step="0.01" min="0" inputmode="decimal" x-model="sevk.birim_fiyat"
+                 class="girdi pr-12 text-lg tabular-nums" :class="hata('birim_fiyat') && 'girdi-hata'">
+          <span class="birim">₺/kg</span>
+        </div>
+        <p class="hata-yazi" x-text="hata('birim_fiyat')"></p>
+      </div>
+      <div class="rounded-xl bg-stone-50 border border-stone-200 px-3 py-2">
+        <p class="text-xs font-medium text-stone-600">Toplam satış tutarı</p>
+        <p class="text-xl font-bold tabular-nums" x-text="sevkTutar !== null ? tl(sevkTutar) : '—'"></p>
+      </div>
+      <fieldset class="sm:col-span-2">
+        <legend class="etiket">Ödeme durumu</legend>
+        <div class="flex flex-wrap gap-2">
+          <template x-for="(ad, kod) in tahsilatlar" :key="kod">
+            <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400"
+                   :class="sevk.tahsilat === kod && 'secim-aktif'">
+              <input type="radio" name="tahsilat" class="sr-only" :value="kod" x-model="sevk.tahsilat">
+              <span x-text="ad"></span>
+            </label>
+          </template>
+        </div>
+      </fieldset>
+      <div class="sm:col-span-2">
+        <label class="etiket">Açıklama <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
+        <input x-model="sevk.aciklama" placeholder="Sipariş no, vade vb." class="girdi">
+      </div>
+    </div>
+
+    <p x-show="sevkUyari" x-text="sevkUyari" class="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2"></p>
+    <button type="submit" class="btn-birincil w-full h-11" :class="(sevkUyari || sevkKaydediliyor) && 'opacity-50'"
+            :aria-disabled="!!sevkUyari || sevkKaydediliyor">
+      <span x-show="!sevkKaydediliyor">Sevkiyatı Onayla ve İrsaliye Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
+      <span x-show="sevkKaydediliyor">Kaydediliyor…</span>
+    </button>
+  </form>
+
+  <!-- Seçili silo ve müşteriler -->
+  <aside class="lg:col-span-2 space-y-6">
+    <div class="panel-kutu space-y-3">
+      <h2 class="baslik">Çıkış Özeti</h2>
+      <template x-if="!sevkSilo">
+        <p class="text-sm text-stone-500 py-4 text-center">Çıkış yapılacak siloyu seçin.</p>
+      </template>
+      <template x-if="sevkSilo">
+        <dl class="text-sm divide-y divide-stone-100">
+          <div class="satir py-1.5"><dt>Silo</dt><dd class="font-medium" x-text="`${sevkSilo.silo_kodu} · ${sevkSilo.silo_adi}`"></dd></div>
+          <div class="satir py-1.5"><dt>Kalite</dt><dd>
+            <template x-for="k in sevkSilo.kaliteler" :key="k.kalite_kodu">
+              <span class="sinif-rozet-kucuk" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span></template></dd></div>
+          <div class="satir py-1.5"><dt>Mevcut stok</dt><dd class="tabular-nums" x-text="kg(sevkSilo.stok_kg)"></dd></div>
+          <div class="satir py-1.5"><dt>Çıkış</dt><dd class="tabular-nums" x-text="sevkNetKg !== null ? '− ' + kg(sevkNetKg) : '—'"></dd></div>
+          <div class="satir py-1.5 font-semibold"><dt>Çıkış sonrası</dt>
+            <dd class="tabular-nums" :class="sevkKalan < 0 && 'text-rose-700'" x-text="sevkKalan !== null ? kg(sevkKalan) : '—'"></dd></div>
+        </dl>
+      </template>
+      <p class="text-xs text-stone-500">Stok, silodaki lotlardan ilk giren ilk çıkar sırasıyla düşülür; irsaliyede hangi üreticinin lotu olduğu görünür.</p>
+    </div>
+
+    <div class="panel-kutu">
+      <h2 class="baslik mb-3">Alıcılar</h2>
+      <ul class="divide-y divide-stone-100 text-sm max-h-64 overflow-y-auto">
+        <template x-for="m in musteriler" :key="m.id">
+          <li class="py-2 flex items-center gap-3">
+            <button type="button" class="min-w-0 flex-1 text-left hover:text-emerald-700" @click="sevk.musteri_adi = m.ad; $refs.sevkMusteri.focus()">
+              <p class="font-medium truncate" x-text="m.ad"></p>
+              <p class="text-xs text-stone-500" x-text="`${m.sevkiyat_sayisi} sevkiyat · ${kg(m.toplam_kg)}`"></p>
+            </button>
+            <span class="text-right text-xs" x-show="Number(m.acik_hesap) > 0">
+              <span class="block text-stone-500">Açık hesap</span>
+              <span class="font-semibold text-amber-700 tabular-nums" x-text="tl(m.acik_hesap)"></span>
+            </span>
+          </li>
+        </template>
+        <li x-show="!musteriler.length" class="py-4 text-center text-stone-500">Henüz alıcı yok.</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<!-- Bugünkü sevkiyatlar -->
+<div class="panel-kutu mt-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="baslik">Bugünkü Sevkiyatlar</h2>
+    <span class="text-sm text-stone-500"
+          x-text="`${sevkiyatlar.length} sevkiyat · ${kg(sevkiyatlar.reduce((t, s) => t + Number(s.net_kg), 0))} · ${tl(sevkiyatlar.reduce((t, s) => t + Number(s.toplam_tutar), 0))}`"></span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="tablo">
+      <thead><tr><th>Saat</th><th>Sevkiyat no</th><th>Alıcı</th><th>Plaka</th><th>Silo / Sınıf</th>
+        <th class="text-right">Net</th><th class="text-right">Fiyat</th><th class="text-right">Tutar</th><th>Tahsilat</th><th></th></tr></thead>
+      <tbody>
+        <template x-for="s in sevkiyatlar" :key="s.id">
+          <tr>
+            <td class="tabular-nums" x-text="saatYaz(s.tarih)"></td>
+            <td class="font-mono text-xs" x-text="s.sevkiyat_no"></td>
+            <td x-text="s.musteri_adi"></td>
+            <td class="font-mono text-xs" x-text="s.plaka"></td>
+            <td><span x-text="s.silo_kodu"></span> <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.kalite_kodu).rozet" x-text="s.kalite_kodu"></span></td>
+            <td class="text-right tabular-nums" x-text="kg(s.net_kg)"></td>
+            <td class="text-right tabular-nums" x-text="tl(s.birim_fiyat)"></td>
+            <td class="text-right tabular-nums font-medium" x-text="tl(s.toplam_tutar)"></td>
+            <td><span class="durum" :class="s.tahsilat === 'ON_ACCOUNT' ? 'bg-amber-100 text-amber-800' : 'bg-fistik-100 text-fistik-800'" x-text="s.tahsilat_adi"></span></td>
+            <td class="text-right"><button class="link" @click="irsaliyeGoster(s.id)">İrsaliye</button></td>
+          </tr>
+        </template>
+        <tr x-show="!sevkiyatlar.length"><td colspan="10" class="text-center text-stone-500 py-8">Bugün henüz sevkiyat yok.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -121,6 +121,11 @@
              x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
       {% include "partials/_fiyat_depo.html" %}
     </section>
+    <section x-show="tab === 'sevkiyat'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      {% include "partials/_sevkiyat.html" %}
+    </section>
     <section x-show="tab === 'kullanicilar'"
              x-transition:enter="transition ease-out duration-300 transform"
              x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">

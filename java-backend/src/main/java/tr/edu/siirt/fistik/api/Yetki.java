@@ -23,6 +23,7 @@ public final class Yetki {
     public static final String URETICI = "hasAnyRole('ADMIN','ACCOUNTING')";
     public static final String FINANS = "hasAnyRole('ADMIN','ACCOUNTING')";
     public static final String KULLANICI = "hasRole('ADMIN')";
+    public static final String SEVKIYAT = "hasAnyRole('ADMIN','WAREHOUSE')";
 
     /** Panelin buton kilitleri için: işlem → izinli roller. */
     public static final Map<String, Set<UserRole>> ISLEMLER = new LinkedHashMap<>();
@@ -34,6 +35,7 @@ public final class Yetki {
         ISLEMLER.put("avans_ver", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
         ISLEMLER.put("odeme_yap", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
         ISLEMLER.put("kullanici_yonet", EnumSet.of(UserRole.ADMIN));
+        ISLEMLER.put("sevkiyat", EnumSet.of(UserRole.ADMIN, UserRole.WAREHOUSE));
     }
 
     public static List<String> yetkiler(UserRole rol) {
