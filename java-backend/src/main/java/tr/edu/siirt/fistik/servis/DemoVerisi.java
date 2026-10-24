@@ -79,8 +79,8 @@ public class DemoVerisi implements ApplicationRunner {
                 "0484 223 45 67", null, null, "Merkez", null, null, null)));
 
         fiyatlar.gir(new FiyatGirisi(List.of(new FiyatKalemi("A", d("300")), new FiyatKalemi("B", d("260")),
-                new FiyatKalemi("ISK", d("150")), new FiyatKalemi("YA", d("1200")), new FiyatKalemi("YB", d("1000")),
-                new FiyatKalemi("YISK", d("600"))), null, null), k);
+                new FiyatKalemi("ISK", d("150")), // Yaş fıstık kurutma firesi nedeniyle kuru-kavlağın yaklaşık %45'i fiyatından alınır.
+                new FiyatKalemi("YA", d("135")), new FiyatKalemi("YB", d("115")), new FiyatKalemi("YISK", d("65"))), null, null), k);
         finans.avansVer(new AvansGirisi(u.get(2).id(), d("250000"), PaymentMethod.CASH, null, "Gübre avansı"), k);
 
         Object[][] teslimatlar = {   // üretici, plaka, brüt, dara, çatlak, randıman, boş, çürük, nem

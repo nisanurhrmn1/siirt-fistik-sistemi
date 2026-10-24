@@ -174,7 +174,9 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-RAP-02 | Günlük ödenen toplam tutar ve verilen avans raporlanmalıdır. | Yüksek | ✅ |
 | FG-RAP-03 | Kg ağırlıklı ortalama randıman ve ortalama fiyat raporlanmalıdır. | Orta | ✅ |
 | FG-RAP-04 | Tüm üreticilerin bakiye, açık avans ve ödenebilir tutarları listelenebilmelidir. | Orta | ✅ |
-| FG-RAP-05 | Raporlar PDF/Excel olarak dışa aktarılabilmelidir. | Düşük | ⏳ |
+| FG-RAP-05 | Raporlar PDF/Excel olarak dışa aktarılabilmelidir. | Orta | ✅ Döküm: yazdır / PDF; gün sonu: Excel (CSV) |
+| FG-RAP-06 | Seçilen üretici için, isteğe bağlı tarih aralığında, teslimatları (tarih, fiş no, ürün türü, net kg, tutar), aldığı avansları, yapılan ödemeleri, yürüyen bakiyeli hareketleri ve net bakiyeyi gösteren yazdırılabilir (A4 / PDF) cari hesap dökümü alınabilmelidir. | Yüksek | ✅ |
+| FG-RAP-07 | Seçilen gün için teslimatları, nakit / havale / çek ödemeleri ve avansları, kasadan çıkan nakdi, kalan hakedişi, ürün türü ve silo bazlı giren stoğu özetleyen gün sonu raporu Excel'de açılan CSV olarak indirilebilmelidir. | Yüksek | ✅ |
 
 ---
 
@@ -291,7 +293,7 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 |---|---|
 | GDG-01 | Satış/sevkiyat modülü ve stok çıkışı (FG-DEP-06) |
 | GDG-02 | Silolar arası transfer ve fiyat iptali için API ve arayüz (FG-DEP-05, FG-FYT-08) |
-| GDG-03 | PDF/Excel rapor dışa aktarımı (FG-RAP-05) |
+| GDG-03 | Sezonluk raporlar ve gerçek .xlsx (çok sayfalı) dışa aktarım |
 | GDG-04 | TCP/IP indikatör desteği ve indikatör verisini sunucuya imzalı gönderen kantar servisi (tarayıcıdan bağımsız kanıt) |
 | GDG-05 | E-postayla şifre sıfırlama bağlantısı ve art arda hatalı girişte geçici hesap kilidi |
 | GDG-06 | Alembic ile veritabanı sürüm yönetimi |

@@ -216,6 +216,10 @@ document.addEventListener('alpine:init', () => {
     kantarDurum: { bagli: false, mesaj: 'Bağlı değil', sonOkuma: null },
     kantarOkunan: '',             // şu an kantardan okunan alan: 'brut' | 'dara'
     urunTurleri: { DRY: 'Kuru-kavlak', FRESH: 'Yaş fıstık' },
+    dokum: null,                  // yazdırılabilir cari hesap ekstresi
+    dokumForm: { baslangic: '', bitis: '' },
+    gunSonuTarihi: '',
+    gunSonuIniyor: false,
     _onizlemeZamanlayici: null,
     _onizlemeSira: 0,
     kaliteAlanlari: [
@@ -271,6 +275,7 @@ document.addEventListener('alpine:init', () => {
 
     async init() {
       this.saatGuncelle();
+      this.gunSonuTarihi = this.bugunIso();
       setInterval(() => this.saatGuncelle(), 30_000);
       setInterval(() => { if (!this.girisGerekli) this.yukleOzet().catch(() => {}); }, 60_000);
       this.$watch('kantar', () => this.onizlemeIste());
@@ -685,6 +690,63 @@ document.addEventListener('alpine:init', () => {
     },
     get seciliKantarUreticisi() { return this.ureticiler.find((u) => String(u.id) === String(this.kantar.uretici_id)) || null; },
 
+    // ─── Müstahsil cari hesap dökümü ───
+    async dokumAc() {
+      this.dokum = null;
+      this.dokumForm = { baslangic: '', bitis: '' };
+      this.modal = 'dokum';
+      await this.dokumGetir();
+    },
+    async dokumGetir() {
+      await this.islem(async () => {
+        this.dokum = await api(`/ureticiler/${this.secili.id}/bakiye-ekstre`,
+          { params: { baslangic: this.dokumForm.baslangic, bitis: this.dokumForm.bitis } });
+      });
+    },
+    dokumDonemi() {
+      const t = (v) => v.split('-').reverse().join('.');
+      const { baslangic: b, bitis: s } = this.dokumForm;
+      return b && s ? `${t(b)} – ${t(s)}` : b ? `${t(b)} sonrası` : s ? `${t(s)} öncesi` : 'Tüm zamanlar';
+    },
+    dokumToplam(alan) { return (this.dokum?.teslimatlar || []).reduce((t, x) => t + Number(x[alan] || 0), 0); },
+    /** Dönem sonundaki bakiye: son hareketin yürüyen bakiyesi (hareket yoksa devreden). */
+    dokumBakiye() {
+      const h = this.dokum?.hareketler || [];
+      if (h.length) return h.at(-1).bakiye;
+      return this.dokum?.donem_baslangic ? this.dokum.devreden_bakiye : this.dokum?.ozet.bakiye;
+    },
+    dokumYazdir() {
+      document.getElementById('sayfa-boyutu').textContent = '@page { size: A4 portrait; margin: 12mm; }';
+      const eski = document.title;
+      // PDF olarak kaydederken önerilen dosya adı
+      document.title = `Ekstre - ${this.dokum.uretici.ad_soyad} - ${this.bugunIso()}`;
+      window.print();
+      document.title = eski;
+    },
+
+    // ─── Gün sonu raporu (CSV / Excel) ───
+    bugunIso() { return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' }); },
+    async gunSonuIndir() {
+      this.gunSonuIniyor = true;
+      try {
+        const tarih = this.gunSonuTarihi || this.bugunIso();
+        const res = await fetch(`${API}/raporlar/gun-sonu.csv?tarih=${encodeURIComponent(tarih)}`,
+          { headers: { Authorization: `Bearer ${tokenOku()}` } });
+        if (!res.ok) {
+          const veri = await res.json().catch(() => null);
+          throw new ApiHatasi(veri?.hata || `Rapor alınamadı (HTTP ${res.status})`, veri?.detaylar || [], res.status);
+        }
+        const url = URL.createObjectURL(await res.blob());
+        const a = Object.assign(document.createElement('a'), { href: url, download: `gun-sonu-${tarih}.csv` });
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        this.bildir(`Gün sonu raporu indirildi (${tarih.split('-').reverse().join('.')}). Excel ile açabilirsiniz.`);
+      } catch (e) { this.hataGoster(e); }
+      this.gunSonuIniyor = false;
+    },
+
     // ─── Termal fiş ───
     fisYazdir() {
       const genislik = this.ayarlar.kagit === '58' ? '58mm' : '80mm';
@@ -847,6 +909,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     tl(v) { return v === null || v === undefined || v === '' ? '—' : fmtTL.format(Number(v)); },
+    sayi(v) { return v === null || v === undefined || v === '' ? '—' : fmtSayi.format(Number(v)); },
     kg(v) { return v === null || v === undefined || v === '' ? '—' : `${fmtSayi.format(Number(v))} kg`; },
     yuzde(v) { return v === null || v === undefined ? '—' : `%${fmtSayi.format(Number(v))}`; },
     tarihYaz(v) { return v ? new Date(v).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'; },

@@ -233,6 +233,32 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
 .fis-imza { height: 12mm; border-bottom: 1px solid #000; margin-bottom: 1mm; }
 kbd { font: 600 .7rem ui-monospace, monospace; border: 1px solid #d6d3d1; border-bottom-width: 2px; border-radius: .3rem; padding: 0 .3rem; background: #fff; }
 
+/* ─── Müstahsil cari hesap dökümü (A4) ─── */
+.dokum { background: #fff; color: #1c1917; font-size: 12px; line-height: 1.4; padding: 8mm; box-shadow: 0 6px 20px -10px rgba(0, 0, 0, .3); }
+.dokum-ust { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; border-bottom: 2px solid #065f46; padding-bottom: 3mm; }
+.dokum-firma { font-size: 10px; font-weight: 700; letter-spacing: .15em; color: #065f46; }
+.dokum-baslik { font-size: 18px; font-weight: 800; }
+.dokum-meta div, .dokum-iki dl div { display: flex; gap: .5rem; }
+.dokum-meta dt, .dokum-iki dt { color: #78716c; min-width: 7.5rem; }
+.dokum-meta { text-align: right; font-size: 11px; }
+.dokum-meta dt { min-width: 0; }
+.dokum-iki { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+.dokum-kutu { border: 1px solid #e7e5e4; border-radius: 6px; padding: 3mm 4mm; margin-top: 4mm; }
+.dokum-bakiye { margin-top: 4mm; display: flex; align-items: baseline; gap: .75rem; border: 1.5px solid #065f46; background: #ecfdf5; border-radius: 6px; padding: 3mm 4mm; }
+.dokum-bakiye b { font-size: 18px; }
+.dokum-bakiye small { margin-left: auto; color: #57534e; }
+.dokum-bakiye.dokum-borclu { border-color: #be123c; background: #fff1f2; }
+.dokum-alt { font-size: 13px; font-weight: 700; margin: 5mm 0 2mm; }
+.dokum-tablo { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+.dokum-tablo th { text-align: left; background: #f5f5f4; font-weight: 650; border-bottom: 1px solid #a8a29e; padding: 1.5mm 2mm; }
+.dokum-tablo td { border-bottom: 1px solid #e7e5e4; padding: 1.2mm 2mm; vertical-align: top; }
+.dokum-tablo tfoot td { font-weight: 700; border-top: 1.5px solid #57534e; border-bottom: 0; }
+.dokum-tablo .sag { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dokum-tablo .font-mono { white-space: nowrap; font-size: 10px; }
+.dokum-tablo .orta { text-align: center; color: #78716c; }
+.dokum-not { margin-top: 5mm; font-size: 9.5px; color: #57534e; }
+.dokum-imzalar { display: grid; grid-template-columns: 1fr 1fr; gap: 20mm; margin-top: 10mm; text-align: center; font-size: 11px; }
+
 /* ─── Yazdırma: yalnızca kantar fişi; sayfa boyutu fisYazdir() ile 80/58 mm ayarlanır ───
    Gizlenen içerik display:none ile tamamen kaldırılır: termal yazıcı rulodan boş kâğıt akıtmaz. */
 @media print {
@@ -240,11 +266,15 @@ kbd { font: 600 .7rem ui-monospace, monospace; border: 1px solid #d6d3d1; border
   body::before { display: none; }
   body > :not(.modal-katman) { display: none !important; }
   .modal-katman { position: static !important; display: block !important; padding: 0 !important; background: none !important; overflow: visible !important; }
-  .modal-katman > :not(.fis-kutu) { display: none !important; }
-  .fis-kutu { max-width: none !important; width: auto !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; background: none !important; animation: none !important; }
-  .fis-zemin { display: block !important; padding: 0 !important; background: none !important; }
+  .modal-katman > :not(.yazdir-kutu) { display: none !important; }
+  .yazdir-kutu { max-width: none !important; width: auto !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; background: none !important; animation: none !important; }
+  .yazdir-zemin { display: block !important; padding: 0 !important; background: none !important; }
   .no-print { display: none !important; }
   .fis-termal { box-shadow: none; padding: 2mm 3mm; }
   .fis-termal.fis-58 { padding: 1.5mm 2mm; }
   .fis-termal, .fis-termal * { color: #000 !important; background: #fff !important; }
+  .dokum { box-shadow: none; padding: 0; }
+  .dokum-tablo thead { display: table-header-group; }
+  .dokum-tablo tr, .dokum-bakiye, .dokum-imzalar { break-inside: avoid; }
+  .dokum, .dokum * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

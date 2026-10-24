@@ -70,7 +70,7 @@ public final class Yanitlar {
                                  String kaliteKodu, BigDecimal randiman, BigDecimal birimFiyat, Long hakedisId,
                                  BigDecimal brutTutar, BigDecimal kesinti, BigDecimal avansMahsubu,
                                  BigDecimal netOdenecek, BigDecimal odenen, BigDecimal kalan,
-                                 SettlementStatus hakedisDurumu) {
+                                 SettlementStatus hakedisDurumu, ProductType urunTuru, String urunTuruAdi) {
     }
 
     public record EkstreAvans(Long id, String avansNo, OffsetDateTime tarih, BigDecimal tutar, BigDecimal mahsupEdilen,
@@ -86,7 +86,13 @@ public final class Yanitlar {
 
     public record UreticiEkstre(UreticiKisa uretici, OffsetDateTime donemBaslangic, OffsetDateTime donemBitis,
                                 EkstreOzeti ozet, BigDecimal devredenBakiye, List<EkstreTeslimat> teslimatlar,
-                                List<EkstreAvans> acikAvanslar, List<EkstreHareket> hareketler) {
+                                List<EkstreAvans> acikAvanslar, List<EkstreHareket> hareketler,
+                                List<EkstreAvans> avanslar, List<EkstreOdeme> odemeler) {
+    }
+
+    /** Dönemde yapılan ödeme. */
+    public record EkstreOdeme(Long id, String odemeNo, OffsetDateTime tarih, BigDecimal tutar, PaymentMethod odemeYontemi,
+                              String referansNo) {
     }
 
     // ─── Kantar ───
@@ -160,6 +166,39 @@ public final class Yanitlar {
 
     public record KaliteKirilimi(String kaliteKodu, int teslimatSayisi, BigDecimal netKg, BigDecimal brutTutar,
                                  BigDecimal ortalamaBirimFiyat, BigDecimal ortalamaRandiman) {
+    }
+
+    // ─── Gün sonu kasa & kantar raporu ───
+
+    /** Kasadan çıkan para ve hakediş durumu. "Nakit" kasadan fiilen çıkan paradır (havale/çek bankadan). */
+    public record KasaOzeti(BigDecimal nakitOdeme, BigDecimal havaleOdeme, BigDecimal cekOdeme, BigDecimal toplamOdeme,
+                            BigDecimal nakitAvans, BigDecimal havaleAvans, BigDecimal cekAvans, BigDecimal toplamAvans,
+                            BigDecimal kasadanCikanNakit, BigDecimal gununNetHakedisi, BigDecimal gununHakedisindenOdenen,
+                            BigDecimal gununKalanHakedisi, BigDecimal tumAcikHakedisler) {
+    }
+
+    public record UrunTuruOzeti(ProductType urunTuru, String urunTuruAdi, int teslimatSayisi, BigDecimal netKg,
+                                BigDecimal netHakedis) {
+    }
+
+    public record GunSonuTeslimat(OffsetDateTime zaman, String fisNo, String lotNo, String uretici, String plaka,
+                                  String urunTuruAdi, String kaliteKodu, BigDecimal netKg, BigDecimal birimFiyat,
+                                  BigDecimal brutTutar, BigDecimal kesinti, BigDecimal avansMahsubu, BigDecimal netOdenecek,
+                                  BigDecimal odenen, BigDecimal kalan, WeightSource brutKaynagi, WeightSource daraKaynagi) {
+    }
+
+    /** O gün kasadan / bankadan çıkan para: hakediş ödemesi veya avans. */
+    public record GunSonuKasaHareketi(OffsetDateTime zaman, String tur, String belgeNo, String uretici,
+                                      PaymentMethod odemeYontemi, BigDecimal tutar, String referansNo) {
+    }
+
+    public record SiloGirisi(String siloKodu, String siloAdi, String kaliteKodu, int lotSayisi, BigDecimal girenKg,
+                             BigDecimal guncelStokKg) {
+    }
+
+    public record GunSonuRaporu(LocalDate tarih, OffsetDateTime olusturulma, GunlukOzet ozet, KasaOzeti kasa,
+                                List<UrunTuruOzeti> urunTurleri, List<GunSonuTeslimat> teslimatlar,
+                                List<GunSonuKasaHareketi> kasaHareketleri, List<SiloGirisi> siloGirisleri) {
     }
 
     public record GunlukOzet(LocalDate tarih, int teslimatSayisi, int ureticiSayisi, BigDecimal toplamNetKg,

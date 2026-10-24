@@ -215,10 +215,141 @@
     </div>
   </form>
 
+  <!-- ─── Müstahsil cari hesap dökümü: A4, yazdırılabilir / PDF olarak kaydedilebilir ─── -->
+  <div x-show="modal === 'dokum'" class="modal-kutu yazdir-kutu max-w-4xl">
+    <div class="modal-baslik no-print"><h3>Cari Hesap Ekstresi</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="no-print px-6 pt-4 flex flex-wrap items-end gap-3 text-sm">
+      <div>
+        <label class="etiket">Başlangıç</label>
+        <input type="date" x-model="dokumForm.baslangic" :max="dokumForm.bitis || bugunIso()" class="girdi py-1.5">
+      </div>
+      <div>
+        <label class="etiket">Bitiş</label>
+        <input type="date" x-model="dokumForm.bitis" :min="dokumForm.baslangic" :max="bugunIso()" class="girdi py-1.5">
+      </div>
+      <button type="button" class="btn-ikincil" @click="dokumGetir()" :disabled="islemde">Getir</button>
+      <button type="button" class="btn-ghost text-xs" @click="dokumForm = { baslangic: '', bitis: '' }; dokumGetir()">Tüm zamanlar</button>
+      <p class="text-xs text-stone-500 ml-auto">PDF için yazdırma penceresinde hedef olarak "PDF olarak kaydet"i seçin.</p>
+    </div>
+    <div class="yazdir-zemin p-4 sm:p-6">
+      <template x-if="dokum">
+        <div class="print-area dokum">
+          <header class="dokum-ust">
+            <div>
+              <p class="dokum-firma">SİİRT FISTIĞI ALIM MERKEZİ</p>
+              <h2 class="dokum-baslik">Müstahsil Cari Hesap Ekstresi</h2>
+            </div>
+            <dl class="dokum-meta">
+              <div><dt>Dönem</dt><dd x-text="dokumDonemi()"></dd></div>
+              <div><dt>Düzenleme</dt><dd x-text="tarihYaz(new Date())"></dd></div>
+            </dl>
+          </header>
+
+          <section class="dokum-kutu dokum-iki">
+            <dl>
+              <div><dt>Müstahsil</dt><dd class="font-semibold" x-text="dokum.uretici.ad_soyad"></dd></div>
+              <div><dt x-text="dokum.uretici.tc_kimlik_no ? 'TC Kimlik No' : 'Vergi No'"></dt>
+                <dd class="font-mono" x-text="dokum.uretici.tc_kimlik_no || dokum.uretici.vergi_no"></dd></div>
+              <div><dt>Telefon</dt><dd x-text="dokum.uretici.telefon || '—'"></dd></div>
+            </dl>
+            <dl>
+              <div x-show="dokum.donem_baslangic"><dt>Devreden bakiye</dt><dd class="tabular-nums" x-text="tl(dokum.devreden_bakiye)"></dd></div>
+              <div><dt>Toplam teslimat</dt><dd class="tabular-nums" x-text="`${kg(dokumToplam('net_kg'))} · ${tl(dokumToplam('net_odenecek'))}`"></dd></div>
+              <div><dt>Alınan avans</dt><dd class="tabular-nums" x-text="tl(dokum.avanslar.reduce((t, a) => t + Number(a.tutar), 0))"></dd></div>
+              <div><dt>Yapılan ödeme</dt><dd class="tabular-nums" x-text="tl(dokum.odemeler.reduce((t, o) => t + Number(o.tutar), 0))"></dd></div>
+            </dl>
+          </section>
+
+          <div class="dokum-bakiye" :class="Number(dokumBakiye()) < 0 ? 'dokum-borclu' : ''">
+            <span x-text="dokum.donem_bitis ? 'Dönem sonu bakiyesi' : 'Güncel net bakiye'"></span>
+            <b class="tabular-nums" x-text="tl(dokumBakiye())"></b>
+            <small x-text="Number(dokumBakiye()) > 0 ? 'Merkez müstahsile borçludur' : Number(dokumBakiye()) < 0 ? 'Müstahsil merkeze borçludur (avans)' : 'Hesap kapalı'"></small>
+          </div>
+
+          <h3 class="dokum-alt">Teslimatlar</h3>
+          <table class="dokum-tablo">
+            <thead><tr><th>Tarih</th><th>Fiş no</th><th>Ürün</th><th>Sınıf</th><th class="sag">Net kg</th>
+              <th class="sag">Birim fiyat</th><th class="sag">Brüt tutar</th><th class="sag">Kesinti</th>
+              <th class="sag">Avans mahsubu</th><th class="sag">Net hakediş</th><th class="sag">Kalan</th></tr></thead>
+            <tbody>
+              <template x-for="t in dokum.teslimatlar" :key="t.tartim_id">
+                <tr><td x-text="tarihYaz(t.tarih)"></td><td class="font-mono" x-text="t.fis_no"></td><td x-text="t.urun_turu_adi"></td>
+                  <td x-text="t.kalite_kodu"></td><td class="sag" x-text="sayi(t.net_kg)"></td>
+                  <td class="sag" x-text="tl(t.birim_fiyat)"></td><td class="sag" x-text="tl(t.brut_tutar)"></td>
+                  <td class="sag" x-text="tl(t.kesinti)"></td><td class="sag" x-text="tl(t.avans_mahsubu)"></td>
+                  <td class="sag font-semibold" x-text="tl(t.net_odenecek)"></td><td class="sag" x-text="tl(t.kalan)"></td></tr>
+              </template>
+              <tr x-show="!dokum.teslimatlar.length"><td colspan="11" class="orta">Bu dönemde teslimat yok.</td></tr>
+            </tbody>
+            <tfoot x-show="dokum.teslimatlar.length"><tr>
+              <td colspan="4">Toplam</td><td class="sag" x-text="sayi(dokumToplam('net_kg'))"></td><td></td>
+              <td class="sag" x-text="tl(dokumToplam('brut_tutar'))"></td><td class="sag" x-text="tl(dokumToplam('kesinti'))"></td>
+              <td class="sag" x-text="tl(dokumToplam('avans_mahsubu'))"></td><td class="sag" x-text="tl(dokumToplam('net_odenecek'))"></td>
+              <td class="sag" x-text="tl(dokumToplam('kalan'))"></td></tr></tfoot>
+          </table>
+
+          <div class="dokum-iki">
+            <div>
+              <h3 class="dokum-alt">Alınan avanslar</h3>
+              <table class="dokum-tablo">
+                <thead><tr><th>Tarih</th><th>Avans no</th><th class="sag">Tutar</th><th class="sag">Mahsup</th><th class="sag">Kalan</th></tr></thead>
+                <tbody>
+                  <template x-for="a in dokum.avanslar" :key="a.id">
+                    <tr><td x-text="tarihYaz(a.tarih)"></td><td class="font-mono" x-text="a.avans_no"></td><td class="sag" x-text="tl(a.tutar)"></td>
+                      <td class="sag" x-text="tl(a.mahsup_edilen)"></td><td class="sag" x-text="tl(a.kalan)"></td></tr>
+                  </template>
+                  <tr x-show="!dokum.avanslar.length"><td colspan="5" class="orta">Avans yok.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h3 class="dokum-alt">Yapılan ödemeler</h3>
+              <table class="dokum-tablo">
+                <thead><tr><th>Tarih</th><th>Ödeme no</th><th>Yöntem</th><th class="sag">Tutar</th></tr></thead>
+                <tbody>
+                  <template x-for="o in dokum.odemeler" :key="o.id">
+                    <tr><td x-text="tarihYaz(o.tarih)"></td><td class="font-mono" x-text="o.odeme_no"></td>
+                      <td x-text="odemeYontemleri[o.odeme_yontemi]"></td><td class="sag" x-text="tl(o.tutar)"></td></tr>
+                  </template>
+                  <tr x-show="!dokum.odemeler.length"><td colspan="4" class="orta">Ödeme yok.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <h3 class="dokum-alt">Hesap hareketleri</h3>
+          <table class="dokum-tablo">
+            <thead><tr><th>Tarih</th><th>İşlem</th><th>Açıklama</th><th class="sag">Alacak</th><th class="sag">Borç</th><th class="sag">Bakiye</th></tr></thead>
+            <tbody>
+              <tr x-show="dokum.donem_baslangic"><td colspan="5">Devreden bakiye</td><td class="sag" x-text="tl(dokum.devreden_bakiye)"></td></tr>
+              <template x-for="h in dokum.hareketler" :key="h.id">
+                <tr><td x-text="tarihYaz(h.tarih)"></td><td x-text="hareketAd(h.tur)"></td><td x-text="h.aciklama"></td>
+                  <td class="sag" x-text="Number(h.alacak) ? tl(h.alacak) : ''"></td><td class="sag" x-text="Number(h.borc) ? tl(h.borc) : ''"></td>
+                  <td class="sag font-semibold" x-text="tl(h.bakiye)"></td></tr>
+              </template>
+              <tr x-show="!dokum.hareketler.length"><td colspan="6" class="orta">Hareket yok.</td></tr>
+            </tbody>
+          </table>
+
+          <p class="dokum-not">Alacak: merkezin müstahsile borcunu artıran kayıt (teslimat). Borç: azaltan kayıt (kesinti, avans, ödeme).
+            Bu ekstre bilgi amaçlıdır; mutabakat için imzalanarak saklanabilir.</p>
+          <div class="dokum-imzalar">
+            <div><div class="fis-imza"></div>Müstahsil İmzası</div>
+            <div><div class="fis-imza"></div>Muhasebe Yetkilisi İmzası</div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="modal-alt no-print">
+      <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
+      <button type="button" class="btn-birincil" @click="dokumYazdir()" :disabled="!dokum">Yazdır / PDF</button>
+    </div>
+  </div>
+
   <!-- ─── Kantar fişi: 80 / 58 mm termal rulo için (ekranda da aynı görünüm) ─── -->
-  <div x-show="modal === 'fis'" class="modal-kutu fis-kutu max-w-md">
+  <div x-show="modal === 'fis'" class="modal-kutu yazdir-kutu max-w-md">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
-    <div class="fis-zemin p-4 sm:p-6 bg-stone-100/70 flex justify-center">
+    <div class="yazdir-zemin p-4 sm:p-6 bg-stone-100/70 flex justify-center">
       <template x-if="fis">
         <div class="print-area fis-termal" :class="ayarlar.kagit === '58' && 'fis-58'">
           <div class="fis-orta">

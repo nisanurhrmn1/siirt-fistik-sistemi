@@ -249,6 +249,27 @@ public final class Kontrolculer {
         public GunlukOzet gunlukOzet(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tarih) {
             return servis.gunlukOzet(tarih != null ? tarih : Dogrulama.bugunTr());
         }
+
+        @GetMapping("/raporlar/gun-sonu")
+        @Tag(name = "Raporlar")
+        @Operation(summary = "Gün sonu kasa ve kantar raporu",
+                description = "Teslimatlar, nakit/havale/çek ödemeler ve avanslar, kalan hakediş, ürün türü ve silo bazlı giren stok.")
+        public GunSonuRaporu gunSonu(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tarih) {
+            return servis.gunSonu(tarih != null ? tarih : Dogrulama.bugunTr());
+        }
+
+        @GetMapping(value = "/raporlar/gun-sonu.csv", produces = "text/csv")
+        @Tag(name = "Raporlar")
+        @Operation(summary = "Gün sonu raporu (Excel'de açılan CSV)",
+                description = "UTF-8 BOM, ';' ayraç, ondalık virgül: Türkçe Excel'de çift tıklayınca doğrudan açılır.")
+        public ResponseEntity<byte[]> gunSonuCsv(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tarih) {
+            LocalDate gun = tarih != null ? tarih : Dogrulama.bugunTr();
+            byte[] icerik = CsvRaporu.gunSonu(servis.gunSonu(gun)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/csv; charset=UTF-8")
+                    .header("Content-Disposition", "attachment; filename=\"gun-sonu-%s.csv\"".formatted(gun))
+                    .body(icerik);
+        }
     }
 
     // ─── Sistem ───

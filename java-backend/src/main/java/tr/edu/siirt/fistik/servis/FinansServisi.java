@@ -189,14 +189,22 @@ public class FinansServisi {
                     s != null ? s.getGrossAmount() : null, s != null ? s.getDeductionsTotal() : null,
                     s != null ? s.getAdvanceOffsetTotal() : null, s != null ? s.getNetPayable() : null,
                     s != null ? s.getPaidAmount() : null, s != null ? s.getNetPayable().subtract(s.getPaidAmount()) : null,
-                    s != null ? s.getStatus() : null));
+                    s != null ? s.getStatus() : null, t.getProductType(), t.getProductType().getAd()));
         }
+
+        Function<Advance, EkstreAvans> avansSatiri = a -> new EkstreAvans(a.getId(), a.getAdvanceNo(),
+                a.getGivenAt(), a.getAmount(), a.getOffsetAmount(), a.getAmount().subtract(a.getOffsetAmount()), a.getStatus());
+        List<EkstreOdeme> odemeler = em.createQuery("select p from Payment p where p.producerId = :u order by p.paidAt, p.id",
+                        Payment.class).setParameter("u", ureticiId).getResultStream()
+                .filter(p -> donemde.test(p.getPaidAt()))
+                .map(p -> new EkstreOdeme(p.getId(), p.getPaymentNo(), p.getPaidAt(), p.getAmount(), p.getMethod(), p.getReferenceNo()))
+                .toList();
 
         return new UreticiEkstre(new UreticiKisa(u.getId(), u.getFullName(), u.getNationalId(), u.getTaxNumber(), u.getPhone()),
                 bas, son, ozet, devir, teslimatlar,
-                avanslar.stream().filter(a -> a.getOffsetAmount().compareTo(a.getAmount()) < 0)
-                        .map(a -> new EkstreAvans(a.getId(), a.getAdvanceNo(), a.getGivenAt(), a.getAmount(),
-                                a.getOffsetAmount(), a.getAmount().subtract(a.getOffsetAmount()), a.getStatus())).toList(),
-                hareketler);
+                avanslar.stream().filter(a -> a.getOffsetAmount().compareTo(a.getAmount()) < 0).map(avansSatiri).toList(),
+                hareketler,
+                avanslar.stream().filter(a -> donemde.test(a.getGivenAt())).map(avansSatiri).toList(),
+                odemeler);
     }
 }

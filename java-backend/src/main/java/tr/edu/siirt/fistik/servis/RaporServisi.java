@@ -117,6 +117,83 @@ public class RaporServisi {
                 }).toList();
     }
 
+    // ─── Gün sonu kasa & kantar raporu ───
+
+    public GunSonuRaporu gunSonu(LocalDate gun) {
+        OffsetDateTime[] a = Dogrulama.gunAraligi(gun);
+        Map<Long, String> ureticiAdi = em.createQuery("select p.id, p.fullName from Producer p", Object[].class)
+                .getResultStream().collect(Collectors.toMap(r -> (Long) r[0], r -> (String) r[1]));
+        Map<Long, QualityGrade> siniflar = em.createQuery("select g from QualityGrade g", QualityGrade.class)
+                .getResultStream().collect(Collectors.toMap(QualityGrade::getId, Function.identity()));
+
+        // Teslimatlar (iptal edilenler hariç)
+        List<WeighTicket> tartimlar = em.createQuery("""
+                        select t from WeighTicket t where t.grossWeighedAt >= :b and t.grossWeighedAt < :s and t.status <> :iptal
+                        order by t.grossWeighedAt, t.id""", WeighTicket.class)
+                .setParameter("b", a[0]).setParameter("s", a[1]).setParameter("iptal", TicketStatus.CANCELLED).getResultList();
+        List<GunSonuTeslimat> teslimatlar = new ArrayList<>();
+        Map<ProductType, List<Object[]>> tureGore = new EnumMap<>(ProductType.class);   // [kg, netHakedis]
+        BigDecimal gununNet = ZERO, gununOdenen = ZERO;
+        for (WeighTicket t : tartimlar) {
+            Settlement s = TartimServisi.hakedis(em, t.getId());
+            QualityInspection q = TartimServisi.analiz(em, t.getId());
+            Lot lot = TartimServisi.lot(em, t.getId());
+            BigDecimal net = s != null ? s.getNetPayable() : ZERO, odenen = s != null ? s.getPaidAmount() : ZERO;
+            gununNet = gununNet.add(net);
+            gununOdenen = gununOdenen.add(odenen);
+            tureGore.computeIfAbsent(t.getProductType(), k -> new ArrayList<>()).add(new Object[]{t.getNetKg(), net});
+            teslimatlar.add(new GunSonuTeslimat(t.getGrossWeighedAt(), t.getTicketNo(), lot != null ? lot.getLotNo() : null,
+                    ureticiAdi.get(t.getProducerId()), t.getVehiclePlate(), t.getProductType().getAd(),
+                    q != null ? siniflar.get(q.getQualityGradeId()).getCode() : null, t.getNetKg(), t.getUnitPrice(),
+                    s != null ? s.getGrossAmount() : null, s != null ? s.getDeductionsTotal() : null,
+                    s != null ? s.getAdvanceOffsetTotal() : null, s != null ? net : null, s != null ? odenen : null,
+                    s != null ? net.subtract(odenen) : null, t.getGrossSource(), t.getTareSource()));
+        }
+        List<UrunTuruOzeti> urunTurleri = tureGore.entrySet().stream()
+                .map(e -> new UrunTuruOzeti(e.getKey(), e.getKey().getAd(), e.getValue().size(),
+                        topla(e.getValue(), r -> (BigDecimal) r[0]), topla(e.getValue(), r -> (BigDecimal) r[1])))
+                .toList();
+
+        // Kasa: o gün yapılan ödemeler ve verilen avanslar
+        List<Payment> odemeler = em.createQuery("select p from Payment p where p.paidAt >= :b and p.paidAt < :s order by p.paidAt, p.id",
+                Payment.class).setParameter("b", a[0]).setParameter("s", a[1]).getResultList();
+        List<Advance> avanslar = em.createQuery("select v from Advance v where v.givenAt >= :b and v.givenAt < :s order by v.givenAt, v.id",
+                Advance.class).setParameter("b", a[0]).setParameter("s", a[1]).getResultList();
+        Function<PaymentMethod, BigDecimal> odeme = y -> topla(odemeler.stream().filter(p -> p.getMethod() == y).toList(), Payment::getAmount);
+        Function<PaymentMethod, BigDecimal> avans = y -> topla(avanslar.stream().filter(v -> v.getMethod() == y).toList(), Advance::getAmount);
+        BigDecimal tumAcik = em.createQuery("select coalesce(sum(s.netPayable - s.paidAmount), 0) from Settlement s", BigDecimal.class)
+                .getSingleResult();
+        KasaOzeti kasa = new KasaOzeti(odeme.apply(PaymentMethod.CASH), odeme.apply(PaymentMethod.BANK_TRANSFER),
+                odeme.apply(PaymentMethod.CHEQUE), topla(odemeler, Payment::getAmount),
+                avans.apply(PaymentMethod.CASH), avans.apply(PaymentMethod.BANK_TRANSFER), avans.apply(PaymentMethod.CHEQUE),
+                topla(avanslar, Advance::getAmount),
+                odeme.apply(PaymentMethod.CASH).add(avans.apply(PaymentMethod.CASH)),
+                gununNet, gununOdenen, gununNet.subtract(gununOdenen), q(tumAcik));
+
+        List<GunSonuKasaHareketi> kasaHareketleri = new ArrayList<>();
+        odemeler.forEach(p -> kasaHareketleri.add(new GunSonuKasaHareketi(p.getPaidAt(), "Hakediş ödemesi", p.getPaymentNo(),
+                ureticiAdi.get(p.getProducerId()), p.getMethod(), p.getAmount(), p.getReferenceNo())));
+        avanslar.forEach(v -> kasaHareketleri.add(new GunSonuKasaHareketi(v.getGivenAt(), "Avans", v.getAdvanceNo(),
+                ureticiAdi.get(v.getProducerId()), v.getMethod(), v.getAmount(), null)));
+        kasaHareketleri.sort(Comparator.comparing(GunSonuKasaHareketi::zaman));
+
+        // Silo bazlı giren stok (o günkü ilk girişler) ve güncel stok
+        Map<Long, BigDecimal> guncelStok = grupla("select m.siloId, sum(m.quantityKg) from StockMovement m group by m.siloId");
+        List<SiloGirisi> siloGirisleri = em.createQuery("""
+                        select s.code, s.name, s.dedicatedGradeId, s.id, count(distinct m.lotId), sum(m.quantityKg)
+                        from StockMovement m, Silo s where m.siloId = s.id and m.movementType = :giris
+                        and m.movedAt >= :b and m.movedAt < :son group by s.code, s.name, s.dedicatedGradeId, s.id order by s.code""",
+                        Object[].class)
+                .setParameter("giris", StockMovementType.RECEIPT).setParameter("b", a[0]).setParameter("son", a[1])
+                .getResultStream()
+                .map(r -> new SiloGirisi((String) r[0], (String) r[1], r[2] != null ? siniflar.get((Long) r[2]).getCode() : null,
+                        ((Long) r[4]).intValue(), q((BigDecimal) r[5]), q(guncelStok.getOrDefault((Long) r[3], ZERO))))
+                .toList();
+
+        return new GunSonuRaporu(gun, Dogrulama.simdi(), gunlukOzet(gun), kasa, urunTurleri, teslimatlar, kasaHareketleri,
+                siloGirisleri);
+    }
+
     // ─── Günlük özet ───
 
     public GunlukOzet gunlukOzet(LocalDate gun) {

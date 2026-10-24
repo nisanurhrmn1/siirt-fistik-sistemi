@@ -298,7 +298,11 @@ Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak �
 
 **Çuval darası.** Net = Brüt − Araç darası − (Çuval sayısı × Çuval darası). Çuval darası ⚙ menüsünden ayarlanır (varsayılan 1 kg) ve o bilgisayarda saklanır.
 
-**Ürün türü.** Kuru-kavlak ve yaş fıstığın kalite sınıfları, fiyatları ve siloları ayrıdır: `A` / `B` / `ISK` ve `YA` / `YB` / `YISK`. Fiyat ekranında iki grup ayrı görünür. Yaş fıstıkta nem sınırı uygulanmaz. Eşikler örnektir; merkezin kendi yönergesine göre `quality_grades` tablosundan güncellenmelidir.
+**Ürün türü.** Kuru-kavlak ve yaş fıstığın kalite sınıfları, fiyatları ve siloları ayrıdır: `A` / `B` / `ISK` ve `YA` / `YB` / `YISK`. Fiyat ekranında iki grup ayrı görünür. Yaş fıstıkta nem sınırı uygulanmaz. Yaş fıstık kurutma firesi nedeniyle kuru-kavlağın yaklaşık %40–50'si fiyatından alınır; demo verisinde A / B / ISK = 300 / 260 / 150 ₺, YA / YB / YISK = 135 / 115 / 65 ₺. Eşikler örnektir; merkezin kendi yönergesine göre `quality_grades` tablosundan güncellenmelidir.
+
+**Müstahsil cari hesap dökümü.** Üretici & Finans sekmesinde üretici seçilip **Hesap Ekstresi / Döküm Al** ile açılır. İsteğe bağlı tarih aralığıyla teslimatlar (tarih, fiş no, ürün türü, net kg, tutar), alınan avanslar, yapılan ödemeler, yürüyen bakiyeli hesap hareketleri ve net bakiye A4 sayfada listelenir. **Yazdır / PDF** düğmesiyle yazdırılır; yazdırma penceresinde hedef "PDF olarak kaydet" seçilirse PDF dosyası olur. Altta müstahsil ve muhasebe imza alanları vardır.
+
+**Gün sonu raporu.** Kantar sekmesinde Bugünkü Teslimatlar tablosunun üstünden gün seçilip **Gün Sonu Raporu Al** ile indirilir. CSV dosyası Excel'de çift tıklayınca doğrudan açılır. İçinde özet (kg, tutar, kesinti, avans mahsubu, kalan hakediş), kasa (nakit / havale / çek ödemeler ve avanslar, kasadan çıkan nakit), ürün türü kırılımı, teslimat listesi, kasa hareketleri ve silo bazlı giren stok bulunur.
 
 **Termal fiş.** Fiş 80 mm (veya ⚙ menüsünden 58 mm) rulo kâğıda göre tasarlandı: sayfanın geri kalanı yazdırılmaz, rulodan boş kâğıt akmaz. Yazıcı ayarında kenar boşluğu **Yok**, ölçek **%100** seçilmelidir. Yazdırma penceresini her seferinde görmemek için kantar bilgisayarında Chrome `--kiosk-printing` parametresiyle açılabilir; fiş varsayılan yazıcıya doğrudan basılır.
 
@@ -366,7 +370,7 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `POST` | `/ureticiler` | Yeni üretici (TC/VKN, telefon, IBAN doğrulamalı) | 201 |
 | `GET` | `/ureticiler` | Sayfalı, aranabilir üretici listesi | 200 |
 | `GET` | `/ureticiler/{id}` | Üretici detayı | 200 |
-| `GET` | `/ureticiler/{id}/bakiye-ekstre` | Cari hesap özeti, teslimatlar, açık avanslar, hareketler | 200 |
+| `GET` | `/ureticiler/{id}/bakiye-ekstre?baslangic=&bitis=` | Cari hesap özeti, teslimatlar (ürün türüyle), avanslar, ödemeler, yürüyen bakiyeli hareketler | 200 |
 | **Kantar ve Alım** ||||
 | `POST` | `/tartimlar` | Tartım + kalite → fiyat kilidi → hakediş → stok (tek transaction) | 201 |
 | `POST` | `/tartimlar/onizleme` | Kaydetmeden tahmini hakediş (paneldeki canlı hesaplama) | 200 |
@@ -383,6 +387,8 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `GET` | `/depo/stok-durumu?gruplama=silo\|kalite` | Silo veya kalite sınıfına göre stok ve doluluk | 200 |
 | `GET` | `/raporlar/gunluk-ozet?tarih=` | Günlük alım (kg), ödenen tutar, ortalama randıman | 200 |
 | `GET` | `/raporlar/uretici-bakiyeleri` | Tüm üreticilerin bakiye ve açık avansı | 200 |
+| `GET` | `/raporlar/gun-sonu?tarih=` | Gün sonu kasa & kantar raporu (JSON) | 200 |
+| `GET` | `/raporlar/gun-sonu.csv?tarih=` | Aynı rapor, Excel'de açılan CSV (UTF-8 BOM, `;`, ondalık virgül) | 200 |
 | **Sistem** ||||
 | `GET` | `/saglik` *(önek yok)* | Sağlık kontrolü | 200 |
 
@@ -447,7 +453,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (54 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (58 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -470,6 +476,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_raporlar.py`** (4 test, yalnızca Java): cari dökümde ürün türü, avans ve ödeme listeleri ve dönem filtresi; gün sonu raporunda nakit/havale ayrımı, kasadan çıkan nakit, kalan hakediş, ürün türü ve silo girişleri; CSV'nin Excel uyumu (BOM, `;`, ondalık virgül).
 - **`tests/test_saha.py`** (8 test, yalnızca Java): Kapsam:
   - çuval darasının nete ve önizlemeye yansıması, neti sıfırlayan çuval darasının reddi
   - yaş fıstığın kendi sınıfı, fiyatı ve silosuyla alınması (%35 nemle Iskarta sayılmaması); yaş fiyatı yoksa kuru fiyatla alınmaması
@@ -526,7 +533,7 @@ siirt-fistik-sistemi/
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
 | Kantar entegrasyonu | Seri port (Web Serial) ile okunur; yalnızca Chrome/Edge masaüstü. Kantar kaynağı tarayıcıdan bildirildiği için tek başına hileye karşı kesin kanıt değildir | Kantar bilgisayarında indikatörü sunucuya doğrudan imzalı gönderen küçük bir servis; TCP/IP indikatör desteği |
-| Raporlar | Ekranda görüntüleme | PDF/Excel dışa aktarma, sezonluk raporlar |
+| Raporlar | Cari döküm yazdır / PDF (tarayıcı), gün sonu raporu CSV | Sunucuda üretilen PDF ve gerçek .xlsx, sezonluk raporlar |
 
 ---
 
