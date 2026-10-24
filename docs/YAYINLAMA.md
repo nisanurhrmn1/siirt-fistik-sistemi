@@ -75,6 +75,7 @@ flowchart LR
 - **İlk açılış yavaş olabilir.** Render'ın ücretsiz planında sunucu 15 dakika kullanılmazsa uyur; ilk ziyarette 30–60 saniyede uyanır. Sunumdan birkaç dakika önce adresi bir kez açın.
 - **Herkese açık demo:**
   - Giriş ekranındaki demo hesaplarıyla herkes veri girebilir. Bu yüzden `GECE_SIFIRLAMA=true` ayarı açık: her gece 03:00'te işlem verisi silinip örnek veri yeniden yüklenir.
+  - Ücretsiz planda sunucu uykudayken 03:00 zamanlayıcısı çalışmaz. Bu yüzden sunucu uyandığında o güne ait hiç tartım yoksa sıfırlama açılışta yapılır; demo her zaman bugün tarihli veriyle açılır.
   - Demo hesapları, kalite sınıfları ve silolar korunur. Ziyaretçilerin eklediği kullanıcılar ve hesap talepleri silinir.
   - Demo hesapları kilitlidir: ziyaretçiler onların rolünü veya şifresini değiştiremez.
 - **Yönetici şifresi:** Render, `BASLANGIC_SIFRESI` değişkenini rastgele üretir. Şifreyle giriş yapmak isterseniz değeri Render panelinde **Environment** sekmesinde görebilirsiniz.

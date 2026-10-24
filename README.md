@@ -9,7 +9,7 @@ Sistem bir **REST API** (Java 21 · Spring Boot 3 · PostgreSQL) ve bu API'yi ku
 Panel dahil her şey **internetsiz** çalışır.
 
 ### 🌐 Canlı demo: **https://siirt-fistik.onrender.com**
-Giriş ekranındaki düğmelerle her rolü (Kantar memuru, Muhasebe, Fiyat yöneticisi…) tek tıkla deneyebilirsiniz. Demo verisi her gece 03:00'te sıfırlanır. Sunucu ücretsiz planda çalıştığı için 15 dakika kullanılmazsa uyur; ilk açılış 30–60 saniye sürebilir.
+Giriş ekranındaki düğmelerle her rolü (Kantar memuru, Muhasebe, Fiyat yöneticisi…) tek tıkla deneyebilirsiniz. Demo verisi her gece 03:00'te, sunucu uykudaysa da uyandığında (o gün henüz tartım yoksa) sıfırlanır; ekranlar ve gün sonu raporu her zaman güncel tarihli veriyle açılır. Sunucu ücretsiz planda çalıştığı için 15 dakika kullanılmazsa uyur; ilk açılış 30–60 saniye sürebilir.
 
 ![Günlük özet kartları](docs/ekran-goruntuleri/01-ozet-paneli.png)
 
@@ -278,7 +278,7 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `--server.port` / `PORT` | `8000` | Sunucu portu |
 | `DEMO_VERISI` / `--fistik.demo-verisi` | `false` | `true` ise boş veritabanına örnek veri yükler |
 | `DEMO_HESAPLARI` | `true` | Giriş ekranında tek tıkla demo girişi |
-| `GECE_SIFIRLAMA` | `false` | `true` ise her gece 03:00'te demo verisini sıfırlar |
+| `GECE_SIFIRLAMA` | `false` | `true` ise demo verisini her gece 03:00'te ve açılışta o güne ait tartım yoksa sıfırlar |
 | `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 | `API_DOKUMANI` | `true` | `false` ise Swagger (`/docs`), ReDoc ve `/openapi.json` tamamen kapanır (gerçek kullanımda önerilir). Paneldeki "API" bağlantısı zaten yalnızca Yöneticiye görünür. |
