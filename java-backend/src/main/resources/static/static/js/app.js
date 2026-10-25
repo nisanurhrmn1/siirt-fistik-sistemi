@@ -185,6 +185,7 @@ document.addEventListener('alpine:init', () => {
       { id: 'uretici', ad: 'Üretici & Finans', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.13a9.38 9.38 0 0 0 2.63.37 9.34 9.34 0 0 0 4.12-.95 4.13 4.13 0 0 0-7.53-2.49M15 19.13v-.01c0-1.11-.29-2.16-.79-3.07M15 19.13v.11A12.32 12.32 0 0 1 8.62 21c-2.33 0-4.51-.65-6.37-1.76v-.11a6.38 6.38 0 0 1 11.96-3.08M12 6.38a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0Zm8.25 2.25a2.63 2.63 0 1 1-5.25 0 2.63 2.63 0 0 1 5.25 0Z"/></svg>' },
       { id: 'fiyat', ad: 'Fiyat & Depo', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.13C3 12.5 3.5 12 4.13 12h2.25c.62 0 1.12.5 1.12 1.13v6.75C7.5 20.5 7 21 6.38 21H4.13C3.5 21 3 20.5 3 19.88v-6.75ZM9.75 8.63c0-.63.5-1.13 1.13-1.13h2.25c.62 0 1.12.5 1.12 1.13v11.25c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V8.63ZM16.5 4.13c0-.63.5-1.13 1.13-1.13h2.25C20.5 3 21 3.5 21 4.13v15.75c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V4.13Z"/></svg>' },
       { id: 'sevkiyat', ad: 'Sevkiyat', yalnizJava: true, ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.38a1.13 1.13 0 0 1-1.13-1.13V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.13c.62 0 1.13-.5 1.13-1.13v-5.07a2.25 2.25 0 0 0-.44-1.34l-2.71-3.62a1.13 1.13 0 0 0-.9-.44H14.25M16.5 18.75h-2.25m0-11.25v11.25m0-11.25V4.88c0-.62-.5-1.13-1.13-1.13H3.38c-.62 0-1.13.5-1.13 1.13v9.37m12 0H2.25"/></svg>' },
+      { id: 'alicilar', ad: 'Alıcılar', yalnizJava: true, ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.8 2.1c.73.2 1.45-.34 1.45-1.1V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.38c0-.62.5-1.12 1.13-1.12H20.25M2.25 6v9m18-10.5v.75c0 .41.34.75.75.75h.75m-1.5-1.5h.38c.62 0 1.12.5 1.12 1.13v9.75c0 .62-.5 1.12-1.12 1.12h-.38m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.38c-.62 0-1.12-.5-1.12-1.12V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.01v.01H18v-.01Zm-12 0h.01v.01H6v-.01Z"/></svg>' },
       { id: 'kullanicilar', ad: 'Kullanıcılar', yetki: 'kullanici_yonet', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.13a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0ZM3 19.24v-.12a6.38 6.38 0 0 1 12.75 0v.12A12.32 12.32 0 0 1 9.37 21 12.3 12.3 0 0 1 3 19.24Z"/></svg>' },
     ],
     tab: 'kantar',
@@ -230,6 +231,10 @@ document.addEventListener('alpine:init', () => {
     irsaliye: null,
     tahsilatlar: { CASH: 'Nakit alındı', BANK_TRANSFER: 'Havale alındı', ON_ACCOUNT: 'Vadeli / açık hesap' },
     emanetForm: { tartim: null, onizleme: null, miktar: '' },
+    tahsilatForm: {},
+    musteriEkstre: null,
+    musteriEkstreForm: { musteri_id: null, baslangic: '', bitis: '' },
+    kesintiler: [],
     catlakPrimleri: [],
     dokum: null,                  // yazdırılabilir cari hesap ekstresi
     dokumForm: { baslangic: '', bitis: '' },
@@ -414,7 +419,8 @@ document.addEventListener('alpine:init', () => {
     },
     yetkiYok(islem) {
       const kim = { tartim: 'kantar memuru', fiyat_gir: 'fiyat yöneticisi', uretici_ekle: 'muhasebe',
-                    avans_ver: 'muhasebe', odeme_yap: 'muhasebe', emanet_cevir: 'muhasebe' }[islem];
+                    avans_ver: 'muhasebe', odeme_yap: 'muhasebe', emanet_cevir: 'muhasebe', tahsilat: 'muhasebe',
+                    kesinti_ayar: 'muhasebe' }[islem];
       return this.yetkili(islem) ? '' : `Bu işlem için ${kim} veya yönetici yetkisi gerekir.`;
     },
     /** Yetki gerektiren sekmeler (Kullanıcılar) yalnızca girişli sürümde ve yetkiliye görünür. */
@@ -504,7 +510,7 @@ document.addEventListener('alpine:init', () => {
       this.yenileniyor = true;
       try {
         await Promise.all([this.yukleOzet(), this.yukleUreticiler(), this.yukleTartimlar(), this.yukleFiyatlar(), this.yukleDepo(),
-                           this.yukleKullanicilar(), this.yukleSevkiyatlar(), this.yukleCatlakPrimi()]);
+                           this.yukleKullanicilar(), this.yukleSevkiyatlar(), this.yukleCatlakPrimi(), this.yukleKesintiler()]);
         if (this.secili) await this.yukleEkstre();
       } catch (e) { this.hataGoster(e); }
       this.yenileniyor = false;
@@ -803,6 +809,77 @@ document.addEventListener('alpine:init', () => {
     },
     async irsaliyeGoster(id) {
       try { this.irsaliye = await api(`/sevkiyatlar/${id}`); this.modal = 'irsaliye'; } catch (e) { this.hataGoster(e); }
+    },
+
+    // ─── Alıcılar: tahsilat ve ekstre ───
+    aliciToplam(alan) { return this.musteriler.reduce((t, m) => t + Number(m[alan] || 0), 0); },
+    get tahsilatMusteri() { return this.musteriler.find((m) => String(m.id) === String(this.tahsilatForm.musteri_id)) || null; },
+    tahsilatAc(m) {
+      this.tahsilatForm = { musteri_id: m ? String(m.id) : '', tutar: '', odeme_yontemi: 'BANK_TRANSFER', referans_no: '',
+                            tarih: this.bugunIso(), aciklama: '' };
+      this.tahsilatTutarOner();
+      this.alanHatalari = {};
+      this.modal = 'tahsilat';
+    },
+    tahsilatTutarOner() {
+      const a = Number(this.tahsilatMusteri?.acik_hesap);
+      this.tahsilatForm.tutar = a > 0 ? String(a) : '';
+    },
+    async tahsilatKaydet() {
+      const f = this.tahsilatForm;
+      await this.islem(async () => {
+        const t = await api(`/musteriler/${f.musteri_id}/tahsilatlar`, {
+          method: 'POST',
+          body: { tutar: bosIseNull(f.tutar), odeme_yontemi: f.odeme_yontemi, referans_no: bosIseNull(f.referans_no),
+                  tarih: bosIseNull(f.tarih), aciklama: bosIseNull(f.aciklama) },
+        });
+        this.modal = null;
+        this.bildir(`${t.makbuz_no}: ${t.musteri_adi} için ${this.tl(t.tutar)} tahsilat kaydedildi. Kalan açık hesap ${this.tl(t.kalan_acik_hesap)}.`);
+        await Promise.all([this.yukleSevkiyatlar(), this.yukleOzet()]);
+      });
+    },
+    async musteriEkstreAc(m) {
+      this.musteriEkstre = null;
+      this.musteriEkstreForm = { musteri_id: m.id, baslangic: '', bitis: '' };
+      this.modal = 'musteri-ekstre';
+      await this.musteriEkstreGetir();
+    },
+    async musteriEkstreGetir() {
+      const f = this.musteriEkstreForm;
+      await this.islem(async () => {
+        this.musteriEkstre = await api(`/musteriler/${f.musteri_id}/ekstre`, { params: { baslangic: f.baslangic, bitis: f.bitis } });
+      });
+    },
+    musteriEkstreBakiye() {
+      const h = this.musteriEkstre?.hareketler || [];
+      return h.length ? h.at(-1).bakiye : this.musteriEkstre?.devreden_bakiye ?? 0;
+    },
+    donemYaz(f) {
+      const t = (v) => v.split('-').reverse().join('.');
+      return f.baslangic && f.bitis ? `${t(f.baslangic)} – ${t(f.bitis)}` : f.baslangic ? `${t(f.baslangic)} sonrası`
+        : f.bitis ? `${t(f.bitis)} öncesi` : 'Tüm zamanlar';
+    },
+    /** A4 döküm yazdırma (PDF olarak kaydederken önerilen dosya adı başlık olur). */
+    a4Yazdir(baslik) {
+      document.getElementById('sayfa-boyutu').textContent = '@page { size: A4 portrait; margin: 12mm; }';
+      const eski = document.title;
+      document.title = `${baslik} - ${this.bugunIso()}`;
+      window.print();
+      document.title = eski;
+    },
+
+    // ─── Resmî kesintiler ───
+    async yukleKesintiler() {
+      if (!this.kimlikDogrulama) return;
+      this.kesintiler = (await api('/kesintiler')).map((k) => ({ ...k, oran: String(Number(k.oran)) }));   // 2.0000 → 2
+    },
+    async kesintiKaydet(k) {
+      await this.islem(async () => {
+        const y = await api(`/kesintiler/${k.kod}`, { method: 'PUT', body: { oran: k.oran, aktif: !!k.aktif } });
+        this.bildir(`${y.ad}: ${y.aktif ? 'uygulanıyor' : 'kapalı'}${y.hesaplama === 'PERCENT' ? ` (%${Number(y.oran)})` : ''}.`);
+        await this.yukleKesintiler();
+        this.onizlemeIste();
+      });
     },
 
     // ─── Emanet ───

@@ -114,6 +114,7 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-KNT-17 | Emanet tek işlemle o günün fiyatı (ve çatlak primi) ile satışa çevrilebilmeli; hakediş, kesinti ve avans mahsubu normal akışla oluşmalı; bir fiş bir kez çevrilebilmelidir. | Yüksek | ✅ |
 | FG-KNT-19 | Emanetin bir kısmı satışa çevrilebilmeli: satılan miktar için ayrı bozdurma fişi ve hakediş oluşmalı, kalan kg emanette kalmalı; silodaki emanet ve üreticinin emanet stoğu satılan kadar düşmelidir. | Yüksek | ✅ |
 | FG-KNT-18 | Kantarda numune analizi yapılabilmeli: numune, çatlak ve kör/boş gramından oranlar hesaplanmalı ve gramlar kaydedilmelidir. | Orta | ✅ |
+| FG-HKD-08 | Resmî kesintiler (stopaj, borsa tescil, SGK / Bağ-Kur) ve komisyon panelden açılıp kapatılabilmeli, oranları değiştirilebilmeli; değişiklik yalnızca yeni hakedişlere uygulanmalıdır. | Orta | ✅ |
 | FG-FYT-10 | Kör/boş tane oranı eşiği aşarsa eşik üzeri her puan için baz fiyattan iskonto uygulanabilmeli; fişte "Boş tane kesintisi" olarak görünmeli ve fiyat kilidine dahil olmalıdır. | Orta | ✅ |
 | FG-FYT-09 | Ürün türü başına çatlak primi / iskontosu tanımlanabilmeli (baz çatlak %, puan başı ₺, azami fark); birim fiyat = baz fiyat + prim olmalı ve fiyat kilidinin parçası olarak saklanmalıdır. | Orta | ✅ |
 | FG-KNT-15 | Fiş 80 mm ve 58 mm termal rulo kâğıda sığmalı; müstahsil ve kantar görevlisi imza alanları bulunmalıdır. | Orta | ✅ |
@@ -160,6 +161,8 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-DEP-06 | Satış/sevk çıkışı kaydedilebilmelidir: alıcı firma, plaka, şoför, çıkış silosu, brüt / dara (kantar indikatörü desteğiyle), satış birim fiyatı, toplam tutar ve tahsilat durumu (nakit / havale / vadeli). Yalnızca Yönetici ve Depo sorumlusu yapabilir. | Yüksek | ✅ |
 | FG-DEP-07 | Sevkiyatta silo stoğu net kg kadar, lotlardan ilk giren ilk çıkar sırasıyla düşmeli; silodaki stoktan fazla çıkış reddedilmelidir. Veritabanı hiçbir lotun eksi stoğa düşmesine izin vermemelidir. | Yüksek | ✅ |
 | FG-DEP-08 | Sevkiyat için 80 / 58 mm termal veya A5 "Kantar Çıkış ve Sevk İrsaliyesi" basılabilmeli; alıcı, plaka, şoför, silo / ürün / sınıf, tarih-saat, kilolar, çıkan lotlar ve imza alanları bulunmalıdır. | Orta | ✅ |
+| FG-DEP-10 | Alıcı bazında toplam satış, tahsil edilen ve kalan açık hesap listelenmeli; alıcıdan tutar, ödeme türü (nakit, havale/EFT, çek/senet), belge no ve tarihle tahsilat girilebilmelidir. | Yüksek | ✅ |
+| FG-DEP-11 | Alıcının sevkiyatlarını ve ödemelerini tarih sıralı, yürüyen bakiyeli gösteren yazdırılabilir (A4 / PDF) alıcı cari ekstresi alınabilmelidir. | Orta | ✅ |
 | FG-DEP-09 | Alıcı firmalar müşteri kartı olarak saklanmalı (aynı ad Türkçe büyük/küçük harf farkıyla tekrar açılmamalı); vadeli satışların açık hesap toplamı görülebilmelidir. | Orta | ✅ |
 
 ### 3.8 Kimlik doğrulama ve yetkilendirme (GUV)
@@ -301,7 +304,7 @@ Kullanım durumu diyagramı: [UML.md § 1](UML.md#1-kullanım-durumu-diyagramı)
 
 | No | Gereksinim |
 |---|---|
-| GDG-01 | Müşteri cari hesabı: vadeli satışların tahsilatı, müşteri ekstresi ve resmî e-irsaliye entegrasyonu |
+| GDG-01 | Resmî e-irsaliye / e-müstahsil makbuzu entegrasyonu; tahsilat iptali için ters kayıt |
 | GDG-02 | Silolar arası transfer ve fiyat iptali için API ve arayüz (FG-DEP-05, FG-FYT-08) |
 | GDG-03 | Sezonluk raporlar ve gerçek .xlsx (çok sayfalı) dışa aktarım |
 | GDG-04 | TCP/IP indikatör desteği ve indikatör verisini sunucuya imzalı gönderen kantar servisi (tarayıcıdan bağımsız kanıt) |

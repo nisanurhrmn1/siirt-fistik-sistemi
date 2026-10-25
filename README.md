@@ -350,6 +350,14 @@ Aynı kartta **Boş tane iskontosu** da tanımlanır: kör/boş oranı eşiği a
 - Onaydan sonra **Kantar Çıkış ve Sevk İrsaliyesi** 80 / 58 mm termal veya A5 olarak basılır. Bu belge kantar çıkış belgesidir; resmî e-irsaliye yerine geçmez.
 - Gün sonu raporunda sevkiyatlar, satış tahsilatı (nakit / havale / vadeli), kasa net nakdi ve silo bazlı giren / çıkan kg da yer alır.
 
+**Alıcılar ve tahsilat.** **Alıcılar** sekmesinde sevkiyat yapılan her firmanın toplam satışı, tahsil edilen tutar (peşin + sonradan) ve kalan açık hesabı listelenir.
+
+- **Tahsilat Ekle** (Yönetici, Muhasebe): alıcı, tutar (varsayılan: açık hesap), ödeme türü (nakit, havale/EFT, çek/senet), belge / dekont no ve tarih (gelecek tarih olamaz). Açık hesaptan fazlası alıcı avansı olarak kalır. Tahsilat makbuzu `TH-…` numarası alır; kayıt sonradan değiştirilemez (veritabanı tetikleyicisi).
+- **Ekstre**: alıcının tüm sevkiyat irsaliyeleri (borç) ve ödemeleri (alacak: peşin tahsilat ve sonradan tahsilatlar) tarih sıralı, yürüyen bakiyeli A4 döküm; isteğe bağlı tarih aralığı, yazdır / PDF, imza alanları.
+- Gün sonu raporunda alıcı tahsilatları (nakit / havale / çek) ayrı satırdadır; nakit tahsilat kasaya giriş olarak kasa net nakdine eklenir.
+
+**Resmî kesintiler.** Stopaj (%2), borsa tescil (%0,2) ve komisyon (%1) ilk günden beri hakedişte brüt tutardan düşülür; fişte, cari ekstrede ve dökümde satır satır görünür. Fiyat & Depo sekmesindeki **Resmî Kesinti Ayarları** kartından (Yönetici, Muhasebe) her kesinti açılıp kapatılabilir ve oranı değiştirilebilir; **SGK / Bağ-Kur (%2)** kesintisi de buradadır ve muafiyet durumuna göre açılmak üzere kapalı başlar. Değişiklik yalnızca bundan sonraki hakedişlere uygulanır; oluşmuş hakedişlerin oranı saklıdır. Oranlar örnektir, güncel mevzuata göre ayarlanmalıdır.
+
 **Termal fiş.** Fiş 80 mm (veya ⚙ menüsünden 58 mm) rulo kâğıda göre tasarlandı: sayfanın geri kalanı yazdırılmaz, rulodan boş kâğıt akmaz. Yazıcı ayarında kenar boşluğu **Yok**, ölçek **%100** seçilmelidir. Yazdırma penceresini her seferinde görmemek için kantar bilgisayarında Chrome `--kiosk-printing` parametresiyle açılabilir; fiş varsayılan yazıcıya doğrudan basılır.
 
 ### Kullanıcılar ve roller
@@ -443,6 +451,10 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `GET` | `/sevkiyatlar?tarih=` | Sevkiyatlar (tarih yoksa son 100) | 200 |
 | `GET` | `/sevkiyatlar/{id}` | Sevkiyat detayı ve çıkan lotlar (irsaliye) | 200 |
 | `GET` | `/sms?uretici_id=` | Gönderilen bilgilendirme SMS'leri (Yönetici, Muhasebe) | 200 |
+| `POST` | `/musteriler/{id}/tahsilatlar` | Alıcıdan tahsilat (Yönetici, Muhasebe) | 201 |
+| `GET` | `/musteriler/{id}/ekstre?baslangic=&bitis=` | Alıcı cari ekstresi (sevkiyatlar, tahsilatlar, yürüyen bakiye) | 200 |
+| `GET` | `/kesintiler` | Resmî / ticari kesinti tanımları | 200 |
+| `PUT` | `/kesintiler/{kod}` | Kesinti oranı ve açık/kapalı (Yönetici, Muhasebe) | 200 |
 | `GET` | `/musteriler` | Alıcı firmalar, satış toplamları ve açık hesap | 200 |
 | `GET` | `/raporlar/gun-sonu.csv?tarih=` | Aynı rapor, Excel'de açılan CSV (UTF-8 BOM, `;`, ondalık virgül) | 200 |
 | **Sistem** ||||
@@ -509,7 +521,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (81 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (88 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -532,6 +544,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_tahsilat.py`** (7 test, yalnızca Java): açık hesap ve tahsilat (fazlası alıcı avansı), alıcı ekstresinde yürüyen bakiye ve dönem devri, tarih ve tutar doğrulamaları, yetki, tahsilat kaydının değiştirilemezliği, gün sonu kasasına giriş; resmî kesintilerin açılıp kapatılması ve oran değişikliğinin yalnızca yeni hakedişlere uygulanması.
 - **`tests/test_emanet.py`** (11 test, yalnızca Java): parçalı bozdurma (400 / 1.200 kg; kalan emanet, silodaki emanet ve lot aktarımı, kalandan fazlasının reddi, kalanın başka gün fiyatıyla satılması); boş tane iskontosu; emanetin siloya girip hakediş ve cari hareket oluşturmaması; fiyat yokken de alınabilmesi; satışa çevirmenin o günün fiyatıyla ve avans mahsubuyla hakediş oluşturması, ikinci kez çevrilememesi, yetkisi; sevkiyatta önce merkezin kendi lotlarının çıkması; çatlak primi, iskontosu ve azami sınır; numune gramlarından oran hesabı; veritabanının emanet fişine fiyat yazılmasını engellemesi.
 - **`tests/test_sms.py`** (4 test, yalnızca Java): tartımda ve avansta SMS metni ve simülasyon durumu, fişte SMS bilgisinin görünmesi, SMS kayıt listesi; cari dökümde hareketlerin belge no, ürün & sınıf, kg ve birim fiyat içermesi.
 - **`tests/test_sevkiyat.py`** (8 test, yalnızca Java): ilk giren ilk çıkar lot düşümü ve tutar; stoktan fazla ve boş silodan çıkışın reddi; doğrulamalar; yalnızca Yönetici ve Depo sorumlusunun sevkiyat yapabilmesi; müşteri kartının Türkçe harf farkıyla tekrarlanmaması ve açık hesap toplamı; veritabanının eksi stoğu reddetmesi; gün sonu raporunda sevkiyat ve tahsilat.
@@ -591,6 +604,7 @@ siirt-fistik-sistemi/
 | Şifre unutma | Şifreyi yalnızca yönetici sıfırlayabilir; hatalı giriş denemesi sınırı yok | E-postayla sıfırlama bağlantısı ve art arda hatalı girişte geçici kilit |
 | Kesinti oranları | Örnek değerler (stopaj %2, borsa %0,2, komisyon %1) | Güncel mevzuata göre yönetim ekranından düzenleme |
 | Tailwind | Tarayıcıda derleyen Play CDN sürümü (yerel dosya) | Üretimde Tailwind CLI ile önceden derlenmiş CSS |
+| Tahsilat düzeltme | Tahsilat kaydı değiştirilemez; yanlış girişi düzeltecek ters kayıt ekranı yok | Yönetici onaylı ters kayıt (iptal makbuzu) |
 | Kantar entegrasyonu | Seri port (Web Serial) ile okunur; yalnızca Chrome/Edge masaüstü. Kantar kaynağı tarayıcıdan bildirildiği için tek başına hileye karşı kesin kanıt değildir | Kantar bilgisayarında indikatörü sunucuya doğrudan imzalı gönderen küçük bir servis; TCP/IP indikatör desteği |
 | Raporlar | Cari döküm yazdır / PDF (tarayıcı), gün sonu raporu CSV | Sunucuda üretilen PDF ve gerçek .xlsx, sezonluk raporlar |
 

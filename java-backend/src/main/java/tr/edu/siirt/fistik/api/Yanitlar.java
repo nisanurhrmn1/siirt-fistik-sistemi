@@ -184,6 +184,10 @@ public final class Yanitlar {
                                  BigDecimal ortalamaBirimFiyat, BigDecimal ortalamaRandiman) {
     }
 
+    /** Resmî / ticari kesinti tanımı (hakedişte brütten düşülür; oran hakediş anında saklanır). */
+    public record KesintiTuru(String kod, String ad, DeductionCalcMethod hesaplama, BigDecimal oran, boolean aktif, int sira) {
+    }
+
     // ─── Gün sonu kasa & kantar raporu ───
 
     /** Kasadan çıkan para ve hakediş durumu. "Nakit" kasadan fiilen çıkan paradır (havale/çek bankadan). */
@@ -192,7 +196,8 @@ public final class Yanitlar {
                             BigDecimal kasadanCikanNakit, BigDecimal gununNetHakedisi, BigDecimal gununHakedisindenOdenen,
                             BigDecimal gununKalanHakedisi, BigDecimal tumAcikHakedisler, BigDecimal nakitTahsilat,
                             BigDecimal havaleTahsilat, BigDecimal vadeliSatis, BigDecimal toplamSatis,
-                            BigDecimal kasaNetNakit) {
+                            BigDecimal kasaNetNakit, BigDecimal aliciNakitTahsilat, BigDecimal aliciHavaleTahsilat,
+                            BigDecimal aliciCekTahsilat, BigDecimal aliciTahsilatToplami) {
     }
 
     public record UrunTuruOzeti(ProductType urunTuru, String urunTuruAdi, int teslimatSayisi, BigDecimal netKg,

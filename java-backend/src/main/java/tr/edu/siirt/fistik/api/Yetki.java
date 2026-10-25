@@ -35,6 +35,8 @@ public final class Yetki {
         ISLEMLER.put("avans_ver", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
         ISLEMLER.put("odeme_yap", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
         ISLEMLER.put("emanet_cevir", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
+        ISLEMLER.put("tahsilat", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
+        ISLEMLER.put("kesinti_ayar", EnumSet.of(UserRole.ADMIN, UserRole.ACCOUNTING));
         ISLEMLER.put("kullanici_yonet", EnumSet.of(UserRole.ADMIN));
         ISLEMLER.put("sevkiyat", EnumSet.of(UserRole.ADMIN, UserRole.WAREHOUSE));
     }

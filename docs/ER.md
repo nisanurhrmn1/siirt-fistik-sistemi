@@ -35,6 +35,7 @@ erDiagram
     LOTS ||--o{ STOCK_MOVEMENTS : "hareket"
     SILOS ||--o{ STOCK_MOVEMENTS : "hareket"
     CUSTOMERS ||--o{ SHIPMENTS : "satın alır"
+    CUSTOMERS ||--o{ CUSTOMER_PAYMENTS : "öder"
     SILOS ||--o{ SHIPMENTS : "çıkış"
     SHIPMENTS ||--o{ STOCK_MOVEMENTS : "lot düşümü (DISPATCH)"
 
@@ -184,6 +185,14 @@ erDiagram
         int id PK
         varchar name UK "Türkçe harf duyarsız"
         varchar tax_number
+    }
+    CUSTOMER_PAYMENTS {
+        int id PK
+        varchar receipt_no UK "TH-YYYY-NNNNNN"
+        int customer_id FK
+        numeric amount
+        varchar method "CASH, BANK_TRANSFER, CHEQUE"
+        timestamptz received_at
     }
     SHIPMENTS {
         int id PK

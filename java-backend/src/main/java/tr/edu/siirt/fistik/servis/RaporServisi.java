@@ -180,13 +180,22 @@ public class RaporServisi {
         Function<SaleCollection, BigDecimal> satis = c -> topla(satislar.stream().filter(s -> s.getCollection() == c).toList(),
                 Shipment::getTotalAmount);
         BigDecimal kasadanCikan = odeme.apply(PaymentMethod.CASH).add(avans.apply(PaymentMethod.CASH));
+        // Alıcılardan o gün yapılan tahsilatlar (vadeli sevkiyatların ödemesi)
+        List<CustomerPayment> aliciTahsilatlari = em.createQuery(
+                        "select p from CustomerPayment p where p.receivedAt >= :b and p.receivedAt < :son order by p.receivedAt, p.id",
+                        CustomerPayment.class).setParameter("b", a[0]).setParameter("son", a[1]).getResultList();
+        Function<PaymentMethod, BigDecimal> tahsil = y -> topla(aliciTahsilatlari.stream().filter(p -> p.getMethod() == y).toList(),
+                CustomerPayment::getAmount);
         KasaOzeti kasa = new KasaOzeti(odeme.apply(PaymentMethod.CASH), odeme.apply(PaymentMethod.BANK_TRANSFER),
                 odeme.apply(PaymentMethod.CHEQUE), topla(odemeler, Payment::getAmount),
                 avans.apply(PaymentMethod.CASH), avans.apply(PaymentMethod.BANK_TRANSFER), avans.apply(PaymentMethod.CHEQUE),
                 topla(avanslar, Advance::getAmount), kasadanCikan,
                 gununNet, gununOdenen, gununNet.subtract(gununOdenen), q(tumAcik),
                 satis.apply(SaleCollection.CASH), satis.apply(SaleCollection.BANK_TRANSFER), satis.apply(SaleCollection.ON_ACCOUNT),
-                topla(satislar, Shipment::getTotalAmount), satis.apply(SaleCollection.CASH).subtract(kasadanCikan));
+                topla(satislar, Shipment::getTotalAmount),
+                satis.apply(SaleCollection.CASH).add(tahsil.apply(PaymentMethod.CASH)).subtract(kasadanCikan),
+                tahsil.apply(PaymentMethod.CASH), tahsil.apply(PaymentMethod.BANK_TRANSFER), tahsil.apply(PaymentMethod.CHEQUE),
+                topla(aliciTahsilatlari, CustomerPayment::getAmount));
         Map<Long, String> musteriAdi = em.createQuery("select c.id, c.name from Customer c", Object[].class)
                 .getResultStream().collect(Collectors.toMap(x -> (Long) x[0], x -> (String) x[1]));
         Map<Long, String> siloKodu = em.createQuery("select s.id, s.code from Silo s", Object[].class)
@@ -201,6 +210,8 @@ public class RaporServisi {
                 ureticiAdi.get(p.getProducerId()), p.getMethod(), p.getAmount(), p.getReferenceNo())));
         avanslar.forEach(v -> kasaHareketleri.add(new GunSonuKasaHareketi(v.getGivenAt(), "Avans", v.getAdvanceNo(),
                 ureticiAdi.get(v.getProducerId()), v.getMethod(), v.getAmount(), null)));
+        aliciTahsilatlari.forEach(p -> kasaHareketleri.add(new GunSonuKasaHareketi(p.getReceivedAt(), "Alıcı tahsilatı (giriş)",
+                p.getReceiptNo(), musteriAdi.get(p.getCustomerId()), p.getMethod(), p.getAmount(), p.getReferenceNo())));
         kasaHareketleri.sort(Comparator.comparing(GunSonuKasaHareketi::zaman));
 
         // Silo bazlı giren (alım) ve çıkan (sevkiyat) stok ile güncel stok

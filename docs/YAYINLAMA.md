@@ -48,7 +48,7 @@ flowchart LR
 5. **Apply / Deploy Blueprint** düğmesine basın.
 6. İlk derleme **5–10 dakika** sürer (Maven bağımlılıkları indirilir). **Logs** sekmesinde şu satırları görünce sistem hazırdır:
    ```
-   Successfully applied 9 migrations ... now at version v9
+   Successfully applied 10 migrations ... now at version v10
    Demo verisi: 4 üretici, 6 teslimat, 1 emanet, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.
    Started SiirtFistikApplication in ... seconds
    ```

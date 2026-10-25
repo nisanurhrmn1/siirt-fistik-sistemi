@@ -269,6 +269,13 @@ public final class Istekler {
         }
     }
 
+    /** Kesinti ayarı: oran (yüzde ise 0–100) ve açık/kapalı. */
+    public record KesintiGirisi(
+            @NotNull(message = ZORUNLU) @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.")
+            @Digits(integer = 8, fraction = 4, message = "En fazla 4 ondalık basamak girilebilir.") @Schema(example = "2") BigDecimal oran,
+            @NotNull(message = ZORUNLU) Boolean aktif) {
+    }
+
     /** Emaneti satışa çevirme: miktar boşsa kalan emanetin tamamı. */
     public record SatisaCevirGirisi(
             @DecimalMin(value = "0", inclusive = false, message = POZITIF) @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.")

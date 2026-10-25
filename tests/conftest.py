@@ -28,7 +28,7 @@ def pytest_addoption(parser):
 
 # Java modunda her testten önce boşaltılan tablolar (başlangıç verisi tabloları korunur: users, quality_grades,
 # deduction_types, silos). TRUNCATE satır trigger'larını tetiklemez.
-ISLEM_TABLOLARI = ("sms_messages, shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, producer_ledger_entries, "
+ISLEM_TABLOLARI = ("sms_messages, customer_payments, shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, producer_ledger_entries, "
                    "stock_movements, lots, settlements, advances, quality_inspections, weigh_tickets, daily_prices, "
                    "producer_bank_accounts, producers, document_sequences")
 
@@ -63,6 +63,9 @@ def db_engine(request):
             conn.exec_driver_sql("DELETE FROM users WHERE username NOT IN ('admin', 'kantar', 'muhasebe', 'fiyat', 'depo')")
             # Çatlak primi kuralları testler arasında kapalı başlar (demo verisi açmış olabilir)
             conn.exec_driver_sql("UPDATE split_premium_rules SET is_active = false, empty_active = false")
+            # Resmî kesintiler varsayılan hâline döner (stopaj, borsa, komisyon açık; Bağ-Kur kapalı)
+            conn.exec_driver_sql("UPDATE deduction_types SET is_active = (code <> 'BAGKUR'), "
+                                 "rate = CASE code WHEN 'STOPAJ' THEN 2 WHEN 'BORSA' THEN 0.2 WHEN 'KOMISYON' THEN 1 ELSE rate END")
         yield engine
         engine.dispose()
         return

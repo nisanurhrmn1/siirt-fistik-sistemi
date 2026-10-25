@@ -82,6 +82,30 @@
       </form>
     </template>
   </div>
+
+  <!-- Resmî kesinti ayarları -->
+  <div class="panel-kutu space-y-3" x-show="kimlikDogrulama">
+    <div>
+      <h2 class="baslik">Resmî Kesinti Ayarları</h2>
+      <p class="text-xs text-stone-500 mt-1">Hakedişte brüt tutardan düşülür; fişte, ekstrede ve dökümde satır olarak görünür.
+        Değişiklik yalnızca bundan sonraki hakedişlere uygulanır. Oranlar örnektir; güncel mevzuata göre ayarlayın.</p>
+    </div>
+    <template x-for="k in kesintiler" :key="k.kod">
+      <form class="mini-kart p-3 flex items-center gap-3" @submit.prevent="kesintiKaydet(k)">
+        <label class="flex items-center gap-2 min-w-0 flex-1 text-sm">
+          <input type="checkbox" x-model="k.aktif" class="h-4 w-4 accent-emerald-600 shrink-0" :disabled="!yetkili('kesinti_ayar')">
+          <span class="min-w-0"><span class="font-medium block leading-tight" x-text="k.ad"></span>
+            <span class="text-xs text-stone-500" x-text="k.aktif ? 'uygulanıyor' : 'kapalı'"></span></span>
+        </label>
+        <div class="relative w-24 shrink-0">
+          <input type="number" step="0.01" min="0" :max="k.hesaplama === 'PERCENT' ? 100 : null" x-model="k.oran"
+                 class="girdi pr-8 text-right py-1.5" :disabled="!yetkili('kesinti_ayar')">
+          <span class="birim" x-text="k.hesaplama === 'PERCENT' ? '%' : k.hesaplama === 'PER_KG' ? '₺/kg' : '₺'"></span>
+        </div>
+        <button type="submit" class="btn-kucuk shrink-0" x-show="yetkili('kesinti_ayar')">Kaydet</button>
+      </form>
+    </template>
+  </div>
   </div>
 
   <!-- Depo -->

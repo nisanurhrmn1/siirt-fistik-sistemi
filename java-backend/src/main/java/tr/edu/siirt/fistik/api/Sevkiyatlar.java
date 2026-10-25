@@ -9,6 +9,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import tr.edu.siirt.fistik.alan.PaymentMethod;
 import tr.edu.siirt.fistik.alan.ProductType;
 import tr.edu.siirt.fistik.alan.SaleCollection;
 import tr.edu.siirt.fistik.alan.WeightSource;
@@ -75,8 +76,42 @@ public final class Sevkiyatlar {
     public record SevkiyatLotu(String lotNo, String fisNo, String uretici, BigDecimal kg, boolean emanet) {
     }
 
+    /**
+     * acikHesap = toplam satış − tahsil edilen (peşin tahsil edilen sevkiyatlar + sonradan girilen tahsilatlar).
+     * Eksi ise alıcı fazla ödemiştir (merkez alıcıya borçlu).
+     */
     public record MusteriYaniti(Long id, String ad, String vergiNo, int sevkiyatSayisi, BigDecimal toplamKg,
-                                BigDecimal toplamTutar, BigDecimal acikHesap) {
+                                BigDecimal toplamTutar, BigDecimal acikHesap, BigDecimal tahsilEdilen,
+                                BigDecimal vadeliSatis, BigDecimal tahsilatToplami, OffsetDateTime sonIslem) {
+    }
+
+    public record TahsilatGirisi(
+            @NotNull(message = ZORUNLU) @DecimalMin(value = "0", inclusive = false, message = POZITIF)
+            @DecimalMax(value = "100000000", message = "En fazla 100.000.000 olabilir.") @Digits(integer = 12, fraction = 2, message = IKI_ONDALIK)
+            @Schema(example = "144000") BigDecimal tutar,
+            @NotNull(message = ZORUNLU) @Schema(description = "CASH, BANK_TRANSFER, CHEQUE (çek / senet)") PaymentMethod odemeYontemi,
+            @Size(max = 60, message = "En fazla 60 karakter olabilir.") @Schema(description = "Dekont / çek / senet no", example = "EFT-2026-1051") String referansNo,
+            @Schema(description = "Tahsilat tarihi (boş = şimdi); gelecek tarih olamaz", example = "2026-10-25") LocalDate tarih,
+            @Size(max = 500) String aciklama) {
+        public TahsilatGirisi {
+            referansNo = kirp(referansNo);
+            aciklama = kirp(aciklama);
+        }
+    }
+
+    public record TahsilatYaniti(Long id, String makbuzNo, Long musteriId, String musteriAdi, BigDecimal tutar,
+                                 PaymentMethod odemeYontemi, OffsetDateTime tarih, String referansNo, String aciklama,
+                                 BigDecimal kalanAcikHesap) {
+    }
+
+    /** Alıcı cari hareketi. Borç: satış (sevkiyat); alacak: tahsilat. Bakiye = alıcının merkeze borcu. */
+    public record MusteriHareket(OffsetDateTime tarih, String tur, String turAdi, String belgeNo, String aciklama,
+                                 BigDecimal kg, BigDecimal birimFiyat, BigDecimal borc, BigDecimal alacak, BigDecimal bakiye,
+                                 PaymentMethod odemeYontemi) {
+    }
+
+    public record MusteriEkstre(MusteriYaniti musteri, OffsetDateTime donemBaslangic, OffsetDateTime donemBitis,
+                                BigDecimal devredenBakiye, List<MusteriHareket> hareketler) {
     }
 
     public record SevkiyatYaniti(Long id, String sevkiyatNo, OffsetDateTime tarih, Long musteriId, String musteriAdi,
@@ -122,9 +157,26 @@ public final class Sevkiyatlar {
         }
 
         @GetMapping("/musteriler")
-        @Operation(summary = "Alıcı firmalar ve satış özetleri (açık hesap alacağı dahil)")
+        @Operation(summary = "Alıcı firmalar: toplam satış, tahsil edilen ve kalan açık hesap")
         public List<MusteriYaniti> musteriler() {
             return servis.musteriler();
+        }
+
+        @PostMapping("/musteriler/{id}/tahsilatlar")
+        @ResponseStatus(HttpStatus.CREATED)
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Alıcıdan tahsilat (Yönetici, Muhasebe)",
+                description = "Vadeli sevkiyatların ödemesi. Açık hesaptan fazla tahsilat alıcı avansı olarak kalır (bakiye eksiye döner).")
+        public TahsilatYaniti tahsilat(@PathVariable Long id, @Valid @RequestBody TahsilatGirisi g) {
+            return servis.tahsilatEkle(id, g, kullanici.mevcut());
+        }
+
+        @GetMapping("/musteriler/{id}/ekstre")
+        @Operation(summary = "Alıcı cari hesap ekstresi (sevkiyatlar ve tahsilatlar, yürüyen bakiye)")
+        public MusteriEkstre ekstre(@PathVariable Long id,
+                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baslangic,
+                                    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bitis) {
+            return servis.musteriEkstre(id, baslangic, bitis);
         }
     }
 }

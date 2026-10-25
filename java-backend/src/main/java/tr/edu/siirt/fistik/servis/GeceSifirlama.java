@@ -36,7 +36,7 @@ public class GeceSifirlama implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(GeceSifirlama.class);
 
     /** İşlem tabloları. TRUNCATE satır trigger'larını (append-only defter koruması) tetiklemez. */
-    static final String ISLEM_TABLOLARI = "sms_messages, shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, "
+    static final String ISLEM_TABLOLARI = "sms_messages, customer_payments, shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, "
             + "producer_ledger_entries, stock_movements, lots, settlements, advances, quality_inspections, weigh_tickets, "
             + "daily_prices, producer_bank_accounts, producers, document_sequences";
 

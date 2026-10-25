@@ -244,6 +244,20 @@ public final class Kontrolculer {
             return a.smsIle(sms.avansBildir(a));
         }
 
+        @GetMapping("/kesintiler")
+        @Operation(summary = "Resmî / ticari kesinti tanımları (stopaj, borsa, komisyon, Bağ-Kur)")
+        public List<KesintiTuru> kesintiler() {
+            return servis.kesintiTurleri();
+        }
+
+        @PutMapping("/kesintiler/{kod}")
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Kesinti oranını / açık-kapalı durumunu güncelle (Yönetici, Muhasebe)",
+                description = "Yalnızca bundan sonraki hakedişlere uygulanır; oluşmuş hakedişlerin kesinti oranları değişmez.")
+        public KesintiTuru kesintiGuncelle(@PathVariable String kod, @Valid @RequestBody KesintiGirisi g) {
+            return servis.kesintiGuncelle(kod, g);
+        }
+
         @GetMapping("/sms")
         @PreAuthorize(Yetki.FINANS)
         @Operation(summary = "Gönderilen bilgilendirme SMS'leri (son 100; Yönetici, Muhasebe)")

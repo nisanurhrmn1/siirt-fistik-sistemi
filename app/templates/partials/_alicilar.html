@@ -1,0 +1,55 @@
+<!-- ─── Alıcılar: satış, tahsilat ve açık hesap ─── -->
+<div class="space-y-6">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="kart">
+      <p class="kart-etiket">Toplam satış</p>
+      <p class="kart-deger tabular-nums" x-text="tl(aliciToplam('toplam_tutar'))"></p>
+      <p class="kart-alt" x-text="`${musteriler.length} alıcı · ${kg(aliciToplam('toplam_kg'))}`"></p>
+    </div>
+    <div class="kart">
+      <p class="kart-etiket">Tahsil edilen</p>
+      <p class="kart-deger tabular-nums text-fistik-700" x-text="tl(aliciToplam('tahsil_edilen'))"></p>
+      <p class="kart-alt">peşin + sonradan tahsilat</p>
+    </div>
+    <div class="kart">
+      <p class="kart-etiket">Açık hesap (alacak)</p>
+      <p class="kart-deger tabular-nums text-amber-700" x-text="tl(aliciToplam('acik_hesap'))"></p>
+      <p class="kart-alt" x-text="`${musteriler.filter((m) => Number(m.acik_hesap) > 0).length} alıcıda bekleyen`"></p>
+    </div>
+  </div>
+
+  <div class="panel-kutu">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="baslik">Alıcılar</h2>
+        <p class="text-xs text-stone-500 mt-1">Vadeli sevkiyatların tahsilatı ve alıcı cari ekstreleri. Yeni alıcı sevkiyat sırasında otomatik oluşur.</p>
+      </div>
+      <button type="button" class="btn-birincil" @click="tahsilatAc(null)" :disabled="!yetkili('tahsilat')" :title="yetkiYok('tahsilat')">+ Tahsilat Ekle</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="tablo">
+        <thead><tr><th>Alıcı</th><th class="text-right">Sevkiyat</th><th class="text-right">Toplam satış</th>
+          <th class="text-right">Tahsil edilen</th><th class="text-right">Açık hesap</th><th>Son işlem</th><th></th></tr></thead>
+        <tbody>
+          <template x-for="m in musteriler" :key="m.id">
+            <tr>
+              <td><p class="font-medium" x-text="m.ad"></p><p class="text-xs text-stone-500 font-mono" x-show="m.vergi_no" x-text="'VKN ' + m.vergi_no"></p></td>
+              <td class="text-right tabular-nums"><span x-text="m.sevkiyat_sayisi"></span><span class="block text-xs text-stone-500" x-text="kg(m.toplam_kg)"></span></td>
+              <td class="text-right tabular-nums" x-text="tl(m.toplam_tutar)"></td>
+              <td class="text-right tabular-nums text-fistik-700" x-text="tl(m.tahsil_edilen)"></td>
+              <td class="text-right tabular-nums font-semibold"
+                  :class="Number(m.acik_hesap) > 0 ? 'text-amber-700' : Number(m.acik_hesap) < 0 ? 'text-sky-700' : 'text-stone-500'"
+                  x-text="Number(m.acik_hesap) < 0 ? tl(Math.abs(m.acik_hesap)) + ' avans' : tl(m.acik_hesap)"></td>
+              <td class="text-xs text-stone-500 tabular-nums" x-text="m.son_islem ? tarihYaz(m.son_islem) : '—'"></td>
+              <td class="text-right whitespace-nowrap">
+                <button class="btn-kucuk" @click="tahsilatAc(m)" :disabled="!yetkili('tahsilat')" :title="yetkiYok('tahsilat')">Tahsilat</button>
+                <button class="btn-ghost text-xs" @click="musteriEkstreAc(m)">Ekstre</button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="!musteriler.length"><td colspan="7" class="text-center text-stone-500 py-8">Henüz alıcı yok; ilk sevkiyatta oluşur.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -439,6 +439,158 @@
     </div>
   </div>
 
+  <!-- ─── Alıcıdan tahsilat ─── -->
+  <form x-show="modal === 'tahsilat'" class="modal-kutu max-w-md no-print" @submit.prevent="tahsilatKaydet()">
+    <div class="modal-baslik"><h3>Tahsilat Ekle</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="etiket" for="t_alici">Alıcı firma</label>
+        <select id="t_alici" x-model="tahsilatForm.musteri_id" @change="tahsilatTutarOner()" class="girdi">
+          <option value="">— Alıcı seçin —</option>
+          <template x-for="m in musteriler" :key="m.id">
+            <option :value="m.id" :selected="String(m.id) === String(tahsilatForm.musteri_id)"
+                    x-text="`${m.ad} · açık ${tl(m.acik_hesap)}`"></option>
+          </template>
+        </select>
+        <p class="text-xs mt-1" x-show="tahsilatMusteri" :class="Number(tahsilatMusteri?.acik_hesap) > 0 ? 'text-amber-700' : 'text-stone-500'"
+           x-text="tahsilatMusteri && `Açık hesap: ${tl(tahsilatMusteri.acik_hesap)}`"></p>
+      </div>
+      <div>
+        <label class="etiket">Tutar</label>
+        <div class="relative">
+          <input type="number" step="0.01" min="0" x-model="tahsilatForm.tutar" class="girdi pr-8 text-lg" :class="hata('tutar') && 'girdi-hata'">
+          <span class="birim">₺</span>
+        </div>
+        <p class="hata-yazi" x-text="hata('tutar')"></p>
+        <p class="text-xs text-sky-700 mt-1" x-show="tahsilatMusteri && Number(tahsilatForm.tutar) > Number(tahsilatMusteri.acik_hesap)"
+           x-text="`Açık hesaptan fazla: ${tl(Number(tahsilatForm.tutar) - Math.max(0, Number(tahsilatMusteri?.acik_hesap)))} alıcı avansı olarak kalır.`"></p>
+      </div>
+      <fieldset>
+        <legend class="etiket">Ödeme türü</legend>
+        <div class="flex gap-2">
+          <template x-for="(ad, kod) in { CASH: 'Nakit', BANK_TRANSFER: 'Havale / EFT', CHEQUE: 'Çek / Senet' }" :key="kod">
+            <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400" :class="tahsilatForm.odeme_yontemi === kod && 'secim-aktif'">
+              <input type="radio" name="t_yontem" class="sr-only" :value="kod" x-model="tahsilatForm.odeme_yontemi"><span x-text="ad"></span>
+            </label>
+          </template>
+        </div>
+      </fieldset>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="etiket">Belge / dekont no</label>
+          <input x-model="tahsilatForm.referans_no" maxlength="60" class="girdi" :class="hata('referans_no') && 'girdi-hata'">
+        </div>
+        <div>
+          <label class="etiket">Tarih</label>
+          <input type="date" x-model="tahsilatForm.tarih" :max="bugunIso()" class="girdi" :class="hata('tarih') && 'girdi-hata'">
+          <p class="hata-yazi" x-text="hata('tarih')"></p>
+        </div>
+      </div>
+      <div>
+        <label class="etiket">Açıklama <span class="text-stone-400 font-normal">(isteğe bağlı)</span></label>
+        <input x-model="tahsilatForm.aciklama" class="girdi">
+      </div>
+    </div>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="submit" class="btn-birincil" :disabled="islemde || !tahsilatForm.musteri_id">Tahsilatı Kaydet</button>
+    </div>
+  </form>
+
+  <!-- ─── Alıcı cari hesap ekstresi: A4, yazdırılabilir / PDF ─── -->
+  <div x-show="modal === 'musteri-ekstre'" class="modal-kutu yazdir-kutu max-w-5xl">
+    <div class="modal-baslik no-print"><h3>Alıcı Cari Hesap Ekstresi</h3><button type="button" @click="modal = null">✕</button></div>
+    <div class="no-print px-6 pt-4 flex flex-wrap items-end gap-3 text-sm">
+      <div><label class="etiket">Başlangıç</label>
+        <input type="date" x-model="musteriEkstreForm.baslangic" :max="musteriEkstreForm.bitis || bugunIso()" class="girdi py-1.5"></div>
+      <div><label class="etiket">Bitiş</label>
+        <input type="date" x-model="musteriEkstreForm.bitis" :min="musteriEkstreForm.baslangic" :max="bugunIso()" class="girdi py-1.5"></div>
+      <button type="button" class="btn-ikincil" @click="musteriEkstreGetir()" :disabled="islemde">Getir</button>
+      <button type="button" class="btn-ghost text-xs" @click="musteriEkstreForm.baslangic = ''; musteriEkstreForm.bitis = ''; musteriEkstreGetir()">Tüm zamanlar</button>
+    </div>
+    <div class="yazdir-zemin p-4 sm:p-6">
+      <template x-if="musteriEkstre">
+        <div class="print-area dokum">
+          <header class="dokum-ust">
+            <div>
+              <p class="dokum-firma">SİİRT FISTIĞI ALIM MERKEZİ</p>
+              <h2 class="dokum-baslik">Alıcı Cari Hesap Ekstresi</h2>
+            </div>
+            <dl class="dokum-meta">
+              <div><dt>Rapor tarihi</dt><dd x-text="tarihYaz(new Date())"></dd></div>
+              <div><dt>Dönem</dt><dd x-text="donemYaz(musteriEkstreForm)"></dd></div>
+            </dl>
+          </header>
+          <section class="dokum-kutu dokum-iki">
+            <dl>
+              <div><dt>Alıcı firma</dt><dd class="font-semibold" x-text="musteriEkstre.musteri.ad"></dd></div>
+              <div><dt>Vergi no</dt><dd class="font-mono" x-text="musteriEkstre.musteri.vergi_no || '—'"></dd></div>
+            </dl>
+            <dl>
+              <div><dt>Alıcı kodu</dt><dd class="font-mono" x-text="'A-' + String(musteriEkstre.musteri.id).padStart(5, '0')"></dd></div>
+              <div><dt>Sevkiyat</dt><dd x-text="`${musteriEkstre.musteri.sevkiyat_sayisi} · ${kg(musteriEkstre.musteri.toplam_kg)}`"></dd></div>
+            </dl>
+          </section>
+
+          <h3 class="dokum-alt">Hesap hareketleri</h3>
+          <table class="dokum-tablo">
+            <thead><tr><th>Tarih</th><th>Belge no</th><th>İşlem</th><th>Açıklama</th><th class="sag">Miktar (kg)</th>
+              <th class="sag">Birim fiyat</th><th class="sag">Borç</th><th class="sag">Alacak</th><th class="sag">Bakiye</th></tr></thead>
+            <tbody>
+              <tr x-show="musteriEkstre.donem_baslangic" class="dokum-devir"><td colspan="8">Devreden bakiye</td>
+                <td class="sag" x-text="tl(musteriEkstre.devreden_bakiye)"></td></tr>
+              <template x-for="(h, i) in musteriEkstre.hareketler" :key="i">
+                <tr>
+                  <td class="whitespace-nowrap" x-text="tarihYaz(h.tarih)"></td>
+                  <td class="font-mono" x-text="h.belge_no"></td>
+                  <td><span x-text="h.tur_adi"></span><span class="dokum-ek" x-show="h.odeme_yontemi" x-text="odemeYontemleri[h.odeme_yontemi] || (h.odeme_yontemi === 'CHEQUE' ? 'Çek / Senet' : '')"></span></td>
+                  <td x-text="h.aciklama || ''"></td>
+                  <td class="sag" x-text="h.kg ? sayi(h.kg) : ''"></td>
+                  <td class="sag" x-text="h.birim_fiyat ? tl(h.birim_fiyat) : ''"></td>
+                  <td class="sag" x-text="Number(h.borc) ? tl(h.borc) : ''"></td>
+                  <td class="sag" x-text="Number(h.alacak) ? tl(h.alacak) : ''"></td>
+                  <td class="sag font-semibold" x-text="tl(h.bakiye)"></td>
+                </tr>
+              </template>
+              <tr x-show="!musteriEkstre.hareketler.length"><td colspan="9" class="orta">Bu dönemde hareket yok.</td></tr>
+            </tbody>
+            <tfoot x-show="musteriEkstre.hareketler.length"><tr>
+              <td colspan="4">Dönem toplamı</td>
+              <td class="sag" x-text="sayi(musteriEkstre.hareketler.reduce((t, h) => t + Number(h.kg || 0), 0))"></td><td></td>
+              <td class="sag" x-text="tl(musteriEkstre.hareketler.reduce((t, h) => t + Number(h.borc), 0))"></td>
+              <td class="sag" x-text="tl(musteriEkstre.hareketler.reduce((t, h) => t + Number(h.alacak), 0))"></td>
+              <td class="sag" x-text="tl(musteriEkstreBakiye())"></td></tr></tfoot>
+          </table>
+
+          <section class="dokum-ozet">
+            <dl>
+              <div><dt>Toplam satış</dt><dd x-text="tl(musteriEkstre.musteri.toplam_tutar)"></dd></div>
+              <div><dt>Peşin tahsil edilen</dt><dd x-text="tl(Number(musteriEkstre.musteri.toplam_tutar) - Number(musteriEkstre.musteri.vadeli_satis))"></dd></div>
+              <div><dt>Vadeli satış</dt><dd x-text="tl(musteriEkstre.musteri.vadeli_satis)"></dd></div>
+              <div><dt>Sonradan tahsilatlar</dt><dd x-text="'− ' + tl(musteriEkstre.musteri.tahsilat_toplami)"></dd></div>
+            </dl>
+            <div class="dokum-bakiye" :class="Number(musteriEkstreBakiye()) > 0 ? '' : ''">
+              <span>Kalan açık hesap</span>
+              <b class="tabular-nums" x-text="tl(Math.abs(Number(musteriEkstreBakiye())))"></b>
+              <small x-text="Number(musteriEkstreBakiye()) > 0 ? 'Alıcı merkeze borçludur' : Number(musteriEkstreBakiye()) < 0 ? 'Alıcının avansı var (merkez borçlu)' : 'Hesap kapalıdır'"></small>
+            </div>
+          </section>
+
+          <p class="dokum-not">Borç: alıcıya yapılan satış (sevkiyat irsaliyesi). Alacak: alıcıdan tahsilat (peşin veya sonradan).
+            Bakiye: alıcının merkeze borcu. Mutabakat için imzalanıp bir nüshası iade edilmesi rica olunur.</p>
+          <div class="dokum-imzalar">
+            <div><div class="fis-imza"></div>Alıcı Firma Yetkilisi<br><span x-text="musteriEkstre.musteri.ad"></span></div>
+            <div><div class="fis-imza"></div>Yetkili İmzası<br>Siirt Fıstığı Alım Merkezi</div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div class="modal-alt no-print">
+      <button type="button" class="btn-ghost" @click="modal = null">Kapat</button>
+      <button type="button" class="btn-birincil" @click="a4Yazdir(`Alıcı Ekstresi - ${musteriEkstre.musteri.ad}`)" :disabled="!musteriEkstre">Yazdır / PDF</button>
+    </div>
+  </div>
+
   <!-- ─── Kantar fişi: 80 / 58 mm termal rulo için (ekranda da aynı görünüm) ─── -->
   <div x-show="modal === 'fis'" class="modal-kutu yazdir-kutu max-w-md">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>

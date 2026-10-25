@@ -102,6 +102,9 @@ public final class CsvRaporu {
         y.satir("Kasadan çıkan nakit (TL)", sayi(k.kasadanCikanNakit()));
         y.satir("SATIŞ TAHSİLATI", "Nakit", "Havale/EFT", "Vadeli / açık hesap", "Toplam satış");
         y.satir("Sevkiyat satışları (TL)", sayi(k.nakitTahsilat()), sayi(k.havaleTahsilat()), sayi(k.vadeliSatis()), sayi(k.toplamSatis()));
+        y.satir("ALICI TAHSİLATLARI", "Nakit", "Havale/EFT", "Çek/Senet", "Toplam");
+        y.satir("Vadeli satış tahsilatı (TL)", sayi(k.aliciNakitTahsilat()), sayi(k.aliciHavaleTahsilat()), sayi(k.aliciCekTahsilat()),
+                sayi(k.aliciTahsilatToplami()));
         y.satir("Kasa net nakit: giren - çıkan (TL)", sayi(k.kasaNetNakit()));
         y.bos();
 

@@ -70,12 +70,12 @@ public class BaslangicVerisi implements ApplicationRunner {
         sinifEkle("YB", "Yaş 2. Sınıf", ProductType.FRESH, 12, "65", "38", "15", null);
         sinifEkle("YISK", "Yaş Iskarta", ProductType.FRESH, 19, null, null, null, null);
         em.flush();
-        if (bos(DeductionType.class)) {
-            // ÖRNEK oranlar — güncel mevzuat ve borsa tarifesine göre güncelleyin.
-            em.persist(kesinti("STOPAJ", "Gelir vergisi stopajı", "2", 1));
-            em.persist(kesinti("BORSA", "Borsa tescil ücreti", "0.2", 2));
-            em.persist(kesinti("KOMISYON", "Komisyon", "1", 3));
-        }
+        // ÖRNEK oranlar — güncel mevzuat ve borsa tarifesine göre güncelleyin (Fiyat & Depo → Resmî Kesinti Ayarları).
+        // Koda göre tek tek eklenir: sonradan eklenen türler (Bağ-Kur) mevcut veritabanlarına da gelir.
+        kesintiEkle("STOPAJ", "Gelir vergisi stopajı", "2", 1, true);
+        kesintiEkle("BORSA", "Borsa tescil ücreti", "0.2", 2, true);
+        kesintiEkle("KOMISYON", "Komisyon", "1", 3, true);
+        kesintiEkle("BAGKUR", "SGK / Bağ-Kur prim kesintisi", "2", 4, false);   // muafiyet durumuna göre açılır
         Map<String, Long> s = em.createQuery("select g from QualityGrade g", QualityGrade.class).getResultStream()
                 .collect(Collectors.toMap(QualityGrade::getCode, QualityGrade::getId));
         siloEkle("S-A1", "A Sınıfı Silo 1", "12000", s.get("A"));
@@ -98,6 +98,13 @@ public class BaslangicVerisi implements ApplicationRunner {
         QualityGrade g = sinif(kod, ad, oncelik, catlak, randiman, kusur, nem);
         g.setProductType(tur);
         em.persist(g);
+    }
+
+    private void kesintiEkle(String kod, String ad, String oran, int sira, boolean aktif) {
+        if (kodVar(DeductionType.class, kod)) return;
+        DeductionType t = kesinti(kod, ad, oran, sira);
+        t.setActive(aktif);
+        em.persist(t);
     }
 
     private void siloEkle(String kod, String ad, String kapasite, Long sinifId) {

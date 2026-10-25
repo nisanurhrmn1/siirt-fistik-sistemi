@@ -8,6 +8,7 @@ import tr.edu.siirt.fistik.alan.*;
 import tr.edu.siirt.fistik.api.Sevkiyatlar.*;
 import tr.edu.siirt.fistik.kural.Dogrulama;
 import tr.edu.siirt.fistik.kural.Hatalar.BulunamadiHatasi;
+import tr.edu.siirt.fistik.kural.Hatalar.DogrulamaHatasi;
 import tr.edu.siirt.fistik.kural.Hatalar.IsKuraliHatasi;
 import tr.edu.siirt.fistik.kural.Kurallar;
 
@@ -109,18 +110,105 @@ public class SevkiyatServisi {
         return q.getResultStream().map(this::yanit).toList();
     }
 
+    private MusteriYaniti musteriYaniti(Customer c) {
+        Object[] t = em.createQuery("""
+                        select count(s), coalesce(sum(s.netKg), 0), coalesce(sum(s.totalAmount), 0),
+                        coalesce(sum(case when s.collection = :vadeli then s.totalAmount else 0 end), 0), max(s.shippedAt)
+                        from Shipment s where s.customerId = :c""", Object[].class)
+                .setParameter("c", c.getId()).setParameter("vadeli", SaleCollection.ON_ACCOUNT).getSingleResult();
+        Object[] th = em.createQuery("select coalesce(sum(p.amount), 0), max(p.receivedAt) from CustomerPayment p where p.customerId = :c",
+                Object[].class).setParameter("c", c.getId()).getSingleResult();
+        BigDecimal toplam = (BigDecimal) t[2], vadeli = (BigDecimal) t[3], tahsilat = (BigDecimal) th[0];
+        BigDecimal pesin = toplam.subtract(vadeli);
+        OffsetDateTime son = t[4] == null ? (OffsetDateTime) th[1]
+                : th[1] == null || ((OffsetDateTime) t[4]).isAfter((OffsetDateTime) th[1]) ? (OffsetDateTime) t[4] : (OffsetDateTime) th[1];
+        return new MusteriYaniti(c.getId(), c.getName(), c.getTaxNumber(), ((Long) t[0]).intValue(), (BigDecimal) t[1],
+                toplam, vadeli.subtract(tahsilat), pesin.add(tahsilat), vadeli, tahsilat, son);
+    }
+
     @Transactional(readOnly = true)
     public List<MusteriYaniti> musteriler() {
         return em.createQuery("select c from Customer c where c.active = true order by c.name", Customer.class).getResultStream()
-                .map(c -> {
-                    Object[] t = em.createQuery("""
-                                    select count(s), coalesce(sum(s.netKg), 0), coalesce(sum(s.totalAmount), 0),
-                                    coalesce(sum(case when s.collection = :vadeli then s.totalAmount else 0 end), 0)
-                                    from Shipment s where s.customerId = :c""", Object[].class)
-                            .setParameter("c", c.getId()).setParameter("vadeli", SaleCollection.ON_ACCOUNT).getSingleResult();
-                    return new MusteriYaniti(c.getId(), c.getName(), c.getTaxNumber(), ((Long) t[0]).intValue(),
-                            (BigDecimal) t[1], (BigDecimal) t[2], (BigDecimal) t[3]);
-                }).toList();
+                .map(this::musteriYaniti).toList();
+    }
+
+    private Customer musteriBul(Long id) {
+        Customer c = em.find(Customer.class, id);
+        if (c == null) throw new BulunamadiHatasi("Alıcı bulunamadı (id=%d).".formatted(id));
+        return c;
+    }
+
+    @Transactional
+    public TahsilatYaniti tahsilatEkle(Long musteriId, TahsilatGirisi g, Long kullaniciId) {
+        Customer c = em.find(Customer.class, musteriId, LockModeType.PESSIMISTIC_WRITE);
+        if (c == null) throw new BulunamadiHatasi("Alıcı bulunamadı (id=%d).".formatted(musteriId));
+        OffsetDateTime simdi = Dogrulama.simdi();
+        LocalDate bugun = Dogrulama.bugunTr();
+        if (g.tarih() != null && g.tarih().isAfter(bugun))
+            throw new DogrulamaHatasi("tarih", "Gelecek tarihli tahsilat girilemez.");
+        // Bugün ise şu an; geçmiş bir gün ise o günün öğlesi (Türkiye saati)
+        OffsetDateTime an = g.tarih() == null || g.tarih().equals(bugun) ? simdi
+                : g.tarih().atTime(12, 0).atOffset(Dogrulama.TR);
+        CustomerPayment p = new CustomerPayment();
+        p.setReceiptNo(kurallar.sonrakiBelgeNo("TH", simdi));
+        p.setCustomerId(c.getId());
+        p.setAmount(g.tutar());
+        p.setMethod(g.odemeYontemi());
+        p.setReceivedAt(an);
+        p.setReferenceNo(g.referansNo());
+        p.setNote(g.aciklama());
+        p.setCreatedById(kullaniciId);
+        em.persist(p);
+        em.flush();
+        return new TahsilatYaniti(p.getId(), p.getReceiptNo(), c.getId(), c.getName(), p.getAmount(), p.getMethod(),
+                p.getReceivedAt(), p.getReferenceNo(), p.getNote(), musteriYaniti(c).acikHesap());
+    }
+
+    /** Sevkiyatlar (borç) ve tahsilatlar (alacak); peşin tahsil edilen sevkiyatın tahsilatı aynı anda alacak yazılır. */
+    @Transactional(readOnly = true)
+    public MusteriEkstre musteriEkstre(Long musteriId, LocalDate baslangic, LocalDate bitis) {
+        Customer c = musteriBul(musteriId);
+        if (baslangic != null && bitis != null && baslangic.isAfter(bitis))
+            throw new IsKuraliHatasi("baslangic tarihi bitis tarihinden sonra olamaz.");
+        OffsetDateTime bas = baslangic != null ? Dogrulama.gunAraligi(baslangic)[0] : null;
+        OffsetDateTime son = bitis != null ? Dogrulama.gunAraligi(bitis)[1] : null;
+
+        record Kayit(OffsetDateTime tarih, int sira, MusteriHareket h) {
+        }
+        List<Kayit> tum = new java.util.ArrayList<>();
+        for (Shipment s : em.createQuery("select s from Shipment s where s.customerId = :c", Shipment.class)
+                .setParameter("c", c.getId()).getResultList()) {
+            QualityGrade g = em.find(QualityGrade.class, s.getQualityGradeId());
+            String aciklama = "%s · %s %s · %s".formatted(s.getVehiclePlate(), s.getProductType().getAd(), g.getCode(),
+                    em.find(Silo.class, s.getSiloId()).getCode());
+            tum.add(new Kayit(s.getShippedAt(), 0, new MusteriHareket(s.getShippedAt(), "SATIS", "Satış (sevkiyat)",
+                    s.getShipmentNo(), aciklama, s.getNetKg(), s.getUnitPrice(), s.getTotalAmount(), ZERO, null, null)));
+            if (s.getCollection() != SaleCollection.ON_ACCOUNT) {
+                PaymentMethod y = s.getCollection() == SaleCollection.CASH ? PaymentMethod.CASH : PaymentMethod.BANK_TRANSFER;
+                tum.add(new Kayit(s.getShippedAt(), 1, new MusteriHareket(s.getShippedAt(), "PESIN", "Peşin tahsilat",
+                        s.getShipmentNo(), s.getCollection().getAd(), null, null, ZERO, s.getTotalAmount(), null, y)));
+            }
+        }
+        for (CustomerPayment p : em.createQuery("select p from CustomerPayment p where p.customerId = :c", CustomerPayment.class)
+                .setParameter("c", c.getId()).getResultList()) {
+            tum.add(new Kayit(p.getReceivedAt(), 2, new MusteriHareket(p.getReceivedAt(), "TAHSILAT", "Tahsilat", p.getReceiptNo(),
+                    java.util.stream.Stream.of(p.getReferenceNo(), p.getNote()).filter(java.util.Objects::nonNull)
+                            .collect(java.util.stream.Collectors.joining(" · ")), null, null, ZERO, p.getAmount(), null, p.getMethod())));
+        }
+        tum.sort(java.util.Comparator.comparing(Kayit::tarih).thenComparing(Kayit::sira));
+
+        BigDecimal devir = ZERO, yuruyen;
+        List<MusteriHareket> hareketler = new java.util.ArrayList<>();
+        for (Kayit k : tum) if (bas != null && k.tarih().isBefore(bas)) devir = devir.add(k.h().borc()).subtract(k.h().alacak());
+        yuruyen = devir;
+        for (Kayit k : tum) {
+            if ((bas != null && k.tarih().isBefore(bas)) || (son != null && !k.tarih().isBefore(son))) continue;
+            MusteriHareket h = k.h();
+            yuruyen = yuruyen.add(h.borc()).subtract(h.alacak());
+            hareketler.add(new MusteriHareket(h.tarih(), h.tur(), h.turAdi(), h.belgeNo(), h.aciklama(), h.kg(), h.birimFiyat(),
+                    h.borc(), h.alacak(), yuruyen, h.odemeYontemi()));
+        }
+        return new MusteriEkstre(musteriYaniti(c), bas, son, devir, hareketler);
     }
 
     SevkiyatYaniti yanit(Shipment s) {

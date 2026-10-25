@@ -128,6 +128,32 @@ public class FinansServisi {
         return new OdemeIslemi(sonuc, p != null);
     }
 
+    // ─── Resmî kesinti ayarları ───
+
+    private static KesintiTuru kesintiTuru(DeductionType d) {
+        return new KesintiTuru(d.getCode(), d.getName(), d.getCalcMethod(), d.getRate(), d.isActive(), d.getSortOrder());
+    }
+
+    @Transactional(readOnly = true)
+    public List<KesintiTuru> kesintiTurleri() {
+        return em.createQuery("select d from DeductionType d order by d.sortOrder", DeductionType.class)
+                .getResultStream().map(FinansServisi::kesintiTuru).toList();
+    }
+
+    /** Yalnızca bundan sonraki hakedişlere uygulanır; oluşmuş hakedişlerdeki oran snapshot'ı değişmez. */
+    @Transactional
+    public KesintiTuru kesintiGuncelle(String kod, tr.edu.siirt.fistik.api.Istekler.KesintiGirisi g) {
+        DeductionType d = em.createQuery("select d from DeductionType d where d.code = :k", DeductionType.class)
+                .setParameter("k", kod.toUpperCase(java.util.Locale.ROOT)).getResultStream().findFirst()
+                .orElseThrow(() -> new BulunamadiHatasi("'%s' kodlu kesinti bulunamadı.".formatted(kod)));
+        if (d.getCalcMethod() == DeductionCalcMethod.PERCENT && g.oran().compareTo(BigDecimal.valueOf(100)) > 0)
+            throw new tr.edu.siirt.fistik.kural.Hatalar.DogrulamaHatasi("oran", "Yüzde kesinti en fazla 100 olabilir.");
+        d.setRate(g.oran());
+        d.setActive(g.aktif());
+        em.flush();
+        return kesintiTuru(d);
+    }
+
     // ─── Ekstre ───
 
     @Transactional(readOnly = true)
