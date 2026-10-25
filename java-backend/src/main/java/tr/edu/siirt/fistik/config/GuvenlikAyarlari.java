@@ -103,7 +103,7 @@ public class GuvenlikAyarlari {
                                 "/swagger-ui.html", "/swagger-ui/**", "/openapi.json", "/openapi.json/**", "/saglik", "/error")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/oturum/giris", "/api/v1/oturum/demo-giris",
-                                "/api/v1/oturum/hesap-talebi").permitAll()
+                                "/api/v1/oturum/hesap-talebi", "/api/v1/sorgu/uretici").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/oturum/demo-hesaplar").permitAll()
                         // Kullanıcı yönetimi ayrıca adres düzeyinde de korunur: yetkisiz istek gövde doğrulamasına hiç ulaşmaz
                         .requestMatchers("/api/v1/kullanicilar/**", "/api/v1/kullanicilar").hasRole("ADMIN")

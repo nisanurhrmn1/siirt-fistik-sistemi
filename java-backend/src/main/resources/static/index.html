@@ -22,10 +22,10 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.9.0">
+  <link rel="stylesheet" href="/static/css/app.css?v=2.10.0">
   <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
   <style id="sayfa-boyutu" media="print"></style>
-  <script defer src="/static/js/app.js?v=2.9.0"></script>
+  <script defer src="/static/js/app.js?v=2.10.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
@@ -1207,7 +1207,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.9.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.10.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -1921,7 +1921,7 @@
     <div class="w-full max-w-4xl grid lg:grid-cols-5 gap-6 items-stretch">
 
       <!-- Sol: tanıtım -->
-      <div class="serit lg:col-span-2 p-8 flex flex-col">
+      <div class="serit lg:col-span-2 p-8 flex-col" :class="girisModu === 'sorgu' ? 'hidden lg:flex' : 'flex'">
         <img src="/static/img/fistik-dal.svg" alt="" class="serit-dal">
         <img src="/static/img/logo.svg" alt="Siirt Fıstığı amblemi" class="amblem relative z-10 h-14 w-14">
         <div class="relative z-10 mt-6">
@@ -1965,6 +1965,13 @@
           </p>
         </form>
 
+        <button type="button" x-show="sorguVar" @click="sorguEkraniAc()"
+                class="w-full rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-50 px-4 py-3 text-left flex items-center gap-3 transition">
+          <span class="h-9 w-9 shrink-0 rounded-lg bg-amber-500 text-white flex items-center justify-center">₺</span>
+          <span><span class="block font-semibold text-sm text-amber-900">Üretici Bakiye ve Emanet Sorgula</span>
+            <span class="block text-xs text-amber-800/80">Şifresiz: T.C. Kimlik No + telefonun son 4 hanesi</span></span>
+        </button>
+
         <template x-if="demoHesaplar.length">
           <div>
             <div class="flex items-center gap-3 text-xs text-stone-400 uppercase tracking-wider">
@@ -1986,6 +1993,89 @@
             <p class="mt-3 text-xs text-stone-400">Demo hesapları sunum içindir; gerçek kullanımda kapatılır.</p>
           </div>
         </template>
+      </div>
+
+      <!-- Sağ: üretici bakiye ve emanet sorgulama (şifresiz, T.C. + telefonun son 4 hanesi) -->
+      <div x-show="girisModu === 'sorgu'" class="panel-kutu lg:col-span-3 p-6 sm:p-8 space-y-5">
+        <template x-if="!sorguSonuc">
+          <form class="space-y-4" @submit.prevent="ureticiSorgula()">
+            <div>
+              <h2 class="text-xl font-bold text-stone-900">Üretici Bakiye ve Emanet Sorgula</h2>
+              <p class="text-sm text-stone-500 mt-1">Şifre gerekmez. Kayıtlı T.C. Kimlik Numaranızı ve kayıtlı telefonunuzun son 4 hanesini girin.</p>
+            </div>
+            <div>
+              <label class="etiket" for="s_tc">T.C. Kimlik No</label>
+              <input id="s_tc" x-model="sorguForm.tc_kimlik_no" inputmode="numeric" maxlength="11" autocomplete="off"
+                     class="girdi font-mono text-lg tracking-wider" :class="hata('tc_kimlik_no') && 'girdi-hata'">
+              <p class="hata-yazi" x-text="hata('tc_kimlik_no')"></p>
+            </div>
+            <div>
+              <label class="etiket" for="s_tel">Telefonun son 4 hanesi</label>
+              <input id="s_tel" x-model="sorguForm.telefon_son4" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"
+                     class="girdi font-mono text-lg tracking-[.4em] w-32" :class="hata('telefon_son4') && 'girdi-hata'">
+              <p class="hata-yazi" x-text="hata('telefon_son4')"></p>
+            </div>
+            <p x-show="girisHata" x-text="girisHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+            <button type="submit" class="btn-birincil w-full h-11" :disabled="girisYapiliyor">
+              <span x-text="girisYapiliyor ? 'Sorgulanıyor…' : 'Sorgula'"></span>
+            </button>
+            <p class="text-xs text-stone-400">Bilgileriniz yalnızca bu sorgu için kullanılır, kaydedilmez. Art arda hatalı denemeler geçici olarak engellenir.</p>
+          </form>
+        </template>
+
+        <template x-if="sorguSonuc">
+          <div class="space-y-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Üretici hesap özeti</p>
+                <h2 class="text-xl font-bold text-stone-900" x-text="sorguSonuc.ad_maskeli"></h2>
+                <p class="text-xs text-stone-500" x-text="'Sorgu: ' + tarihYaz(sorguSonuc.sorgu_zamani)"></p>
+              </div>
+              <button type="button" class="btn-ghost text-xs" @click="sorguKapat()">Kapat ✕</button>
+            </div>
+
+            <div class="rounded-2xl p-4 text-white"
+                 :class="Number(sorguSonuc.net_bakiye) < 0 ? 'bg-gradient-to-br from-rose-600 to-rose-700' : 'bg-gradient-to-br from-emerald-600 to-fistik-700'">
+              <p class="text-sm text-white/80" x-text="Number(sorguSonuc.net_bakiye) > 0 ? 'Alacağınız (merkezin size borcu)'
+                 : Number(sorguSonuc.net_bakiye) < 0 ? 'Avans borcunuz' : 'Hesabınız kapalı'"></p>
+              <p class="text-3xl font-bold tabular-nums" x-text="tl(Math.abs(Number(sorguSonuc.net_bakiye)))"></p>
+              <p class="text-xs text-white/80 mt-1" x-show="Number(sorguSonuc.odenebilir_tutar) > 0"
+                 x-text="`Ödemeye hazır: ${tl(sorguSonuc.odenebilir_tutar)}`"></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="mini-kart"><p class="kart-etiket">Teslim edilen</p><p class="font-semibold tabular-nums" x-text="kg(sorguSonuc.toplam_teslim_kg)"></p></div>
+              <div class="mini-kart"><p class="kart-etiket">Emanet stoğu</p><p class="font-semibold tabular-nums text-amber-700" x-text="kg(sorguSonuc.emanet_kg)"></p></div>
+              <div class="mini-kart"><p class="kart-etiket">Alınan avans</p><p class="font-semibold tabular-nums" x-text="tl(sorguSonuc.toplam_avans)"></p>
+                <p class="text-xs text-stone-500" x-show="Number(sorguSonuc.acik_avans) > 0" x-text="'açık ' + tl(sorguSonuc.acik_avans)"></p></div>
+              <div class="mini-kart"><p class="kart-etiket">Yapılan ödeme</p><p class="font-semibold tabular-nums" x-text="tl(sorguSonuc.toplam_odeme)"></p></div>
+            </div>
+
+            <div>
+              <p class="alt-baslik">Son teslimatlar</p>
+              <ul class="divide-y divide-stone-100 text-sm">
+                <template x-for="t in sorguSonuc.son_teslimatlar" :key="t.fis_no">
+                  <li class="py-2 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="font-medium"><span class="font-mono text-xs" x-text="t.fis_no"></span>
+                        <span class="text-stone-500 text-xs" x-text="'· ' + tarihYaz(t.tarih)"></span></p>
+                      <p class="text-xs text-stone-500" x-text="`${kg(t.net_kg)} · ${t.urun_turu_adi} ${t.kalite_kodu || ''} · ${t.teslim_sekli}`"></p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <p class="tabular-nums font-medium" x-text="t.net_odenecek ? tl(t.net_odenecek) : '—'"></p>
+                      <p class="text-xs" :class="t.durum === 'Ödendi' ? 'text-emerald-700' : 'text-amber-700'" x-text="t.durum"></p>
+                    </div>
+                  </li>
+                </template>
+                <li x-show="!sorguSonuc.son_teslimatlar.length" class="py-4 text-center text-stone-500">Henüz teslimat yok.</li>
+              </ul>
+            </div>
+          </div>
+        </template>
+
+        <p class="text-sm text-center text-stone-500">
+          <button type="button" class="link text-sm" @click="sorguKapat(); girisModuAc()">← Girişe dön</button>
+        </p>
       </div>
 
       <!-- Sağ: hesap talebi (yönetici onaylayınca giriş yapılabilir) -->

@@ -36,6 +36,13 @@ public final class Hatalar {
         }
     }
 
+    /** 429 — çok fazla deneme (halka açık sorgu). */
+    public static class CokFazlaDenemeHatasi extends RuntimeException {
+        public CokFazlaDenemeHatasi(String mesaj) {
+            super(mesaj);
+        }
+    }
+
     /** 422 — doğrulama hatası (alan bazlı). */
     public static class DogrulamaHatasi extends RuntimeException {
         private final List<AlanHatasi> detaylar;

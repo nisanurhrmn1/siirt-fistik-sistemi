@@ -72,9 +72,11 @@ public class BaslangicVerisi implements ApplicationRunner {
         em.flush();
         // ÖRNEK oranlar — güncel mevzuat ve borsa tarifesine göre güncelleyin (Fiyat & Depo → Resmî Kesinti Ayarları).
         // Koda göre tek tek eklenir: sonradan eklenen türler (Bağ-Kur) mevcut veritabanlarına da gelir.
-        kesintiEkle("STOPAJ", "Gelir vergisi stopajı", "2", 1, true);
-        kesintiEkle("BORSA", "Borsa tescil ücreti", "0.2", 2, true);
-        kesintiEkle("KOMISYON", "Komisyon", "1", 3, true);
+        // Resmî kesintiler yeni kurulumda KAPALI başlar; merkez, resmî (faturalı) alım yapıyorsa kartı açar.
+        // Mevcut kurulumlarda mevcut ayar korunur (yalnızca eksik türler eklenir).
+        kesintiEkle("STOPAJ", "Gelir vergisi stopajı", "2", 1, false);
+        kesintiEkle("BORSA", "Borsa tescil ücreti", "0.2", 2, false);
+        kesintiEkle("KOMISYON", "Komisyon", "1", 3, false);
         kesintiEkle("BAGKUR", "SGK / Bağ-Kur prim kesintisi", "2", 4, false);   // muafiyet durumuna göre açılır
         Map<String, Long> s = em.createQuery("select g from QualityGrade g", QualityGrade.class).getResultStream()
                 .collect(Collectors.toMap(QualityGrade::getCode, QualityGrade::getId));
@@ -103,7 +105,7 @@ public class BaslangicVerisi implements ApplicationRunner {
     private void kesintiEkle(String kod, String ad, String oran, int sira, boolean aktif) {
         if (kodVar(DeductionType.class, kod)) return;
         DeductionType t = kesinti(kod, ad, oran, sira);
-        t.setActive(aktif);
+        t.setActive(aktif);   // kesinti() varsayılanı açık; burada açıkça belirlenir
         em.persist(t);
     }
 

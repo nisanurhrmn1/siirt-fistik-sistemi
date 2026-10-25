@@ -46,6 +46,7 @@ public class WebAyarlari {
                         etiket("Depo", "Silo ve kalite bazlı stok"),
                         etiket("Satış ve Sevkiyat", "Alıcıya kamyonla çıkış, stok düşümü ve sevk irsaliyesi"),
                         etiket("Raporlar", "Günlük alım ve finans özetleri"),
+                        etiket("Üretici Sorgulama", "Halka açık: T.C. + telefonun son 4 hanesiyle bakiye ve emanet özeti"),
                         etiket("Sistem", "Sağlık kontrolü")));
     }
 

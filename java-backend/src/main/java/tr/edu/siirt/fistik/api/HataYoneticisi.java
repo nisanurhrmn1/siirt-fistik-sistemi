@@ -62,6 +62,11 @@ public class HataYoneticisi {
         return hata(HttpStatus.CONFLICT, e.getMessage());
     }
 
+    @ExceptionHandler(tr.edu.siirt.fistik.kural.Hatalar.CokFazlaDenemeHatasi.class)
+    ResponseEntity<Object> cokFazla(tr.edu.siirt.fistik.kural.Hatalar.CokFazlaDenemeHatasi e) {
+        return hata(HttpStatus.TOO_MANY_REQUESTS, e.getMessage());
+    }
+
     @ExceptionHandler(YetkiHatasi.class)
     ResponseEntity<Object> yetki(YetkiHatasi e) {
         return hata(HttpStatus.UNAUTHORIZED, e.getMessage());

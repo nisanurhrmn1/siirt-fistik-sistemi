@@ -274,8 +274,12 @@ document.addEventListener('alpine:init', () => {
     girisHata: '',
     girisBilgi: '',
     girisYapiliyor: false,
-    girisModu: 'giris',           // 'giris' | 'talep'
+    girisModu: 'giris',           // 'giris' | 'talep' | 'sorgu'
     talepForm: bosTalep(),
+    sorguVar: false,              // halka açık üretici sorgusu (yalnızca Java sürümünde)
+    sorguForm: { tc_kimlik_no: '', telefon_son4: '' },
+    sorguSonuc: null,
+    _sorguZamanlayici: null,
     demoHesaplar: [],
     rolBilgisi: {
       ADMIN: { ad: 'Yönetici', aciklama: 'Tüm işlemler', sekme: 'kantar', renk: 'from-emerald-600 to-fistik-700' },
@@ -343,7 +347,7 @@ document.addEventListener('alpine:init', () => {
       this.girisGerekli = true;
       this.girisModuAc();
       this.girisHata = mesaj;
-      try { this.demoHesaplar = await api('/oturum/demo-hesaplar'); } catch { this.demoHesaplar = []; }
+      try { this.demoHesaplar = await api('/oturum/demo-hesaplar'); this.sorguVar = true; } catch { this.demoHesaplar = []; }
     },
     async oturumAc(istek) {
       this.girisYapiliyor = true;
@@ -368,6 +372,33 @@ document.addEventListener('alpine:init', () => {
       this.girisHata = '';
       this.girisBilgi = '';
       this.alanHatalari = {};
+    },
+    sorguEkraniAc() {
+      this.girisModuAc();
+      this.sorguKapat();
+      this.girisModu = 'sorgu';
+      this.$nextTick(() => document.getElementById('s_tc')?.focus());
+    },
+    /** Sonuç kartı 3 dakika sonra kendiliğinden kapanır (ortak kullanılan cihazda açık kalmasın). */
+    async ureticiSorgula() {
+      this.girisHata = '';
+      this.alanHatalari = {};
+      this.girisYapiliyor = true;
+      try {
+        this.sorguSonuc = await api('/sorgu/uretici', { method: 'POST', body: { ...this.sorguForm } });
+        this.sorguForm = { tc_kimlik_no: '', telefon_son4: '' };
+        clearTimeout(this._sorguZamanlayici);
+        this._sorguZamanlayici = setTimeout(() => this.sorguKapat(), 180_000);
+      } catch (e) {
+        this.alanHatalari = Object.fromEntries((e.detaylar || []).map((d) => [d.alan, d.mesaj]));
+        this.girisHata = e.detaylar?.length ? 'Lütfen işaretli alanları düzeltin.' : e.message;
+      }
+      this.girisYapiliyor = false;
+    },
+    sorguKapat() {
+      clearTimeout(this._sorguZamanlayici);
+      this.sorguSonuc = null;
+      this.sorguForm = { tc_kimlik_no: '', telefon_son4: '' };
     },
     talepEkraniAc() {
       this.girisModuAc();
