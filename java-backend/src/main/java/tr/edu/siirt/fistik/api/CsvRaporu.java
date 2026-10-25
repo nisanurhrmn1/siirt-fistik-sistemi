@@ -127,9 +127,9 @@ public final class CsvRaporu {
         y.bos();
 
         y.satir("EMANETTEN SATIŞA ÇEVRİLENLER");
-        y.satir("Saat", "Fiş no", "Üretici", "Teslim tarihi", "Sınıf", "Net kg", "Birim fiyat", "Net hakediş");
+        y.satir("Saat", "Bozdurma fişi", "Emanet fişi", "Üretici", "Teslim tarihi", "Sınıf", "Satılan kg", "Birim fiyat", "Net hakediş");
         for (EmanetDonusumu d : r.emanetDonusumleri())
-            y.satir(saat(d.zaman()), d.fisNo(), d.uretici(), d.teslimTarihi().atZoneSameInstant(Dogrulama.TR).format(TARIH),
+            y.satir(saat(d.zaman()), d.fisNo(), d.kaynakFisNo(), d.uretici(), d.teslimTarihi().atZoneSameInstant(Dogrulama.TR).format(TARIH),
                     d.kaliteKodu(), sayi(d.netKg()), sayi(d.birimFiyat()), sayi(d.netOdenecek()));
         if (r.emanetDonusumleri().isEmpty()) y.satir("Bu gün emanetten satışa çevrilen yok.");
         y.bos();

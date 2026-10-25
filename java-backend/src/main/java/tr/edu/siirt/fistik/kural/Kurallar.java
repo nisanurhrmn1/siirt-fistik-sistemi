@@ -194,11 +194,18 @@ public class Kurallar {
         return para(prim);
     }
 
+    /** Kör/boş tane iskontosu (₺/kg, ≥ 0): (boş % − eşik) × puan başı ₺. Kural kapalıysa veya eşik altındaysa 0. */
+    public BigDecimal bosIskontosu(ProductType tur, BigDecimal bos) {
+        SplitPremiumRule k = em.find(SplitPremiumRule.class, tur);
+        if (k == null || !k.isEmptyActive() || bos == null) return BigDecimal.ZERO.setScale(2);
+        return para(bos.subtract(k.getEmptyThreshold()).max(BigDecimal.ZERO).multiply(k.getEmptyPenaltyPerPoint()));
+    }
+
     /**
-     * Fiyat kilidi (SNAPSHOT): fiyatAni'nda geçerli onaylı taban fiyat + çatlak primi. Bir kez yazılır;
-     * veritabanı tetikleyicisi sonradan değiştirilmesine izin vermez.
+     * Fiyat kilidi (SNAPSHOT): fiyatAni'nda geçerli onaylı taban fiyat + çatlak primi − boş tane iskontosu.
+     * Bir kez yazılır; veritabanı tetikleyicisi sonradan değiştirilmesine izin vermez.
      */
-    public void fiyatKilitle(WeighTicket t, QualityGrade sinif, BigDecimal catlak, OffsetDateTime fiyatAni,
+    public void fiyatKilitle(WeighTicket t, QualityGrade sinif, BigDecimal catlak, BigDecimal bos, OffsetDateTime fiyatAni,
                              OffsetDateTime an, String neZaman) {
         DailyPrice fiyat = gecerliFiyat(sinif.getId(), fiyatAni);
         if (fiyat == null) {
@@ -206,32 +213,121 @@ public class Kurallar {
                     .formatted(sinif.getCode(), neZaman, fiyatAni.withOffsetSameInstant(Dogrulama.TR).format(TARIH_SAAT)));
         }
         BigDecimal prim = catlakPrimi(t.getProductType(), catlak);
-        BigDecimal birim = fiyat.getPricePerKg().add(prim);
-        if (birim.signum() <= 0) throw new IsKuraliHatasi("Çatlak iskontosu sonrası birim fiyat 0 veya altına düşüyor.");
+        BigDecimal bosCeza = bosIskontosu(t.getProductType(), bos);
+        BigDecimal birim = fiyat.getPricePerKg().add(prim).subtract(bosCeza);
+        if (birim.signum() <= 0) throw new IsKuraliHatasi("Çatlak / boş tane iskontosu sonrası birim fiyat 0 veya altına düşüyor.");
         t.setDailyPriceId(fiyat.getId());        // ← SNAPSHOT (fiyat kilidi)
         t.setBaseUnitPrice(fiyat.getPricePerKg());
         t.setSplitPremium(prim);
+        t.setEmptyPenalty(bosCeza);
         t.setUnitPrice(birim);
         t.setPricedAt(an);
     }
 
+    /** Emanet fişinde kalan (satışa çevrilmemiş) kg. */
+    public static BigDecimal emanetKalan(WeighTicket e) {
+        return e.getStatus() == TicketStatus.DEPOSITED ? netKg(e).subtract(e.getDepositSoldKg()) : BigDecimal.ZERO;
+    }
+
     /**
-     * Emaneti satışa çevir: o günün (an) fiyatı ve çatlak primiyle fiyat kilitlenir, hakediş normal akışla oluşur
-     * (kesintiler, açık avans mahsubu, cari hesap). Fiş yeniden tartılmaz; lot ve stok hareketleri değişmez.
+     * Emanetin tamamını veya bir kısmını satışa çevirir. Satılan miktar için ayrı bir bozdurma fişi (EB-…) açılır:
+     * o günün (an) fiyatı, çatlak primi ve boş tane iskontosuyla fiyatı kilitlenir, hakediş normal akışla oluşur
+     * (kesintiler, açık avans mahsubu, cari hesap). Emanet lotundaki stok, satılan kadar bozdurma fişinin lotuna aktarılır;
+     * böylece silodaki emanet miktarı düşer, kalan kg emanette kalır. Emanet fişinin kalan kg'ı azalır.
      */
-    public Settlement emanetiSatisaCevir(WeighTicket t, Long kullaniciId, OffsetDateTime an) {
-        if (t.getStatus() != TicketStatus.DEPOSITED)
-            throw new IsKuraliHatasi(t.getSaleMode() == SaleMode.DEPOSIT
-                    ? "%s zaten satışa çevrilmiş.".formatted(t.getTicketNo())
-                    : "%s emanet fişi değil.".formatted(t.getTicketNo()));
-        ureticiKilitle(t.getProducerId());
+    public WeighTicket emanetiSatisaCevir(WeighTicket e, BigDecimal miktar, Long kullaniciId, OffsetDateTime an) {
+        if (e.getStatus() != TicketStatus.DEPOSITED)
+            throw new IsKuraliHatasi(e.getSaleMode() == SaleMode.DEPOSIT
+                    ? "%s emanetinin tamamı zaten satışa çevrilmiş.".formatted(e.getTicketNo())
+                    : "%s emanet fişi değil.".formatted(e.getTicketNo()));
+        BigDecimal kalan = emanetKalan(e);
+        if (kalan.signum() <= 0) throw new IsKuraliHatasi("%s emanetinin tamamı zaten satışa çevrilmiş.".formatted(e.getTicketNo()));
+        BigDecimal kg = miktar != null ? miktar : kalan;
+        if (kg.signum() <= 0 || kg.compareTo(kalan) > 0)
+            throw new IsKuraliHatasi("Satılacak miktar 0 ile kalan emanet (%s) arasında olmalı.".formatted(Dogrulama.kg(kalan)));
+        ureticiKilitle(e.getProducerId());
         QualityInspection q = em.createQuery("select q from QualityInspection q where q.ticketId = :t", QualityInspection.class)
-                .setParameter("t", t.getId()).getSingleResult();
-        fiyatKilitle(t, em.find(QualityGrade.class, q.getQualityGradeId()), q.getSplitRatio(), an, an, "bugün");
-        t.setDepositConvertedAt(an);
-        t.setStatus(TicketStatus.GRADED);
+                .setParameter("t", e.getId()).getSingleResult();
+        QualityGrade sinif = em.find(QualityGrade.class, q.getQualityGradeId());
+
+        // 1) Bozdurma fişi: satılan miktar net kg'dır (yeniden tartılmaz), fiyat bugün kilitlenir
+        WeighTicket c = new WeighTicket();
+        c.setTicketNo(sonrakiBelgeNo("EB", an));
+        c.setProducerId(e.getProducerId());
+        c.setVehiclePlate(e.getVehiclePlate());
+        c.setDriverName(e.getDriverName());
+        c.setGrossKg(kg);
+        c.setTareKg(BigDecimal.ZERO);
+        c.setGrossWeighedAt(an);
+        c.setTareWeighedAt(an);
+        c.setWeighedById(kullaniciId);
+        c.setProductType(e.getProductType());
+        c.setGrossSource(e.getGrossSource());
+        c.setTareSource(e.getTareSource());
+        c.setSaleMode(SaleMode.DEPOSIT);
+        c.setParentTicketId(e.getId());
+        c.setDepositConvertedAt(an);
+        fiyatKilitle(c, sinif, q.getSplitRatio(), q.getEmptyRatio(), an, an, "bugün");
+        c.setStatus(TicketStatus.GRADED);
+        em.persist(c);
         em.flush();
-        return hakedisOlustur(t, kullaniciId, an);
+
+        // 2) Kalite analizi emanet fişinden aynen taşınır (sınıf ve oranlar teslim anındaki numuneye aittir)
+        QualityInspection k = new QualityInspection();
+        k.setTicketId(c.getId());
+        k.setSampleWeightG(q.getSampleWeightG());
+        k.setSplitRatio(q.getSplitRatio());
+        k.setYieldRatio(q.getYieldRatio());
+        k.setEmptyRatio(q.getEmptyRatio());
+        k.setRottenRatio(q.getRottenRatio());
+        k.setMoistureRatio(q.getMoistureRatio());
+        k.setSplitWeightG(q.getSplitWeightG());
+        k.setEmptyWeightG(q.getEmptyWeightG());
+        k.setQualityGradeId(sinif.getId());
+        k.setManualOverride(q.isManualOverride());
+        k.setOverrideReason(q.getOverrideReason());
+        k.setInspectedById(kullaniciId);
+        k.setInspectedAt(an);
+        em.persist(k);
+
+        // 3) Lot bölme: emanet lotundaki stok satılan kadar yeni lota aktarılır (aynı silo, transfer çifti)
+        Lot emanetLot = em.createQuery("select l from Lot l where l.ticketId = :t", Lot.class)
+                .setParameter("t", e.getId()).getSingleResult();
+        Lot satisLot = new Lot();
+        satisLot.setLotNo(sonrakiBelgeNo("LOT", an));
+        satisLot.setTicketId(c.getId());
+        satisLot.setQualityGradeId(sinif.getId());
+        satisLot.setInitialKg(kg);
+        em.persist(satisLot);
+        em.flush();
+        BigDecimal aktarilacak = kg;
+        String grup = UUID.randomUUID().toString();
+        for (Object[] r : em.createQuery("""
+                        select m.siloId, sum(m.quantityKg) from StockMovement m where m.lotId = :l
+                        group by m.siloId having sum(m.quantityKg) > 0 order by m.siloId""", Object[].class)
+                .setParameter("l", emanetLot.getId()).getResultList()) {
+            if (aktarilacak.signum() == 0) break;
+            BigDecimal pay = aktarilacak.min((BigDecimal) r[1]);
+            for (boolean cikis : new boolean[]{true, false}) {
+                StockMovement m = new StockMovement();
+                m.setLotId(cikis ? emanetLot.getId() : satisLot.getId());
+                m.setSiloId((Long) r[0]);
+                m.setMovementType(cikis ? StockMovementType.TRANSFER_OUT : StockMovementType.TRANSFER_IN);
+                m.setQuantityKg(cikis ? pay.negate() : pay);
+                m.setMovedAt(an);
+                m.setTransferGroup(grup);
+                m.setNote("Emanet bozdurma " + c.getTicketNo());
+                m.setCreatedById(kullaniciId);
+                em.persist(m);
+            }
+            aktarilacak = aktarilacak.subtract(pay);
+        }
+        // (Emanet lotu daha önce sevk edildiyse aktarılacak fiziksel stok kalmamış olabilir; mali kayıt yine oluşur.)
+
+        e.setDepositSoldKg(e.getDepositSoldKg().add(kg));
+        em.flush();
+        hakedisOlustur(c, kullaniciId, an);
+        return c;
     }
 
     /** Kalite analizini kaydeder, sınıfı belirler, TARTIM ANINDAKİ fiyatı dondurur ve lotu açar. */
@@ -266,7 +362,7 @@ public class Kurallar {
         }
 
         // Hemen satışta referans an: tartım anı. Analiz saatler sonra yapılsa da fiyat tartım anına aittir.
-        if (!emanet) fiyatKilitle(t, sinif, catlak, t.getGrossWeighedAt(), an, "tartım anında");
+        if (!emanet) fiyatKilitle(t, sinif, catlak, bos, t.getGrossWeighedAt(), an, "tartım anında");
 
         QualityInspection q = new QualityInspection();
         q.setTicketId(t.getId());

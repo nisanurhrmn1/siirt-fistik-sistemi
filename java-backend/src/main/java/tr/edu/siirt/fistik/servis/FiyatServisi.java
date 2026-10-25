@@ -81,7 +81,8 @@ public class FiyatServisi {
 
     private static CatlakPrimiKurali kural(SplitPremiumRule k) {
         return new CatlakPrimiKurali(k.getProductType(), k.getProductType().getAd(), k.getBaseSplitRatio(),
-                k.getPremiumPerPoint(), k.getMaxAdjustment(), k.isActive(), k.getUpdatedAt());
+                k.getPremiumPerPoint(), k.getMaxAdjustment(), k.isActive(), k.getUpdatedAt(), k.getEmptyThreshold(),
+                k.getEmptyPenaltyPerPoint(), k.isEmptyActive());
     }
 
     @Transactional(readOnly = true)
@@ -99,6 +100,9 @@ public class FiyatServisi {
         k.setPremiumPerPoint(g.puanBasiTl());
         k.setMaxAdjustment(g.azamiFarkTl());
         k.setActive(g.aktif());
+        if (g.bosEsikOrani() != null) k.setEmptyThreshold(g.bosEsikOrani());
+        if (g.bosPuanBasiTl() != null) k.setEmptyPenaltyPerPoint(g.bosPuanBasiTl());
+        if (g.bosAktif() != null) k.setEmptyActive(g.bosAktif());
         k.setUpdatedById(kullaniciId);
         em.flush();
         return kural(k);

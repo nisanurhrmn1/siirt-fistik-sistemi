@@ -76,7 +76,8 @@ public final class Yanitlar {
                                  String kaliteKodu, BigDecimal randiman, BigDecimal birimFiyat, Long hakedisId,
                                  BigDecimal brutTutar, BigDecimal kesinti, BigDecimal avansMahsubu,
                                  BigDecimal netOdenecek, BigDecimal odenen, BigDecimal kalan,
-                                 SettlementStatus hakedisDurumu, ProductType urunTuru, String urunTuruAdi, boolean emanet) {
+                                 SettlementStatus hakedisDurumu, ProductType urunTuru, String urunTuruAdi, boolean emanet,
+                                 BigDecimal emanetKalanKg, String kaynakFisNo) {
     }
 
     public record EkstreAvans(Long id, String avansNo, OffsetDateTime tarih, BigDecimal tutar, BigDecimal mahsupEdilen,
@@ -112,7 +113,7 @@ public final class Yanitlar {
     /** birimFiyat = bazFiyat + catlakPrimi (eksi ise iskonto). */
     public record FiyatKilidi(Long fiyatId, BigDecimal birimFiyat, OffsetDateTime fiyatGecerlilikBaslangici,
                               OffsetDateTime fiyatOnayZamani, OffsetDateTime kilitlenmeZamani, BigDecimal bazFiyat,
-                              BigDecimal catlakPrimi) {
+                              BigDecimal catlakPrimi, BigDecimal bosIskontosu) {
     }
 
     public record StokKaydi(Long siloId, String siloKodu, BigDecimal miktarKg) {
@@ -125,7 +126,7 @@ public final class Yanitlar {
                                ProductType urunTuru, String urunTuruAdi, BigDecimal aracDarasiKg, int cuvalSayisi,
                                BigDecimal cuvalDarasiKg, WeightSource brutKaynagi, WeightSource daraKaynagi,
                                SmsServisi.SmsBildirimi sms, boolean emanet, String teslimSekliAdi,
-                               OffsetDateTime emanettenSatisZamani) {
+                               OffsetDateTime emanettenSatisZamani, String kaynakFisNo, BigDecimal emanetKalanKg) {
     }
 
     public record KesintiOnizleme(String kod, String ad, BigDecimal tutar) {
@@ -135,7 +136,7 @@ public final class Yanitlar {
                                  BigDecimal birimFiyat, BigDecimal brutTutar, List<KesintiOnizleme> kesintiler,
                                  BigDecimal kesintiToplami, BigDecimal acikAvans, BigDecimal avansMahsubu,
                                  BigDecimal tahminiNetOdenecek, List<String> uyarilar, BigDecimal bazFiyat,
-                                 BigDecimal catlakPrimi) {
+                                 BigDecimal catlakPrimi, BigDecimal bosIskontosu) {
     }
 
     public record TartimOzeti(Long id, String fisNo, String lotNo, OffsetDateTime tartimZamani, Long ureticiId,
@@ -207,11 +208,13 @@ public final class Yanitlar {
 
     /** O gün emanetten satışa çevrilen fiş (fiyat bu gün kilitlendi). */
     public record EmanetDonusumu(OffsetDateTime zaman, String fisNo, String uretici, OffsetDateTime teslimTarihi,
-                                 String kaliteKodu, BigDecimal netKg, BigDecimal birimFiyat, BigDecimal netOdenecek) {
+                                 String kaliteKodu, BigDecimal netKg, BigDecimal birimFiyat, BigDecimal netOdenecek,
+                                 String kaynakFisNo) {
     }
 
     public record CatlakPrimiKurali(ProductType urunTuru, String urunTuruAdi, BigDecimal bazCatlakOrani,
-                                    BigDecimal puanBasiTl, BigDecimal azamiFarkTl, boolean aktif, OffsetDateTime guncelleme) {
+                                    BigDecimal puanBasiTl, BigDecimal azamiFarkTl, boolean aktif, OffsetDateTime guncelleme,
+                                    BigDecimal bosEsikOrani, BigDecimal bosPuanBasiTl, boolean bosAktif) {
     }
 
     /** O gün kasadan / bankadan çıkan para: hakediş ödemesi veya avans. */

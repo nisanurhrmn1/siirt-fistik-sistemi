@@ -68,6 +68,18 @@ public class WeighTicket {
     @Column(name = "split_premium")
     private BigDecimal splitPremium = BigDecimal.ZERO;
 
+    /** Kör/boş tane iskontosu (₺/kg, ≥ 0); birim fiyat = baz + çatlak primi − boş iskontosu. */
+    @Column(name = "empty_penalty")
+    private BigDecimal emptyPenalty = BigDecimal.ZERO;
+
+    /** Emanet fişinde: şimdiye kadar satışa çevrilen kg (kalan emanet = net − bu). */
+    @Column(name = "deposit_sold_kg")
+    private BigDecimal depositSoldKg = BigDecimal.ZERO;
+
+    /** Emanet bozdurma fişinde: kaynak emanet fişi. */
+    @Column(name = "parent_ticket_id")
+    private Long parentTicketId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "gross_source")
     private WeightSource grossSource = WeightSource.MANUAL;

@@ -67,8 +67,11 @@ public class SmsServisi {
     }
 
     static String satisaCevirmeMesaji(String ad, TartimYaniti t) {
-        return "Sn. %s, %s nolu %s emanetiniz bugünkü %s/kg fiyatla satışa çevrilmiştir. Avans mahsubu sonrası net hakediş: %s. Güncel bakiyeniz: %s."
-                .formatted(ad, t.fisNo(), Dogrulama.kg(t.netKg()), Dogrulama.tl(t.fiyat().birimFiyat()),
+        String kaynak = t.kaynakFisNo() != null ? t.kaynakFisNo() : t.fisNo();
+        String kalan = t.emanetKalanKg() != null && t.emanetKalanKg().signum() > 0
+                ? " Kalan emanetiniz: %s.".formatted(Dogrulama.kg(t.emanetKalanKg())) : "";
+        return "Sn. %s, %s nolu emanetinizden %s bugünkü %s/kg fiyatla satışa çevrilmiştir (%s).%s Avans mahsubu sonrası net hakediş: %s. Güncel bakiyeniz: %s."
+                .formatted(ad, kaynak, Dogrulama.kg(t.netKg()), Dogrulama.tl(t.fiyat().birimFiyat()), t.fisNo(), kalan,
                         Dogrulama.tl(t.hakedis().netOdenecek()), bakiyeMetni(t.ureticiGuncelBakiye()));
     }
 
@@ -79,7 +82,7 @@ public class SmsServisi {
 
     public SmsBildirimi teslimatBildir(TartimYaniti t) {
         return bildir(t.ureticiId(), SmsMessage.Trigger.DELIVERY, t.id(), u -> teslimatMesaji(u.getFullName(), t,
-                tx.execute(x -> em.createQuery("select coalesce(sum(w.netKg), 0) from WeighTicket w where w.producerId = :u and w.status = :e",
+                tx.execute(x -> em.createQuery("select coalesce(sum(w.netKg - w.depositSoldKg), 0) from WeighTicket w where w.producerId = :u and w.status = :e",
                         BigDecimal.class).setParameter("u", t.ureticiId()).setParameter("e", TicketStatus.DEPOSITED).getSingleResult())));
     }
 

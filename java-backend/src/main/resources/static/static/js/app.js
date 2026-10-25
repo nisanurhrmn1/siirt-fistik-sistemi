@@ -229,7 +229,7 @@ document.addEventListener('alpine:init', () => {
     sevkKaydediliyor: false,
     irsaliye: null,
     tahsilatlar: { CASH: 'Nakit alındı', BANK_TRANSFER: 'Havale alındı', ON_ACCOUNT: 'Vadeli / açık hesap' },
-    emanetForm: { tartim: null, onizleme: null },
+    emanetForm: { tartim: null, onizleme: null, miktar: '' },
     catlakPrimleri: [],
     dokum: null,                  // yazdırılabilir cari hesap ekstresi
     dokumForm: { baslangic: '', bitis: '' },
@@ -807,14 +807,32 @@ document.addEventListener('alpine:init', () => {
 
     // ─── Emanet ───
     async emanetCevirAc(t) {
-      this.emanetForm = { tartim: t, onizleme: null };
+      this.emanetForm = { tartim: t, onizleme: null, miktar: String(Number(t.emanet_kalan_kg)) };
       this.modal = 'emanet';
-      try { this.emanetForm.onizleme = await api(`/tartimlar/${t.tartim_id}/satis-onizleme`); } catch (e) { this.hataGoster(e); }
+      await this.emanetOnizle();
+      this.$nextTick(() => document.getElementById('e_miktar')?.select());
+    },
+    get emanetMiktarHata() {
+      const f = this.emanetForm, m = Number(f.miktar);
+      if (!f.tartim) return '';
+      if (!(m > 0)) return 'Satılacak miktarı girin.';
+      if (m > Number(f.tartim.emanet_kalan_kg)) return `Kalan emanet ${this.kg(f.tartim.emanet_kalan_kg)}; daha fazlası satılamaz.`;
+      return '';
+    },
+    async emanetOnizle() {
+      if (this.emanetMiktarHata) { this.emanetForm.onizleme = null; return; }
+      try {
+        this.emanetForm.onizleme = await api(`/tartimlar/${this.emanetForm.tartim.tartim_id}/satis-onizleme`,
+          { params: { miktar_kg: this.emanetForm.miktar } });
+      } catch (e) { this.emanetForm.onizleme = null; this.hataGoster(e); }
     },
     async emanetCevir() {
+      if (this.emanetMiktarHata) return;
       await this.islem(async () => {
-        const t = await api(`/tartimlar/${this.emanetForm.tartim.tartim_id}/satisa-cevir`, { method: 'POST' });
-        this.bildir(`${t.fis_no} satışa çevrildi: ${this.kg(t.net_kg)} × ${this.tl(t.fiyat.birim_fiyat)}/kg · net hakediş ${this.tl(t.hakedis.net_odenecek)}`);
+        const t = await api(`/tartimlar/${this.emanetForm.tartim.tartim_id}/satisa-cevir`,
+          { method: 'POST', body: { miktar_kg: this.emanetForm.miktar } });
+        this.bildir(`${t.fis_no}: ${this.kg(t.net_kg)} × ${this.tl(t.fiyat.birim_fiyat)}/kg satışa çevrildi · net hakediş ${this.tl(t.hakedis.net_odenecek)}`
+          + (Number(t.emanet_kalan_kg) > 0 ? ` · kalan emanet ${this.kg(t.emanet_kalan_kg)}` : ''));
         this.smsBildir(t.sms);
         this.fis = t;
         this.modal = 'fis';
@@ -832,12 +850,19 @@ document.addEventListener('alpine:init', () => {
         const y = await api(`/fiyatlar/catlak-primi/${k.urun_turu}`, {
           method: 'PUT',
           body: { baz_catlak_orani: k.baz_catlak_orani, puan_basi_tl: k.puan_basi_tl,
-                  azami_fark_tl: bosIseNull(k.azami_fark_tl), aktif: !!k.aktif },
+                  azami_fark_tl: bosIseNull(k.azami_fark_tl), aktif: !!k.aktif,
+                  bos_esik_orani: k.bos_esik_orani, bos_puan_basi_tl: k.bos_puan_basi_tl, bos_aktif: !!k.bos_aktif },
         });
-        this.bildir(`${y.urun_turu_adi} çatlak primi ${y.aktif ? 'uygulanıyor' : 'kapalı'}.`);
+        this.bildir(`${y.urun_turu_adi}: çatlak primi ${y.aktif ? 'uygulanıyor' : 'kapalı'}, boş tane iskontosu ${y.bos_aktif ? 'uygulanıyor' : 'kapalı'}.`);
         await this.yukleCatlakPrimi();
         this.onizlemeIste();
       });
+    },
+    /** "%6 boş → −15,00 ₺/kg" */
+    bosOrnek(k) {
+      if (!k.bos_aktif) return 'Kapalı: boş oranı fiyatı etkilemez.';
+      const esik = Number(k.bos_esik_orani), ceza = Number(k.bos_puan_basi_tl);
+      return `Örnek: %${esik + 3} boş → −${this.tl(3 * ceza)}/kg; %${esik} ve altı kesintisiz.`;
     },
     /** Kural açıklaması: "%91 çatlak → +12,00 ₺/kg". */
     catlakOrnek(k) {

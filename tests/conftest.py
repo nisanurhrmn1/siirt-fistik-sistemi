@@ -62,7 +62,7 @@ def db_engine(request):
             # Testlerin eklediği kullanıcılar ve hesap talepleri (demo hesapları kalır)
             conn.exec_driver_sql("DELETE FROM users WHERE username NOT IN ('admin', 'kantar', 'muhasebe', 'fiyat', 'depo')")
             # Çatlak primi kuralları testler arasında kapalı başlar (demo verisi açmış olabilir)
-            conn.exec_driver_sql("UPDATE split_premium_rules SET is_active = false")
+            conn.exec_driver_sql("UPDATE split_premium_rules SET is_active = false, empty_active = false")
         yield engine
         engine.dispose()
         return

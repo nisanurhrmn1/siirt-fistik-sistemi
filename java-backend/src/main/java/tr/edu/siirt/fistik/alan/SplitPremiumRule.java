@@ -36,6 +36,16 @@ public class SplitPremiumRule {
     @Column(name = "is_active")
     private boolean active;
 
+    /** Kör/boş tane iskontosu: eşik üzeri her puan için ₺/kg düşülür. */
+    @Column(name = "empty_threshold")
+    private BigDecimal emptyThreshold;
+
+    @Column(name = "empty_penalty_per_point")
+    private BigDecimal emptyPenaltyPerPoint;
+
+    @Column(name = "empty_active")
+    private boolean emptyActive;
+
     @Column(name = "updated_by_id")
     private Long updatedById;
 

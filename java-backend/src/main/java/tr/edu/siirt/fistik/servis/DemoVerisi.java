@@ -88,8 +88,8 @@ public class DemoVerisi implements ApplicationRunner {
         u.add(ureticiler.olustur(new UreticiGirisi(ProducerType.COMPANY, null, "1234567890", "Siirt", "Botan Tarım Ltd. Şti.",
                 "0484 223 45 67", null, null, "Merkez", null, null, null)));
 
-        // Çatlak primi: kuru-kavlakta %85 baz, her puan 2 ₺/kg, en fazla ±20 ₺/kg
-        fiyatlar.catlakPrimiGuncelle(ProductType.DRY, new CatlakPrimiGirisi(d("85"), d("2"), d("20"), true), k);
+        // Kuru-kavlak: çatlak primi %85 baz, her puan 2 ₺/kg (en fazla ±20); boş tane %3 üzeri her puan −5 ₺/kg
+        fiyatlar.catlakPrimiGuncelle(ProductType.DRY, new CatlakPrimiGirisi(d("85"), d("2"), d("20"), true, d("3"), d("5"), true), k);
         fiyatlar.gir(new FiyatGirisi(List.of(new FiyatKalemi("A", d("300")), new FiyatKalemi("B", d("260")),
                 new FiyatKalemi("ISK", d("150")), // Yaş fıstık kurutma firesi nedeniyle kuru-kavlağın yaklaşık %45'i fiyatından alınır.
                 new FiyatKalemi("YA", d("135")), new FiyatKalemi("YB", d("115")), new FiyatKalemi("YISK", d("65"))), null, null), k);

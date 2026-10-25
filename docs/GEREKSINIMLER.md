@@ -112,7 +112,9 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-KNT-14 | Tartım formu fare olmadan doldurulabilmeli (Enter ile sonraki alan; F9 / Ctrl+Enter ile kaydet ve fiş bas). | Orta | ✅ |
 | FG-KNT-16 | Teslimat "emanete bırakma" olarak alınabilmeli: fıstık siloya girer ve üreticinin emanet stoğuna yazılır; fiyat kilitlenmez, hakediş oluşmaz. | Yüksek | ✅ |
 | FG-KNT-17 | Emanet tek işlemle o günün fiyatı (ve çatlak primi) ile satışa çevrilebilmeli; hakediş, kesinti ve avans mahsubu normal akışla oluşmalı; bir fiş bir kez çevrilebilmelidir. | Yüksek | ✅ |
+| FG-KNT-19 | Emanetin bir kısmı satışa çevrilebilmeli: satılan miktar için ayrı bozdurma fişi ve hakediş oluşmalı, kalan kg emanette kalmalı; silodaki emanet ve üreticinin emanet stoğu satılan kadar düşmelidir. | Yüksek | ✅ |
 | FG-KNT-18 | Kantarda numune analizi yapılabilmeli: numune, çatlak ve kör/boş gramından oranlar hesaplanmalı ve gramlar kaydedilmelidir. | Orta | ✅ |
+| FG-FYT-10 | Kör/boş tane oranı eşiği aşarsa eşik üzeri her puan için baz fiyattan iskonto uygulanabilmeli; fişte "Boş tane kesintisi" olarak görünmeli ve fiyat kilidine dahil olmalıdır. | Orta | ✅ |
 | FG-FYT-09 | Ürün türü başına çatlak primi / iskontosu tanımlanabilmeli (baz çatlak %, puan başı ₺, azami fark); birim fiyat = baz fiyat + prim olmalı ve fiyat kilidinin parçası olarak saklanmalıdır. | Orta | ✅ |
 | FG-KNT-15 | Fiş 80 mm ve 58 mm termal rulo kâğıda sığmalı; müstahsil ve kantar görevlisi imza alanları bulunmalıdır. | Orta | ✅ |
 

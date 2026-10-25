@@ -257,7 +257,23 @@ public final class Istekler {
             @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Her çatlak puanı için ₺/kg", example = "2") BigDecimal puanBasiTl,
             @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.")
             @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Azami prim / iskonto ₺/kg (boş = sınırsız)", example = "20") BigDecimal azamiFarkTl,
-            @NotNull(message = ZORUNLU) Boolean aktif) {
+            @NotNull(message = ZORUNLU) Boolean aktif,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100", message = "En fazla 100 olabilir.")
+            @Digits(integer = 3, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Boş tane eşiği % (boş = değişmez)", example = "3") BigDecimal bosEsikOrani,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "1000", message = "En fazla 1000 olabilir.")
+            @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Eşik üzeri her boş puanı için ₺/kg (boş = değişmez)", example = "5") BigDecimal bosPuanBasiTl,
+            @Schema(description = "Boş tane iskontosu uygulansın mı (boş = değişmez)") Boolean bosAktif) {
+
+        public CatlakPrimiGirisi(BigDecimal bazCatlakOrani, BigDecimal puanBasiTl, BigDecimal azamiFarkTl, Boolean aktif) {
+            this(bazCatlakOrani, puanBasiTl, azamiFarkTl, aktif, null, null, null);
+        }
+    }
+
+    /** Emaneti satışa çevirme: miktar boşsa kalan emanetin tamamı. */
+    public record SatisaCevirGirisi(
+            @DecimalMin(value = "0", inclusive = false, message = POZITIF) @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.")
+            @Digits(integer = 10, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Satılacak kg (boş = kalan emanetin tamamı)", example = "400")
+            BigDecimal miktarKg) {
     }
 
     // ─── Fiyat ───

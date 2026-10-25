@@ -115,24 +115,28 @@ public class TartimServisi {
 
     /** Emaneti o günün fiyatıyla satışa çevirir (hakediş, kesintiler, avans mahsubu oluşur). */
     @Transactional
-    public TartimYaniti emanetiSatisaCevir(Long id, Long kullaniciId) {
-        WeighTicket t = em.find(WeighTicket.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (t == null) throw new BulunamadiHatasi("Tartım bulunamadı (id=%d).".formatted(id));
-        kurallar.emanetiSatisaCevir(t, kullaniciId, Dogrulama.simdi());
+    public TartimYaniti emanetiSatisaCevir(Long id, BigDecimal miktar, Long kullaniciId) {
+        WeighTicket e = em.find(WeighTicket.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (e == null) throw new BulunamadiHatasi("Tartım bulunamadı (id=%d).".formatted(id));
+        WeighTicket c = kurallar.emanetiSatisaCevir(e, miktar, kullaniciId, Dogrulama.simdi());
         em.flush();
-        em.refresh(t);
-        return yanit(t);
+        em.refresh(c);
+        return yanit(c);   // bozdurma fişi
     }
 
     /** Emanet bugün satışa çevrilseydi: fiyat, prim, kesinti, avans mahsubu ve net ödenecek (hiçbir şey kaydedilmez). */
     @Transactional(readOnly = true)
-    public TartimOnizleme satisOnizleme(Long id) {
+    public TartimOnizleme satisOnizleme(Long id, BigDecimal miktar) {
         WeighTicket t = em.find(WeighTicket.class, id);
         if (t == null) throw new BulunamadiHatasi("Tartım bulunamadı (id=%d).".formatted(id));
-        if (t.getStatus() != TicketStatus.DEPOSITED) throw new IsKuraliHatasi(t.getTicketNo() + " emanette bekleyen bir fiş değil.");
+        BigDecimal kalan = Kurallar.emanetKalan(t);
+        if (kalan.signum() <= 0) throw new IsKuraliHatasi(t.getTicketNo() + " için satışa çevrilecek emanet kalmadı.");
+        BigDecimal kg = miktar != null ? miktar : kalan;
+        if (kg.signum() <= 0 || kg.compareTo(kalan) > 0)
+            throw new IsKuraliHatasi("Satılacak miktar 0 ile kalan emanet (%s) arasında olmalı.".formatted(Dogrulama.kg(kalan)));
         QualityInspection q = analiz(em, t.getId());
-        return hesapla(t.getNetKg(), em.find(QualityGrade.class, q.getQualityGradeId()), t.getProductType(), q.getSplitRatio(),
-                t.getProducerId());
+        return hesapla(kg, em.find(QualityGrade.class, q.getQualityGradeId()), t.getProductType(), q.getSplitRatio(),
+                q.getEmptyRatio(), t.getProducerId());
     }
 
     @Transactional(readOnly = true)
@@ -148,6 +152,7 @@ public class TartimServisi {
         Settlement s = hakedis(em, t.getId());
         DailyPrice p = t.getDailyPriceId() != null ? em.find(DailyPrice.class, t.getDailyPriceId()) : null;
         Producer u = em.find(Producer.class, t.getProducerId());
+        WeighTicket ana = t.getParentTicketId() != null ? em.find(WeighTicket.class, t.getParentTicketId()) : null;
 
         KaliteSonucu kalite = null;
         if (q != null) {
@@ -170,11 +175,13 @@ public class TartimServisi {
                 t.getProducerId(), u.getFullName(), t.getVehiclePlate(), t.getDriverName(), t.getGrossKg(), t.getTareKg(),
                 t.getNetKg(), t.getGrossWeighedAt(), kalite,
                 p != null ? new FiyatKilidi(p.getId(), t.getUnitPrice(), p.getValidFrom(), p.getApprovedAt(), t.getPricedAt(),
-                        t.getBaseUnitPrice() != null ? t.getBaseUnitPrice() : t.getUnitPrice(), t.getSplitPremium()) : null,
+                        t.getBaseUnitPrice() != null ? t.getBaseUnitPrice() : t.getUnitPrice(), t.getSplitPremium(),
+                        t.getEmptyPenalty()) : null,
                 s != null ? finans.hakedisYaniti(s) : null, stok, kurallar.ureticiBakiyesi(t.getProducerId()),
                 t.getProductType(), t.getProductType().getAd(), aracDarasi(t), t.getSackCount(), t.getSackTareKg(),
-                t.getGrossSource(), t.getTareSource(), sonSms(t), t.getSaleMode() == SaleMode.DEPOSIT, t.getSaleMode().getAd(),
-                t.getDepositConvertedAt());
+                t.getGrossSource(), t.getTareSource(), sonSms(t), t.getSaleMode() == SaleMode.DEPOSIT,
+                t.getParentTicketId() != null ? "Emanetten satış" : t.getSaleMode().getAd(), t.getDepositConvertedAt(),
+                ana != null ? ana.getTicketNo() : null, Kurallar.emanetKalan(ana != null ? ana : t));
     }
 
     /** Fişte gösterilen SMS: satışa çevrildiyse çevirme bildirimi, değilse teslimat bildirimi. */
@@ -195,11 +202,12 @@ public class TartimServisi {
         KaliteAnalizi k = g.kalite();
         QualityGrade sinif = g.manuelKaliteKodu() != null ? sinifKodla(g.manuelKaliteKodu())
                 : kurallar.sinifBelirle(g.urunTuru(), k.catlakOrani(), k.randiman(), k.bosOrani(), k.curukOrani(), k.nemOrani());
-        return hesapla(netKg, sinif, g.urunTuru(), k.catlakOrani(), g.ureticiId());
+        return hesapla(netKg, sinif, g.urunTuru(), k.catlakOrani(), k.bosOrani(), g.ureticiId());
     }
 
     /** Şu anki fiyat + çatlak primiyle hakediş hesabı (tartım önizlemesi ve emanetin satış önizlemesi ortak). */
-    private TartimOnizleme hesapla(BigDecimal netKg, QualityGrade sinif, ProductType tur, BigDecimal catlak, Long ureticiId) {
+    private TartimOnizleme hesapla(BigDecimal netKg, QualityGrade sinif, ProductType tur, BigDecimal catlak, BigDecimal bos,
+                                   Long ureticiId) {
         List<String> uyarilar = new ArrayList<>();
         BigDecimal acikAvans = ZERO;
         if (ureticiId != null) {
@@ -211,10 +219,14 @@ public class TartimServisi {
         if (fiyat == null) {
             uyarilar.add(sinif.getCode() + " sınıfı için şu an onaylı fiyat yok; tartım kaydedilemez.");
             return new TartimOnizleme(netKg, sinif.getCode(), sinif.getName(), null, null, null, List.of(), ZERO, acikAvans,
-                    ZERO, null, uyarilar, null, ZERO);
+                    ZERO, null, uyarilar, null, ZERO, ZERO);
         }
         BigDecimal prim = kurallar.catlakPrimi(tur, catlak);
-        BigDecimal birim = fiyat.getPricePerKg().add(prim);
+        BigDecimal bosCeza = kurallar.bosIskontosu(tur, bos);
+        BigDecimal birim = fiyat.getPricePerKg().add(prim).subtract(bosCeza);
+        if (bosCeza.signum() > 0)
+            uyarilar.add("Kör/boş %s: baz fiyattan %s/kg boş tane kesintisi.".formatted(
+                    "%" + bos.stripTrailingZeros().toPlainString(), Dogrulama.tl(bosCeza)));
         if (prim.signum() != 0)
             uyarilar.add("Çatlak %s: baz fiyata %s %s/kg uygulanıyor.".formatted(
                     "%" + catlak.stripTrailingZeros().toPlainString(), prim.signum() > 0 ? "prim" : "iskonto", Dogrulama.tl(prim.abs())));
@@ -230,7 +242,7 @@ public class TartimServisi {
                     .formatted(Dogrulama.tl(acikAvans), Dogrulama.tl(mahsup)));
         return new TartimOnizleme(netKg, sinif.getCode(), sinif.getName(), fiyat.getId(), birim, brut,
                 kesintiler, kesintiToplami, acikAvans, mahsup, brut.subtract(kesintiToplami).subtract(mahsup), uyarilar,
-                fiyat.getPricePerKg(), prim);
+                fiyat.getPricePerKg(), prim, bosCeza);
     }
 
     @Transactional(readOnly = true)

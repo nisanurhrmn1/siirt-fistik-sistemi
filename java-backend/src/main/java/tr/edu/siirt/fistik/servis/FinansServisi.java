@@ -159,7 +159,7 @@ public class FinansServisi {
                 toplam.apply(LedgerEntryType.ADVANCE).negate(), toplam.apply(LedgerEntryType.PAYMENT).negate(),
                 avanslar.stream().map(a -> a.getAmount().subtract(a.getOffsetAmount())).reduce(ZERO, BigDecimal::add),
                 odenmemis, odenmemis.min(bakiye).max(ZERO),
-                em.createQuery("select coalesce(sum(t.netKg), 0) from WeighTicket t where t.producerId = :u and t.status = :e",
+                em.createQuery("select coalesce(sum(t.netKg - t.depositSoldKg), 0) from WeighTicket t where t.producerId = :u and t.status = :e",
                         BigDecimal.class).setParameter("u", ureticiId).setParameter("e", TicketStatus.DEPOSITED).getSingleResult());
 
         BigDecimal devir = defter.stream().filter(e -> bas != null && e.getEntryAt().isBefore(bas))
@@ -223,7 +223,8 @@ public class FinansServisi {
                     s != null ? s.getAdvanceOffsetTotal() : null, s != null ? s.getNetPayable() : null,
                     s != null ? s.getPaidAmount() : null, s != null ? s.getNetPayable().subtract(s.getPaidAmount()) : null,
                     s != null ? s.getStatus() : null, t.getProductType(), t.getProductType().getAd(),
-                    t.getStatus() == TicketStatus.DEPOSITED));
+                    t.getStatus() == TicketStatus.DEPOSITED, Kurallar.emanetKalan(t),
+                    t.getParentTicketId() != null ? em.find(WeighTicket.class, t.getParentTicketId()).getTicketNo() : null));
         }
 
         Function<Advance, EkstreAvans> avansSatiri = a -> new EkstreAvans(a.getId(), a.getAdvanceNo(),

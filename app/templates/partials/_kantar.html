@@ -279,10 +279,12 @@
           </div>
 
           <dl class="text-sm divide-y divide-stone-100 border-y border-stone-100">
-            <template x-if="Number(onizleme.catlak_primi) !== 0">
+            <template x-if="Number(onizleme.catlak_primi) !== 0 || Number(onizleme.bos_iskontosu) > 0">
               <div>
                 <div class="satir text-stone-500"><dt>Baz fiyat</dt><dd class="tabular-nums" x-text="tl(onizleme.baz_fiyat) + ' /kg'"></dd></div>
-                <div class="satir" :class="Number(onizleme.catlak_primi) > 0 ? 'text-emerald-700' : 'text-rose-700'">
+                <div class="satir text-rose-700" x-show="Number(onizleme.bos_iskontosu) > 0"><dt>Boş tane kesintisi</dt>
+                  <dd class="tabular-nums" x-text="'− ' + tl(onizleme.bos_iskontosu) + ' /kg'"></dd></div>
+                <div class="satir" x-show="Number(onizleme.catlak_primi) !== 0" :class="Number(onizleme.catlak_primi) > 0 ? 'text-emerald-700' : 'text-rose-700'">
                   <dt x-text="Number(onizleme.catlak_primi) > 0 ? 'Çatlak primi' : 'Çatlak iskontosu'"></dt>
                   <dd class="tabular-nums" x-text="(Number(onizleme.catlak_primi) > 0 ? '+ ' : '− ') + tl(Math.abs(onizleme.catlak_primi)) + ' /kg'"></dd></div>
               </div>

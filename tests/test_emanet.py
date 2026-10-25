@@ -87,8 +87,9 @@ def test_satisa_cevirme_o_gunun_fiyatiyla_ve_avans_mahsubuyla(client, uretici):
     # İkinci kez çevrilemez
     r2 = client.post(f"{API}/tartimlar/{t['id']}/satisa-cevir")
     assert r2.status_code == 400 and "zaten satışa çevrilmiş" in r2.json()["hata"]
+    assert c["kaynak_fis_no"] == t["fis_no"] and c["fis_no"].startswith("EB-") and Decimal(c["emanet_kalan_kg"]) == 0
     rapor = client.get(f"{API}/raporlar/gun-sonu").json()
-    assert [d["fis_no"] for d in rapor["emanet_donusumleri"]] == [t["fis_no"]]
+    assert [(d["fis_no"], d["kaynak_fis_no"]) for d in rapor["emanet_donusumleri"]] == [(c["fis_no"], t["fis_no"])]
 
 
 def test_satisa_cevirme_yetkisi_ve_fiyat_yoksa(client, anonim, uretici):
@@ -151,3 +152,50 @@ def test_veritabani_emanet_fisine_fiyat_yazilmasini_engeller(client, uretici, db
         with db_engine.begin() as c:
             c.execute(text("UPDATE weigh_tickets SET daily_price_id = (SELECT max(id) FROM daily_prices), unit_price = 300, "
                            "priced_at = now() WHERE id = :i"), {"i": t["id"]})
+
+
+def test_parcali_satis_kalan_emanette_kalir_ve_lot_bolunur(client, uretici):
+    fiyat_gir(client, A=300)
+    e = teslim(client, uretici["id"], emanet=True, brut=4400, dara=3200).json()             # 1.200 kg emanet
+    assert Decimal(e["emanet_kalan_kg"]) == 1200
+    o = client.get(f"{API}/tartimlar/{e['id']}/satis-onizleme", params={"miktar_kg": 400}).json()
+    assert Decimal(o["net_kg"]) == 400 and Decimal(o["brut_tutar"]) == 120000
+    c1 = client.post(f"{API}/tartimlar/{e['id']}/satisa-cevir", json={"miktar_kg": 400}).json()
+    assert c1["fis_no"].startswith("EB-") and Decimal(c1["net_kg"]) == 400 and Decimal(c1["emanet_kalan_kg"]) == 800
+    assert Decimal(c1["hakedis"]["brut_tutar"]) == 120000 and c1["kalite"]["sinif_kodu"] == "A"
+    assert "emanetinizden 400 kg" in c1["sms"]["mesaj"] and "Kalan emanetiniz: 800 kg" in c1["sms"]["mesaj"]
+    # Üretici emanet stoğu ve silodaki emanet satılan kadar düşer; toplam stok değişmez
+    ek = ekstre(client, uretici["id"])
+    assert Decimal(ek["ozet"]["emanet_stok_kg"]) == 800
+    silo = next(s for s in client.get(f"{API}/depo/stok-durumu").json()["silolar"] if s["silo_kodu"] == "S-A1")
+    assert Decimal(silo["stok_kg"]) == 1200 and Decimal(silo["emanet_kg"]) == 800
+    # Kalandan fazlası satılamaz; kalanın tamamı (gövdesiz) satılabilir
+    fazla = client.post(f"{API}/tartimlar/{e['id']}/satisa-cevir", json={"miktar_kg": 900})
+    assert fazla.status_code == 400 and "800 kg" in fazla.json()["hata"]
+    fiyat_gir(client, A=320)
+    c2 = client.post(f"{API}/tartimlar/{e['id']}/satisa-cevir").json()
+    assert Decimal(c2["net_kg"]) == 800 and Decimal(c2["fiyat"]["birim_fiyat"]) == 320 and Decimal(c2["emanet_kalan_kg"]) == 0
+    assert Decimal(ekstre(client, uretici["id"])["ozet"]["emanet_stok_kg"]) == 0
+    silo = next(s for s in client.get(f"{API}/depo/stok-durumu").json()["silolar"] if s["silo_kodu"] == "S-A1")
+    assert Decimal(silo["emanet_kg"]) == 0 and Decimal(silo["stok_kg"]) == 1200
+    assert client.get(f"{API}/tartimlar/{e['id']}").json()["durum"] == "DEPOSITED"   # emanet belgesi kalır
+    assert client.post(f"{API}/tartimlar/{e['id']}/satisa-cevir").status_code == 400
+
+
+def test_bos_tane_iskontosu(client, uretici):
+    fiyat_gir(client, A=300)
+    r = client.put(f"{API}/fiyatlar/catlak-primi/DRY", json={
+        "baz_catlak_orani": 85, "puan_basi_tl": 2, "azami_fark_tl": 20, "aktif": True,
+        "bos_esik_orani": 3, "bos_puan_basi_tl": 5, "bos_aktif": True})
+    assert r.status_code == 200 and r.json()["bos_aktif"] is True
+    # %90 çatlak (+10), %2 boş: eşik altı, kesinti yok
+    f = teslim(client, uretici["id"]).json()["fiyat"]
+    assert (Decimal(f["catlak_primi"]), Decimal(f["bos_iskontosu"]), Decimal(f["birim_fiyat"])) == (10, 0, 310)
+    # %90 çatlak (+10), %5 boş: (5 − 3) × 5 = −10 → 300
+    k = KALITE | {"bos_orani": 5, "curuk_orani": 0}
+    t = teslim(client, uretici["id"], kalite=k).json()
+    assert t["kalite"]["sinif_kodu"] == "A"
+    f = t["fiyat"]
+    assert (Decimal(f["baz_fiyat"]), Decimal(f["catlak_primi"]), Decimal(f["bos_iskontosu"]), Decimal(f["birim_fiyat"])) == (300, 10, 10, 300)
+    o = client.post(f"{API}/tartimlar/onizleme", json={"brut_kg": 1000, "dara_kg": 0, "kalite": k}).json()
+    assert Decimal(o["bos_iskontosu"]) == 10 and any("boş tane kesintisi" in u for u in o["uyarilar"])

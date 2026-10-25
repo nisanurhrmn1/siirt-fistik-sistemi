@@ -134,16 +134,20 @@ public final class Kontrolculer {
 
         @GetMapping("/{id}/satis-onizleme")
         @Operation(summary = "Emanet bugün satışa çevrilseydi: fiyat, çatlak primi, kesinti, avans mahsubu ve net ödenecek")
-        public TartimOnizleme satisOnizleme(@PathVariable Long id) {
-            return servis.satisOnizleme(id);
+        public TartimOnizleme satisOnizleme(@PathVariable Long id,
+                                            @RequestParam(value = "miktar_kg", required = false) @Positive(message = "0 değerinden büyük olmalıdır.")
+                                            java.math.BigDecimal miktarKg) {
+            return servis.satisOnizleme(id, miktarKg);
         }
 
         @PostMapping("/{id}/satisa-cevir")
         @PreAuthorize(Yetki.FINANS)
-        @Operation(summary = "Emaneti satışa çevir (Yönetici, Muhasebe)",
-                description = "O günün onaylı fiyatı ve çatlak primiyle fiyat kilitlenir; hakediş, kesintiler ve açık avans mahsubu oluşur.")
-        public TartimYaniti satisaCevir(@PathVariable Long id) {
-            TartimYaniti t = servis.emanetiSatisaCevir(id, kullanici.mevcut());
+        @Operation(summary = "Emaneti (tamamını veya bir kısmını) satışa çevir (Yönetici, Muhasebe)",
+                description = "Satılan miktar için bozdurma fişi (EB-…) açılır: o günün fiyatı, çatlak primi ve boş tane iskontosuyla "
+                        + "fiyat kilitlenir; hakediş, kesintiler ve açık avans mahsubu oluşur. Kalan kg emanette kalır. "
+                        + "Gövde boşsa kalan emanetin tamamı satılır.")
+        public TartimYaniti satisaCevir(@PathVariable Long id, @Valid @RequestBody(required = false) SatisaCevirGirisi g) {
+            TartimYaniti t = servis.emanetiSatisaCevir(id, g != null ? g.miktarKg() : null, kullanici.mevcut());
             sms.satisaCevirmeBildir(t);
             return servis.getir(t.id());
         }

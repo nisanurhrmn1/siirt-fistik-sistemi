@@ -326,8 +326,9 @@ Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak �
 
 **Emanet fıstık.** Kantar formunda **Teslim şekli: Emanete bırak** seçilirse fıstık tartılır, kalite sınıfı belirlenir, lotu siloya girer ve üreticinin **emanet stoğuna** yazılır; fiyat kilitlenmez, hakediş ve cari hareket oluşmaz. Fişte "EMANET" yazar, üreticiye "emanet olarak teslim alınmıştır" SMS'i gider.
 
-- Üretici bozdurmak istediğinde Üretici & Finans sekmesindeki teslimat satırında **Satışa Çevir** (Yönetici, Muhasebe) düğmesine basılır. Pencere bugünkü fiyat, çatlak primi, kesintiler ve avans mahsubuyla net hakedişi gösterir; onaylanınca fiyat **o anda** kilitlenir ve hakediş normal akışla oluşur.
-- Emanet fişine sonradan fiyat yazılamaz; bir fiş yalnızca bir kez satışa çevrilebilir. Bu kurallar veritabanında da korunur.
+- Üretici bozdurmak istediğinde Üretici & Finans sekmesindeki teslimat satırında **Satışa Çevir** (Yönetici, Muhasebe) düğmesine basılır. **Satılacak miktar** girilir (varsayılan: kalan emanetin tamamı); pencere bugünkü fiyat, çatlak primi, boş tane kesintisi, kesintiler ve avans mahsubuyla net hakedişi gösterir.
+- Onaylanınca satılan miktar için ayrı bir **Emanet Bozdurma fişi (EB-…)** açılır: fiyatı o anda kilitlenir, hakedişi normal akışla oluşur. Emanet lotundaki stok satılan kadar bu fişin lotuna aktarılır; kalan kg siloda emanet olarak kalır. Örneğin 1.200 kg emanetin 400 kg'ı bozdurulursa 800 kg emanette kalır, üretici daha sonra kalanı (veya bir kısmını) başka günün fiyatıyla satabilir.
+- Emanet fişi kalıcı belge olarak kalır ve kalan kg'ı gösterir. Kalandan fazlası satılamaz; emanete sonradan fiyat yazılamaz ve satılan miktar geri azaltılamaz. Bu kurallar veritabanında da korunur.
 - Silo kartlarında ve sevkiyat ekranında silodaki emanet miktarı görünür. Sevkiyatta önce merkezin satın aldığı lotlar çıkar, emanet en son kullanılır; emanete dokunacak bir çıkışta uyarı verilir.
 - Gün sonu raporunda emanet teslimatlar ve o gün satışa çevrilenler ayrı listelenir.
 
@@ -335,7 +336,11 @@ Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak �
 
 > Birim fiyat = baz fiyat + (çatlak % − baz çatlak %) × puan başı ₺, en fazla ± azami fark
 
-Örneğin baz %85, puan başı 2 ₺, azami ±20 ₺ iken %90 çatlak +10 ₺/kg prim, %80 çatlak −10 ₺/kg iskonto alır. Kural kapalıyken baz fiyat aynen uygulanır. Prim fiyat kilidinin parçasıdır: fişte baz fiyat, prim ve birim fiyat ayrı görünür, sonradan değiştirilemez. Demo verisinde kuru-kavlak için kural açıktır.
+Örneğin baz %85, puan başı 2 ₺, azami ±20 ₺ iken %90 çatlak +10 ₺/kg prim, %80 çatlak −10 ₺/kg iskonto alır.
+
+Aynı kartta **Boş tane iskontosu** da tanımlanır: kör/boş oranı eşiği aşarsa eşik üzeri her puan için baz fiyattan ₺/kg düşülür (ör. eşik %3, puan başı 5 ₺ iken %6 boş → −15 ₺/kg). Çatlak yüksek olsa bile boş tane fazlaysa fiyat kırılır. Kesinti fişte "Boş tane kesintisi" olarak görünür ve kilitlenen birim fiyata yansır:
+
+> Birim fiyat = baz fiyat + çatlak primi − boş tane kesintisi Kural kapalıyken baz fiyat aynen uygulanır. Prim fiyat kilidinin parçasıdır: fişte baz fiyat, prim ve birim fiyat ayrı görünür, sonradan değiştirilemez. Demo verisinde kuru-kavlak için kural açıktır.
 
 **Satış ve sevkiyat (depodan çıkış).** **Sevkiyat** sekmesinden alıcı firmaya kamyonla çıkış yapılır (Yönetici ve Depo sorumlusu; diğer roller yalnızca görür). Akış ve klavye sırası: Alıcı → Plaka → Şoför → Çıkış silosu → Dara (boş araç, `F3`) → Brüt (dolu araç, `F2`) → Satış birim fiyatı → Ödeme durumu (nakit alındı / havale alındı / vadeli-açık hesap) → `F9` ile onay.
 
@@ -429,8 +434,8 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `GET` | `/raporlar/gunluk-ozet?tarih=` | Günlük alım (kg), ödenen tutar, ortalama randıman | 200 |
 | `GET` | `/raporlar/uretici-bakiyeleri` | Tüm üreticilerin bakiye ve açık avansı | 200 |
 | `GET` | `/raporlar/gun-sonu?tarih=` | Gün sonu kasa & kantar raporu (JSON) | 200 |
-| `POST` | `/tartimlar/{id}/satisa-cevir` | Emaneti bugünkü fiyat ve çatlak primiyle satışa çevir (Yönetici, Muhasebe) | 200 |
-| `GET` | `/tartimlar/{id}/satis-onizleme` | Emanet bugün satılsaydı: fiyat, prim, kesinti, avans mahsubu, net | 200 |
+| `POST` | `/tartimlar/{id}/satisa-cevir` | Emaneti (gövdede `miktar_kg` ile kısmen veya tamamen) bugünkü fiyatla satışa çevir; EB-… bozdurma fişi döner (Yönetici, Muhasebe) | 200 |
+| `GET` | `/tartimlar/{id}/satis-onizleme?miktar_kg=` | Emanet bugün satılsaydı: fiyat, prim, boş kesintisi, kesinti, avans mahsubu, net | 200 |
 | `GET` | `/fiyatlar/catlak-primi` | Çatlak primi / iskontosu kuralları | 200 |
 | `PUT` | `/fiyatlar/catlak-primi/{urunTuru}` | Kuralı güncelle (Yönetici, Fiyat yöneticisi) | 200 |
 | **Satış ve Sevkiyat** ||||
@@ -504,7 +509,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (79 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 9 emanet/prim)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (81 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -527,7 +532,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
-- **`tests/test_emanet.py`** (9 test, yalnızca Java): emanetin siloya girip hakediş ve cari hareket oluşturmaması; fiyat yokken de alınabilmesi; satışa çevirmenin o günün fiyatıyla ve avans mahsubuyla hakediş oluşturması, ikinci kez çevrilememesi, yetkisi; sevkiyatta önce merkezin kendi lotlarının çıkması; çatlak primi, iskontosu ve azami sınır; numune gramlarından oran hesabı; veritabanının emanet fişine fiyat yazılmasını engellemesi.
+- **`tests/test_emanet.py`** (11 test, yalnızca Java): parçalı bozdurma (400 / 1.200 kg; kalan emanet, silodaki emanet ve lot aktarımı, kalandan fazlasının reddi, kalanın başka gün fiyatıyla satılması); boş tane iskontosu; emanetin siloya girip hakediş ve cari hareket oluşturmaması; fiyat yokken de alınabilmesi; satışa çevirmenin o günün fiyatıyla ve avans mahsubuyla hakediş oluşturması, ikinci kez çevrilememesi, yetkisi; sevkiyatta önce merkezin kendi lotlarının çıkması; çatlak primi, iskontosu ve azami sınır; numune gramlarından oran hesabı; veritabanının emanet fişine fiyat yazılmasını engellemesi.
 - **`tests/test_sms.py`** (4 test, yalnızca Java): tartımda ve avansta SMS metni ve simülasyon durumu, fişte SMS bilgisinin görünmesi, SMS kayıt listesi; cari dökümde hareketlerin belge no, ürün & sınıf, kg ve birim fiyat içermesi.
 - **`tests/test_sevkiyat.py`** (8 test, yalnızca Java): ilk giren ilk çıkar lot düşümü ve tutar; stoktan fazla ve boş silodan çıkışın reddi; doğrulamalar; yalnızca Yönetici ve Depo sorumlusunun sevkiyat yapabilmesi; müşteri kartının Türkçe harf farkıyla tekrarlanmaması ve açık hesap toplamı; veritabanının eksi stoğu reddetmesi; gün sonu raporunda sevkiyat ve tahsilat.
 - **`tests/test_raporlar.py`** (4 test, yalnızca Java): cari dökümde ürün türü, avans ve ödeme listeleri ve dönem filtresi; gün sonu raporunda nakit/havale ayrımı, kasadan çıkan nakit, kalan hakediş, ürün türü ve silo girişleri; CSV'nin Excel uyumu (BOM, `;`, ondalık virgül).

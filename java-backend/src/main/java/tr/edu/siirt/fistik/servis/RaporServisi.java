@@ -115,7 +115,7 @@ public class RaporServisi {
         Map<Long, BigDecimal> odenmemis = grupla("select s.producerId, sum(s.netPayable - s.paidAmount) from Settlement s group by s.producerId");
         Map<Long, BigDecimal> kg = grupla("select s.producerId, sum(s.netKg) from Settlement s group by s.producerId");
         Map<Long, BigDecimal> emanet = em.createQuery(
-                        "select t.producerId, sum(t.netKg) from WeighTicket t where t.status = :e group by t.producerId", Object[].class)
+                        "select t.producerId, sum(t.netKg - t.depositSoldKg) from WeighTicket t where t.status = :e group by t.producerId", Object[].class)
                 .setParameter("e", TicketStatus.DEPOSITED).getResultStream()
                 .collect(Collectors.toMap(x -> (Long) x[0], x -> (BigDecimal) x[1]));
         return em.createQuery("select p from Producer p order by p.fullName, p.id", Producer.class).getResultStream()
@@ -157,7 +157,7 @@ public class RaporServisi {
                     s != null ? s.getGrossAmount() : null, s != null ? s.getDeductionsTotal() : null,
                     s != null ? s.getAdvanceOffsetTotal() : null, s != null ? net : null, s != null ? odenen : null,
                     s != null ? net.subtract(odenen) : null, t.getGrossSource(), t.getTareSource(),
-                    t.getStatus() == TicketStatus.DEPOSITED ? "Emanet" : t.getSaleMode().getAd()));
+                    t.getStatus() == TicketStatus.DEPOSITED ? "Emanet" : t.getParentTicketId() != null ? "Emanetten satış" : t.getSaleMode().getAd()));
         }
         List<UrunTuruOzeti> urunTurleri = tureGore.entrySet().stream()
                 .map(e -> new UrunTuruOzeti(e.getKey(), e.getKey().getAd(), e.getValue().size(),
@@ -228,9 +228,10 @@ public class RaporServisi {
                 .setParameter("b", a[0]).setParameter("son", a[1]).getResultStream().map(t -> {
                     Settlement s = TartimServisi.hakedis(em, t.getId());
                     QualityInspection q = TartimServisi.analiz(em, t.getId());
+                    WeighTicket ana = t.getParentTicketId() != null ? em.find(WeighTicket.class, t.getParentTicketId()) : t;
                     return new EmanetDonusumu(t.getDepositConvertedAt(), t.getTicketNo(), ureticiAdi.get(t.getProducerId()),
-                            t.getGrossWeighedAt(), q != null ? siniflar.get(q.getQualityGradeId()).getCode() : null, t.getNetKg(),
-                            t.getUnitPrice(), s != null ? s.getNetPayable() : null);
+                            ana.getGrossWeighedAt(), q != null ? siniflar.get(q.getQualityGradeId()).getCode() : null, t.getNetKg(),
+                            t.getUnitPrice(), s != null ? s.getNetPayable() : null, ana.getTicketNo());
                 }).toList();
 
         return new GunSonuRaporu(gun, Dogrulama.simdi(), gunlukOzet(gun), kasa, urunTurleri, teslimatlar, kasaHareketleri,

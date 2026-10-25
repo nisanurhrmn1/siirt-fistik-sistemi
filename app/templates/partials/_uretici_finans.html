@@ -98,8 +98,11 @@
                   <tr>
                     <td><p class="font-medium" x-text="t.fis_no"></p><p class="text-xs text-stone-500 tabular-nums" x-text="tarihYaz(t.tarih)"></p></td>
                     <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span>
-                      <span x-show="t.emanet" class="durum bg-amber-100 text-amber-800 ml-1">Emanet</span></td>
-                    <td class="text-right tabular-nums" x-text="kg(t.net_kg)"></td>
+                      <span x-show="t.emanet && !t.kaynak_fis_no" class="durum bg-amber-100 text-amber-800 ml-1">Emanet</span>
+                      <span x-show="t.kaynak_fis_no" class="durum bg-orange-100 text-orange-800 ml-1" x-text="'Emanetten · ' + t.kaynak_fis_no"></span></td>
+                    <td class="text-right tabular-nums"><span x-text="kg(t.net_kg)"></span>
+                      <span class="block text-xs text-amber-700" x-show="t.emanet && !t.kaynak_fis_no && Number(t.emanet_kalan_kg) < Number(t.net_kg)"
+                            x-text="'kalan ' + kg(t.emanet_kalan_kg)"></span></td>
                     <td class="text-right tabular-nums" x-text="tl(t.brut_tutar)"></td>
                     <td class="text-right tabular-nums">
                       <span class="text-stone-500" x-text="tl(t.kesinti)"></span>
@@ -107,11 +110,11 @@
                     </td>
                     <td class="text-right">
                       <p class="tabular-nums font-medium" x-text="tl(t.kalan)"></p>
-                      <span class="durum" :class="t.emanet ? 'bg-amber-100 text-amber-800' : durumRenk(t.hakedis_durumu)"
-                            x-text="t.emanet ? 'Emanette' : durumAd(t.hakedis_durumu)"></span>
+                      <span class="durum" :class="t.emanet && !t.hakedis_id ? 'bg-amber-100 text-amber-800' : durumRenk(t.hakedis_durumu)"
+                            x-text="t.emanet && !t.hakedis_id ? (Number(t.emanet_kalan_kg) > 0 ? 'Emanette' : 'Tamamı satıldı') : durumAd(t.hakedis_durumu)"></span>
                     </td>
                     <td class="text-right">
-                      <button class="btn-kucuk bg-gradient-to-br from-amber-500 to-amber-600" x-show="t.emanet" @click="emanetCevirAc(t)"
+                      <button class="btn-kucuk bg-gradient-to-br from-amber-500 to-amber-600" x-show="t.emanet && !t.hakedis_id && Number(t.emanet_kalan_kg) > 0" @click="emanetCevirAc(t)"
                               :disabled="!yetkili('emanet_cevir')" :title="yetkiYok('emanet_cevir')">Satışa Çevir</button>
                       <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)" :disabled="!yetkili('odeme_yap')" :title="yetkiYok('odeme_yap')">Ödeme Yap</button>
                     </td>

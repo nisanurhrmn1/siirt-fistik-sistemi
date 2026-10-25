@@ -60,6 +60,21 @@
           <div><label class="etiket">Azami ±</label>
             <div class="relative"><input type="number" step="0.01" min="0" x-model="k.azami_fark_tl" placeholder="sınırsız" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
         </div>
+        <div class="border-t border-stone-100 pt-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-medium">Boş tane iskontosu</p>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" x-model="k.bos_aktif" class="h-4 w-4 accent-rose-600" :disabled="!yetkili('fiyat_gir')"> Uygula
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><label class="etiket">Boş eşiği</label>
+              <div class="relative"><input type="number" step="0.01" min="0" max="100" x-model="k.bos_esik_orani" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">%</span></div></div>
+            <div><label class="etiket">Eşik üzeri puan başı</label>
+              <div class="relative"><input type="number" step="0.01" min="0" x-model="k.bos_puan_basi_tl" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
+          </div>
+          <p class="text-xs text-stone-500" x-text="bosOrnek(k)"></p>
+        </div>
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs text-stone-500" x-text="catlakOrnek(k)"></p>
           <button type="submit" class="btn-kucuk" x-show="yetkili('fiyat_gir')">Kaydet</button>
