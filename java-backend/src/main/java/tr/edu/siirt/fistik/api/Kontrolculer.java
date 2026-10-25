@@ -24,6 +24,7 @@ import tr.edu.siirt.fistik.kural.Dogrulama;
 import tr.edu.siirt.fistik.kural.Hatalar.DogrulamaHatasi;
 import tr.edu.siirt.fistik.kural.Hatalar.YetkiHatasi;
 import tr.edu.siirt.fistik.servis.*;
+import tr.edu.siirt.fistik.sms.SmsServisi;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -110,10 +111,12 @@ public final class Kontrolculer {
     public static class Tartimlar {
         private final TartimServisi servis;
         private final KullaniciCozucu kullanici;
+        private final SmsServisi sms;
 
-        public Tartimlar(TartimServisi servis, KullaniciCozucu kullanici) {
+        public Tartimlar(TartimServisi servis, KullaniciCozucu kullanici, SmsServisi sms) {
             this.servis = servis;
             this.kullanici = kullanici;
+            this.sms = sms;
         }
 
         @PostMapping
@@ -123,7 +126,10 @@ public final class Kontrolculer {
                 description = "Tek işlemde: kantar fişi ve net kg, kalite sınıfı, tartım anındaki onaylı fiyatın kilitlenmesi, "
                         + "kesinti ve avans mahsubuyla hakediş, lot ve silo stok girişi. Aynı üretici aynı gün birden çok teslimat yapabilir.")
         public TartimYaniti kaydet(@Valid @RequestBody TartimGirisi g) {
-            return servis.kaydet(model(g), kullanici.mevcut());
+            TartimYaniti t = servis.kaydet(model(g), kullanici.mevcut());
+            // Kayıt tamamlandıktan sonra müstahsile SMS; SMS hatası tartımı geri almaz
+            sms.teslimatBildir(t);
+            return servis.getir(t.id());
         }
 
         @PostMapping("/onizleme")
@@ -184,10 +190,12 @@ public final class Kontrolculer {
     public static class Finans {
         private final FinansServisi servis;
         private final KullaniciCozucu kullanici;
+        private final SmsServisi sms;
 
-        public Finans(FinansServisi servis, KullaniciCozucu kullanici) {
+        public Finans(FinansServisi servis, KullaniciCozucu kullanici, SmsServisi sms) {
             this.servis = servis;
             this.kullanici = kullanici;
+            this.sms = sms;
         }
 
         @PostMapping("/avanslar")
@@ -196,7 +204,15 @@ public final class Kontrolculer {
         @Operation(summary = "Üreticiye avans ver (Yönetici, Muhasebe)",
                 description = "Avans cari hesaba borç yazılır; bakiye eksiye düşebilir. Sonraki hakedişlerden FIFO ile mahsup edilir.")
         public AvansYaniti avansVer(@Valid @RequestBody AvansGirisi g) {
-            return servis.avansVer(g, kullanici.mevcut());
+            AvansYaniti a = servis.avansVer(g, kullanici.mevcut());
+            return a.smsIle(sms.avansBildir(a));
+        }
+
+        @GetMapping("/sms")
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Gönderilen bilgilendirme SMS'leri (son 100; Yönetici, Muhasebe)")
+        public List<SmsServisi.SmsBildirimi> smsler(@RequestParam(value = "uretici_id", required = false) Long ureticiId) {
+            return sms.listele(ureticiId);
         }
 
         @GetMapping("/hakedisler/{id}")

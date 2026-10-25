@@ -48,7 +48,7 @@ flowchart LR
 5. **Apply / Deploy Blueprint** düğmesine basın.
 6. İlk derleme **5–10 dakika** sürer (Maven bağımlılıkları indirilir). **Logs** sekmesinde şu satırları görünce sistem hazırdır:
    ```
-   Successfully applied 6 migrations ... now at version v6
+   Successfully applied 7 migrations ... now at version v7
    Demo verisi: 4 üretici, 6 teslimat, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.
    Started SiirtFistikApplication in ... seconds
    ```
@@ -81,6 +81,7 @@ flowchart LR
 - **Yönetici şifresi:** Render, `BASLANGIC_SIFRESI` değişkenini rastgele üretir. Şifreyle giriş yapmak isterseniz değeri Render panelinde **Environment** sekmesinde görebilirsiniz.
 - **Güncelleme:** GitHub'a her `git push` sonrası Render otomatik olarak yeniden derleyip yayınlar (`autoDeploy: true`).
 - **Demoyu kapatmak (gerçek kullanım):** Render → **Environment** → `DEMO_HESAPLARI`, `DEMO_VERISI` ve `GECE_SIFIRLAMA` değerlerini `false` yapın. Swagger'ı da kapatmak için `API_DOKUMANI=false` ekleyin.
+- **Gerçek SMS:** Render → **Environment** → `SMS_SAGLAYICI=netgsm`, `SMS_KULLANICI`, `SMS_SIFRE` ve `SMS_BASLIK` (Netgsm'de onaylı gönderici adı) ekleyin. Bunlar yoksa SMS simülasyon modunda çalışır; gerçek SMS gitmez.
 - **Ücretsiz plan sınırları:**
   - Render: aylık 750 saat çalışma ve 512 MB bellek. Dockerfile'daki JVM ayarları bu belleğe göre yapıldı.
   - Neon: 0,5 GB depolama.

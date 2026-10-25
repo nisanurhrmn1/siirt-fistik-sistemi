@@ -84,7 +84,7 @@ public class FinansServisi {
                 g.bankaHesapId(), g.aciklama());
         return new AvansYaniti(a.getId(), a.getAdvanceNo(), a.getProducerId(), a.getAmount(), a.getOffsetAmount(),
                 a.getAmount().subtract(a.getOffsetAmount()), a.getStatus(), a.getMethod(), a.getGivenAt(),
-                a.getDescription(), kurallar.ureticiBakiyesi(a.getProducerId()));
+                a.getDescription(), kurallar.ureticiBakiyesi(a.getProducerId()), null);
     }
 
     // ─── Ödeme ───
@@ -167,9 +167,40 @@ public class FinansServisi {
         for (ProducerLedgerEntry e : defter) {
             if (!donemde.test(e.getEntryAt())) continue;
             yuruyen = yuruyen.add(e.getAmount());
-            hareketler.add(new EkstreHareket(e.getId(), e.getEntryAt(), e.getEntryType().name(), e.getDescription(),
+            // Dökümde belge, ürün/sınıf, miktar ve birim fiyat sütunları için bağlı kaydı bul
+            String belge = null, urunSinif = null;
+            BigDecimal miktar = null, birimFiyat = null;
+            PaymentMethod yontem = null;
+            Long tartimId = e.getTicketId();
+            if (tartimId == null && e.getSettlementId() != null) tartimId = em.find(Settlement.class, e.getSettlementId()).getTicketId();
+            if (tartimId != null) {
+                WeighTicket t = em.find(WeighTicket.class, tartimId);
+                belge = t.getTicketNo();
+                if (e.getEntryType() == LedgerEntryType.DELIVERY) {
+                    QualityInspection q = TartimServisi.analiz(em, tartimId);
+                    urunSinif = t.getProductType().getAd()
+                            + (q != null ? " · " + em.find(QualityGrade.class, q.getQualityGradeId()).getCode() : "");
+                    miktar = t.getNetKg();
+                    birimFiyat = t.getUnitPrice();
+                }
+            } else if (e.getAdvanceId() != null) {
+                Advance a = em.find(Advance.class, e.getAdvanceId());
+                belge = a.getAdvanceNo();
+                yontem = a.getMethod();
+            } else if (e.getPaymentId() != null) {
+                Payment p = em.find(Payment.class, e.getPaymentId());
+                belge = p.getPaymentNo();
+                yontem = p.getMethod();
+            }
+            String aciklama = e.getDescription();
+            if (e.getSettlementDeductionId() != null) {   // "Gelir vergisi stopajı %2"
+                SettlementDeduction sd = em.find(SettlementDeduction.class, e.getSettlementDeductionId());
+                aciklama = em.find(DeductionType.class, sd.getDeductionTypeId()).getName()
+                        + (sd.getCalcMethod() == DeductionCalcMethod.PERCENT ? " %" + sd.getRate().stripTrailingZeros().toPlainString().replace('.', ',') : "");
+            }
+            hareketler.add(new EkstreHareket(e.getId(), e.getEntryAt(), e.getEntryType().name(), aciklama,
                     e.getAmount().signum() > 0 ? e.getAmount() : ZERO, e.getAmount().signum() < 0 ? e.getAmount().negate() : ZERO,
-                    yuruyen));
+                    yuruyen, belge, urunSinif, miktar, birimFiyat, yontem));
         }
 
         Map<Long, Settlement> hakedisByTartim = hakedisler.stream().collect(Collectors.toMap(Settlement::getTicketId, s -> s));

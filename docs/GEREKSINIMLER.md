@@ -178,7 +178,8 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-RAP-03 | Kg ağırlıklı ortalama randıman ve ortalama fiyat raporlanmalıdır. | Orta | ✅ |
 | FG-RAP-04 | Tüm üreticilerin bakiye, açık avans ve ödenebilir tutarları listelenebilmelidir. | Orta | ✅ |
 | FG-RAP-05 | Raporlar PDF/Excel olarak dışa aktarılabilmelidir. | Orta | ✅ Döküm: yazdır / PDF; gün sonu: Excel (CSV) |
-| FG-RAP-06 | Seçilen üretici için, isteğe bağlı tarih aralığında, teslimatları (tarih, fiş no, ürün türü, net kg, tutar), aldığı avansları, yapılan ödemeleri, yürüyen bakiyeli hareketleri ve net bakiyeyi gösteren yazdırılabilir (A4 / PDF) cari hesap dökümü alınabilmelidir. | Yüksek | ✅ |
+| FG-RAP-08 | Tartım tamamlanınca ve avans verilince üreticiye fiş no, kg, ürün/sınıf, net hakediş ve güncel bakiyeyi bildiren SMS gönderilmelidir. Sağlayıcı değiştirilebilir olmalı (Netgsm hazır); sağlayıcı tanımlı değilse simülasyon çalışmalı, SMS hatası işlemi bozmamalı ve her gönderim kayıt altına alınmalıdır. | Orta | ✅ |
+| FG-RAP-06 | Seçilen üretici için, isteğe bağlı tarih aralığında, teslimatları (tarih, fiş no, ürün türü, net kg, tutar), aldığı avansları, yapılan ödemeleri, yürüyen bakiyeli hareketleri ve net bakiyeyi gösteren yazdırılabilir (A4 / PDF) cari hesap dökümü alınabilmelidir. Hareket tablosu: tarih, belge no, işlem türü, ürün & sınıf, kg, birim fiyat, borç, alacak, bakiye; altta toplamlar ve üretici / yetkili imza alanları. | Yüksek | ✅ |
 | FG-RAP-07 | Seçilen gün için teslimatları, nakit / havale / çek ödemeleri ve avansları, kasadan çıkan nakdi, kalan hakedişi, ürün türü ve silo bazlı giren stoğu özetleyen gün sonu raporu Excel'de açılan CSV olarak indirilebilmelidir. | Yüksek | ✅ |
 
 ---

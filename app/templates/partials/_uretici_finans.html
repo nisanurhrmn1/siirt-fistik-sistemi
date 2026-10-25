@@ -51,7 +51,7 @@
             <div class="ml-auto flex gap-2">
               <button class="btn-ikincil" x-show="kimlikDogrulama" @click="dokumAc()" title="Yazdırılabilir / PDF cari hesap dökümü">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.63a3.38 3.38 0 0 0-3.38-3.37h-1.5A1.13 1.13 0 0 1 13.5 7.13v-1.5a3.38 3.38 0 0 0-3.38-3.38H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.63c-.62 0-1.13.5-1.13 1.13v17.25c0 .62.5 1.12 1.13 1.12h12.75c.62 0 1.12-.5 1.12-1.12V11.25a9 9 0 0 0-9-9Z"/></svg>
-                Hesap Ekstresi / Döküm Al
+                Cari Hesap Ekstresi Al
               </button>
               <button class="btn-ikincil" @click="avansModalAc()" :disabled="!yetkili('avans_ver')" :title="yetkiYok('avans_ver')">Avans Ver</button>
             </div>

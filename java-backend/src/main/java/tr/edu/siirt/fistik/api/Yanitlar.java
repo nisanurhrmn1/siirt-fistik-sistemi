@@ -1,6 +1,7 @@
 package tr.edu.siirt.fistik.api;
 
 import tr.edu.siirt.fistik.alan.*;
+import tr.edu.siirt.fistik.sms.SmsServisi;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,7 +50,12 @@ public final class Yanitlar {
 
     public record AvansYaniti(Long id, String avansNo, Long ureticiId, BigDecimal tutar, BigDecimal mahsupEdilen,
                               BigDecimal kalan, AdvanceStatus durum, PaymentMethod odemeYontemi,
-                              OffsetDateTime verilisZamani, String aciklama, BigDecimal ureticiGuncelBakiye) {
+                              OffsetDateTime verilisZamani, String aciklama, BigDecimal ureticiGuncelBakiye,
+                              SmsServisi.SmsBildirimi sms) {
+        public AvansYaniti smsIle(SmsServisi.SmsBildirimi s) {
+            return new AvansYaniti(id, avansNo, ureticiId, tutar, mahsupEdilen, kalan, durum, odemeYontemi, verilisZamani,
+                    aciklama, ureticiGuncelBakiye, s);
+        }
     }
 
     public record OdemeYaniti(Long id, String odemeNo, BigDecimal tutar, PaymentMethod odemeYontemi, Long bankaHesapId,
@@ -77,8 +83,10 @@ public final class Yanitlar {
                               BigDecimal kalan, AdvanceStatus durum) {
     }
 
+    /** Cari hareket. Alacak: müstahsilin alacağını artıran (teslimat); borç: azaltan (kesinti, avans, ödeme). */
     public record EkstreHareket(Long id, OffsetDateTime tarih, String tur, String aciklama, BigDecimal alacak,
-                                BigDecimal borc, BigDecimal bakiye) {
+                                BigDecimal borc, BigDecimal bakiye, String belgeNo, String urunSinif, BigDecimal miktarKg,
+                                BigDecimal birimFiyat, PaymentMethod odemeYontemi) {
     }
 
     public record UreticiKisa(Long id, String adSoyad, String tcKimlikNo, String vergiNo, String telefon) {
@@ -112,7 +120,8 @@ public final class Yanitlar {
                                BigDecimal netKg, OffsetDateTime tartimZamani, KaliteSonucu kalite, FiyatKilidi fiyat,
                                HakedisYaniti hakedis, List<StokKaydi> stok, BigDecimal ureticiGuncelBakiye,
                                ProductType urunTuru, String urunTuruAdi, BigDecimal aracDarasiKg, int cuvalSayisi,
-                               BigDecimal cuvalDarasiKg, WeightSource brutKaynagi, WeightSource daraKaynagi) {
+                               BigDecimal cuvalDarasiKg, WeightSource brutKaynagi, WeightSource daraKaynagi,
+                               SmsServisi.SmsBildirimi sms) {
     }
 
     public record KesintiOnizleme(String kod, String ad, BigDecimal tutar) {

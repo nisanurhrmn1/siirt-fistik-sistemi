@@ -281,6 +281,8 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `GECE_SIFIRLAMA` | `false` | `true` ise demo verisini her gece 03:00'te ve açılışta o güne ait tartım yoksa sıfırlar |
 | `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
+| `SMS_SAGLAYICI` | `simulasyon` | `netgsm` ise gerçek SMS gönderilir (`SMS_KULLANICI`, `SMS_SIFRE`, `SMS_BASLIK` gerekir); eksikse simülasyona düşer |
+| `SMS_ETKIN` | `true` | `false` ise tartım ve avans SMS'i hiç gönderilmez |
 | `API_DOKUMANI` | `true` | `false` ise Swagger (`/docs`), ReDoc ve `/openapi.json` tamamen kapanır (gerçek kullanımda önerilir). Paneldeki "API" bağlantısı zaten yalnızca Yöneticiye görünür. |
 
 ### Kantar sahasında kullanım
@@ -300,7 +302,24 @@ Kantar sekmesi fare kullanmadan, klavye ve kantar indikatörüyle çalışacak �
 
 **Ürün türü.** Kuru-kavlak ve yaş fıstığın kalite sınıfları, fiyatları ve siloları ayrıdır: `A` / `B` / `ISK` ve `YA` / `YB` / `YISK`. Fiyat ekranında iki grup ayrı görünür. Yaş fıstıkta nem sınırı uygulanmaz. Yaş fıstık kurutma firesi nedeniyle kuru-kavlağın yaklaşık %40–50'si fiyatından alınır; demo verisinde A / B / ISK = 300 / 260 / 150 ₺, YA / YB / YISK = 135 / 115 / 65 ₺. Eşikler örnektir; merkezin kendi yönergesine göre `quality_grades` tablosundan güncellenmelidir.
 
-**Müstahsil cari hesap dökümü.** Üretici & Finans sekmesinde üretici seçilip **Hesap Ekstresi / Döküm Al** ile açılır. İsteğe bağlı tarih aralığıyla teslimatlar (tarih, fiş no, ürün türü, net kg, tutar), alınan avanslar, yapılan ödemeler, yürüyen bakiyeli hesap hareketleri ve net bakiye A4 sayfada listelenir. **Yazdır / PDF** düğmesiyle yazdırılır; yazdırma penceresinde hedef "PDF olarak kaydet" seçilirse PDF dosyası olur. Altta müstahsil ve muhasebe imza alanları vardır.
+**Üretici cari hesap dökümü.** Üretici & Finans sekmesinde üretici seçilip **Cari Hesap Ekstresi Al** ile açılır; isteğe bağlı tarih aralığı seçilir. A4 sayfada:
+
+- başlık, üretici bilgileri (ad soyad, T.C. kimlik / vergi no, üretici kodu, telefon) ve rapor tarihi
+- tarih sıralı tek hareket tablosu: Tarih/Saat · Belge/Fiş No · İşlem türü (teslimat, kesinti, avans, ödeme; ödeme yöntemiyle) · Ürün & Sınıf · Miktar (kg) · Birim fiyat · Borç · Alacak · Bakiye (A: merkez borçlu, B: üretici borçlu)
+- alt toplam: teslim edilen kg, brüt hakediş, kesintiler, verilen avans, nakit ve havale ödemeler, **kalan net bakiye**
+- "Üretici İmzası" ve "Yetkili İmzası" alanları
+
+**Yazdır / PDF** ile yazdırılır; yazdırma penceresinde "PDF olarak kaydet" seçilirse PDF olur.
+
+**Müstahsil bilgilendirme SMS'i.** Tartım kaydedilince ve avans verilince üreticiye SMS gider:
+
+> Sn. Fatma Demir, KF-2026-000007 ile 1.000 kg Kuru-kavlak A sınıfı fıstığınız teslim alınmıştır. Avans mahsubu sonrası net hakediş: 290.400,00 TL. Güncel bakiyeniz: 711.480,00 TL.
+
+- Sağlayıcı `SmsSaglayici` arayüzüyle değiştirilebilir. Hazır olanlar: **Netgsm** (HTTP API) ve **simülasyon**. Yeni bir sağlayıcı (ör. İletiMerkezi) için arayüz uygulanıp `Sms.SmsAyarlari`'na eklenir.
+- Varsayılan **simülasyon**dur: gerçek SMS gitmez, mesaj loglanır, panelde "SMS Gönderildi (Simülasyon)" bildirimi ve fişte "SMS Gönderildi ✓" görünür.
+- SMS hiçbir zaman tartımı veya avansı bozmaz: işlem kaydedildikten sonra gönderilir; sağlayıcı hata verirse işlem geçerli kalır, fişte "SMS gönderilemedi" ve nedeni görünür.
+- Her gönderim `sms_messages` tablosuna yazılır (`GET /api/v1/sms`).
+- Tutarlar SMS'te "₺" yerine "TL" ile yazılır (₺ işareti standart SMS karakter setinde yok). Bu mesajlar bilgilendirme amaçlıdır; ticari ileti sayılmadığı için İYS onayı gerektirmez, yine de üreticinin telefonunun SMS için kullanılacağı kayıt sırasında kendisine söylenmelidir.
 
 **Gün sonu raporu.** Kantar sekmesinde Bugünkü Teslimatlar tablosunun üstünden gün seçilip **Gün Sonu Raporu Al** ile indirilir. CSV dosyası Excel'de çift tıklayınca doğrudan açılır. İçinde özet (kg, tutar, kesinti, avans mahsubu, kalan hakediş), kasa (nakit / havale / çek ödemeler ve avanslar, kasadan çıkan nakit), ürün türü kırılımı, teslimat listesi, kasa hareketleri ve silo bazlı giren stok bulunur.
 
@@ -400,6 +419,7 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `POST` | `/sevkiyatlar` | Sevkiyat kaydı; silo stoğu lot bazında düşer (Yönetici, Depo sorumlusu) | 201 |
 | `GET` | `/sevkiyatlar?tarih=` | Sevkiyatlar (tarih yoksa son 100) | 200 |
 | `GET` | `/sevkiyatlar/{id}` | Sevkiyat detayı ve çıkan lotlar (irsaliye) | 200 |
+| `GET` | `/sms?uretici_id=` | Gönderilen bilgilendirme SMS'leri (Yönetici, Muhasebe) | 200 |
 | `GET` | `/musteriler` | Alıcı firmalar, satış toplamları ve açık hesap | 200 |
 | `GET` | `/raporlar/gun-sonu.csv?tarih=` | Aynı rapor, Excel'de açılan CSV (UTF-8 BOM, `;`, ondalık virgül) | 200 |
 | **Sistem** ||||
@@ -466,7 +486,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (66 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (70 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
 ```
@@ -489,6 +509,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_sms.py`** (4 test, yalnızca Java): tartımda ve avansta SMS metni ve simülasyon durumu, fişte SMS bilgisinin görünmesi, SMS kayıt listesi; cari dökümde hareketlerin belge no, ürün & sınıf, kg ve birim fiyat içermesi.
 - **`tests/test_sevkiyat.py`** (8 test, yalnızca Java): ilk giren ilk çıkar lot düşümü ve tutar; stoktan fazla ve boş silodan çıkışın reddi; doğrulamalar; yalnızca Yönetici ve Depo sorumlusunun sevkiyat yapabilmesi; müşteri kartının Türkçe harf farkıyla tekrarlanmaması ve açık hesap toplamı; veritabanının eksi stoğu reddetmesi; gün sonu raporunda sevkiyat ve tahsilat.
 - **`tests/test_raporlar.py`** (4 test, yalnızca Java): cari dökümde ürün türü, avans ve ödeme listeleri ve dönem filtresi; gün sonu raporunda nakit/havale ayrımı, kasadan çıkan nakit, kalan hakediş, ürün türü ve silo girişleri; CSV'nin Excel uyumu (BOM, `;`, ondalık virgül).
 - **`tests/test_saha.py`** (8 test, yalnızca Java): Kapsam:

@@ -612,6 +612,7 @@ document.addEventListener('alpine:init', () => {
         this.modal = 'fis';
         if (this.ayarlar.otomatik_yazdir) this.$nextTick(() => setTimeout(() => this.fisYazdir(), 350));
         this.bildir(`${sonuc.fis_no} kesildi · ${this.kg(sonuc.net_kg)} · ${this.tl(sonuc.fiyat.birim_fiyat)}/kg kilitlendi`);
+        this.smsBildir(sonuc.sms);
         const uretici = k.uretici_id;
         this.kantar = bosKantar();
         this.kantar.uretici_id = uretici;
@@ -788,7 +789,18 @@ document.addEventListener('alpine:init', () => {
       const { baslangic: b, bitis: s } = this.dokumForm;
       return b && s ? `${t(b)} – ${t(s)}` : b ? `${t(b)} sonrası` : s ? `${t(s)} öncesi` : 'Tüm zamanlar';
     },
-    dokumToplam(alan) { return (this.dokum?.teslimatlar || []).reduce((t, x) => t + Number(x[alan] || 0), 0); },
+    dokumHareketToplam(alan) { return (this.dokum?.hareketler || []).reduce((t, h) => t + Number(h[alan] || 0), 0); },
+    dokumTurToplam(tur, alan) {
+      return (this.dokum?.hareketler || []).filter((h) => h.tur === tur).reduce((t, h) => t + Number(h[alan] || 0), 0);
+    },
+    dokumOdemeToplam(yontem) {
+      return (this.dokum?.odemeler || []).filter((o) => o.odeme_yontemi === yontem).reduce((t, o) => t + Number(o.tutar), 0);
+    },
+    /** Bakiye: (A) merkez üreticiye borçlu, (B) üretici merkeze borçlu. */
+    bakiyeYaz(v) {
+      const n = Number(v);
+      return n === 0 ? this.tl(0) : `${this.tl(Math.abs(n))} ${n > 0 ? '(A)' : '(B)'}`;
+    },
     /** Dönem sonundaki bakiye: son hareketin yürüyen bakiyesi (hareket yoksa devreden). */
     dokumBakiye() {
       const h = this.dokum?.hareketler || [];
@@ -833,6 +845,12 @@ document.addEventListener('alpine:init', () => {
         ? '@page { size: A5 portrait; margin: 10mm; }'
         : `@page { size: ${this.ayarlar.kagit === '58' ? '58mm' : '80mm'} auto; margin: 0; }`;
       window.print();
+    },
+    /** Müstahsile giden bilgilendirme SMS'ini bildirim olarak gösterir. */
+    smsBildir(s) {
+      if (!s) return;
+      if (s.durum === 'FAILED') this.bildir(`SMS gönderilemedi (${s.telefon})`, 'hata', [s.hata || 'Bilinmeyen hata']);
+      else this.bildir(`SMS Gönderildi${s.simulasyon ? ' (Simülasyon)' : ''}: ${s.telefon}`, 'basari', [s.mesaj]);
     },
     async fisGoster(id) {
       try { this.fis = await api(`/tartimlar/${id}`); this.modal = 'fis'; } catch (e) { this.hataGoster(e); }
@@ -888,6 +906,7 @@ document.addEventListener('alpine:init', () => {
         });
         this.modal = null;
         this.bildir(`${a.avans_no}: ${this.tl(a.tutar)} avans verildi. Yeni bakiye ${this.tl(a.uretici_guncel_bakiye)}`);
+        this.smsBildir(a.sms);
         await Promise.all([this.yukleEkstre(), this.yukleUreticiler(), this.yukleOzet()]);
       });
     },

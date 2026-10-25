@@ -12,6 +12,7 @@ import tr.edu.siirt.fistik.kural.Dogrulama;
 import tr.edu.siirt.fistik.kural.Hatalar.BulunamadiHatasi;
 import tr.edu.siirt.fistik.kural.Hatalar.IsKuraliHatasi;
 import tr.edu.siirt.fistik.kural.Kurallar;
+import tr.edu.siirt.fistik.sms.SmsServisi;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,11 +30,13 @@ public class TartimServisi {
     private final EntityManager em;
     private final Kurallar kurallar;
     private final FinansServisi finans;
+    private final SmsServisi sms;
 
-    public TartimServisi(EntityManager em, Kurallar kurallar, FinansServisi finans) {
+    public TartimServisi(EntityManager em, Kurallar kurallar, FinansServisi finans, SmsServisi sms) {
         this.em = em;
         this.kurallar = kurallar;
         this.finans = finans;
+        this.sms = sms;
     }
 
     static QualityInspection analiz(EntityManager em, Long tartimId) {
@@ -144,7 +147,7 @@ public class TartimServisi {
                 p != null ? new FiyatKilidi(p.getId(), t.getUnitPrice(), p.getValidFrom(), p.getApprovedAt(), t.getPricedAt()) : null,
                 s != null ? finans.hakedisYaniti(s) : null, stok, kurallar.ureticiBakiyesi(t.getProducerId()),
                 t.getProductType(), t.getProductType().getAd(), aracDarasi(t), t.getSackCount(), t.getSackTareKg(),
-                t.getGrossSource(), t.getTareSource());
+                t.getGrossSource(), t.getTareSource(), sms.son(SmsMessage.Trigger.DELIVERY, t.getId()));
     }
 
     private static BigDecimal aracDarasi(WeighTicket t) {

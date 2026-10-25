@@ -28,7 +28,7 @@ def pytest_addoption(parser):
 
 # Java modunda her testten önce boşaltılan tablolar (başlangıç verisi tabloları korunur: users, quality_grades,
 # deduction_types, silos). TRUNCATE satır trigger'larını tetiklemez.
-ISLEM_TABLOLARI = ("shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, producer_ledger_entries, "
+ISLEM_TABLOLARI = ("sms_messages, shipments, customers, payment_allocations, payments, advance_offsets, settlement_deductions, producer_ledger_entries, "
                    "stock_movements, lots, settlements, advances, quality_inspections, weigh_tickets, daily_prices, "
                    "producer_bank_accounts, producers, document_sequences")
 
