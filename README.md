@@ -198,6 +198,8 @@ Sistem önce Python (FastAPI) ile prototiplendi, ardından aynı mimariyle Java'
 
 Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, ReDoc) `static/vendor/` klasöründedir; Swagger UI jar içinde gelir. Sistem **hiçbir dış adrese istek atmaz**.
 
+**Tema.** Renkler `app/static/css/app.css` başındaki CSS değişkenlerinde tanımlıdır: birincil derin fıstık ağacı yeşili `#1E4620` (hover `#2D5A27`), vurgu olgun kabuk `#C05621` / kehribar `#D97706`, zemin `#F7F8F6`, kartlar beyaz (`#E2E8F0` kenar, yumuşak gölge), başlıklar `#1A202C`, gövde metni `#4A5568`, tablo başlıkları `#EDF2F7`. Tailwind'in `emerald`, `teal`, `lime` ve `stone` ölçekleri de bu palete yeniden tanımlandığından şablonlardaki hazır sınıflar aynı temaya uyar. Aktif sekme koyu yeşil zemin ve altta kehribar çizgiyle gösterilir.
+
 **Görseller ve çevrimdışı önbellek.** Giriş ekranında dalında olgunlaşmış kırmızı kabuklu fıstık, panel şeridinde kavlak (çatlak) fıstık fotoğrafı; ürün türü seçiminde, fiyat listesinde, çatlak primi ve silo kartlarında yaş / kuru-kavlak minyatürleri vardır. Fotoğraflar WebP'dir (4 dosya, toplam ~78 KB) ve koyu yeşil perde/maske ile verilerin okunurluğunu bozmaz. `/sw.js` service worker'ı panel kabuğunu, kütüphaneleri ve bu görselleri önbelleğe alır (API yanıtlarını almaz); önbellek adı sürüme bağlıdır. Fotoğraf kaynakları ve lisansları: [`app/static/img/foto/KAYNAKLAR.md`](app/static/img/foto/KAYNAKLAR.md).
 
 ---

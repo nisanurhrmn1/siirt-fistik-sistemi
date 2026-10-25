@@ -11,24 +11,33 @@
     tailwind.config = {
       theme: {
         extend: {
+          // Kurumsal tema: derin fıstık ağacı yeşili (#1E4620) + olgun kabuk/kehribar vurgu + soğuk gri metin.
+          // Hazır ölçekler (emerald, teal, lime, stone) bu palete yeniden tanımlanır; şablonlardaki sınıflar değişmeden uyar.
           colors: {
-            // Siirt fıstığı yeşili (#558b2f) üzerine kurulu ölçek
-            fistik: { 50: '#f3f8ec', 100: '#e3efd3', 200: '#c8e0a8', 300: '#a6cb76', 400: '#85b24f',
-                      500: '#6a9a3a', 600: '#558b2f', 700: '#426d25', 800: '#365620', 900: '#2e481d' },
-            kabuk: { 50: '#fbf7f1', 100: '#f6ead6', 200: '#e8d5b7', 500: '#b98b52', 700: '#7d5a32' },
+            emerald: { 50: '#f1f5ef', 100: '#e1eadc', 200: '#c3d5ba', 300: '#9dba90', 400: '#6f9862',
+                       500: '#4a7a3f', 600: '#2d5a27', 700: '#1e4620', 800: '#173a1a', 900: '#0f291e', 950: '#0a1c14' },
+            fistik:  { 50: '#f3f6ee', 100: '#e4ead8', 200: '#cad6b4', 300: '#a8bb85', 400: '#869e5c',
+                       500: '#6a8443', 600: '#536a34', 700: '#41532a', 800: '#344224', 900: '#2b371f' },
+            teal:    { 50: '#eff5f3', 100: '#dbe9e5', 200: '#b8d4cc', 300: '#8db9ad', 400: '#5f978a',
+                       500: '#41796d', 600: '#326157', 700: '#294f47', 800: '#20403a', 900: '#18302c', 950: '#0e1e1b' },
+            lime:    { 50: '#f6f7ec', 100: '#e9edd2', 200: '#d5dcaa', 300: '#b9c477', 400: '#9daa4e',
+                       500: '#7f8c34', 600: '#646f28', 700: '#4d5622', 800: '#3f461f', 900: '#363c1d', 950: '#1c200c' },
+            stone:   { 50: '#f7f8f6', 100: '#edf2f7', 200: '#e2e8f0', 300: '#cbd5e0', 400: '#a0aec0',
+                       500: '#718096', 600: '#4a5568', 700: '#2d3748', 800: '#1a202c', 900: '#1a202c', 950: '#11151d' },
+            kabuk:   { 50: '#fdf6f0', 100: '#fae8d8', 200: '#f2cba8', 500: '#c05621', 700: '#9c4221' },
           },
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'] },
         },
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.11.0">
+  <link rel="stylesheet" href="/static/css/app.css?v=2.12.0">
   <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
   <style id="sayfa-boyutu" media="print"></style>
-  <script defer src="/static/js/app.js?v=2.11.0"></script>
+  <script defer src="/static/js/app.js?v=2.12.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
+<body class="min-h-screen text-stone-600 antialiased"
       x-data="panel" x-cloak @keydown.window="kisayol($event)">
 
   <!-- ─── Üst bar (cam efekti) ─── -->
@@ -96,7 +105,7 @@
     <!-- ─── Günlük rapor kartları ─── -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
   <!-- Bugünkü alım -->
-  <div class="kart rounded-2xl bg-white/70 backdrop-blur border border-emerald-100/60 shadow-sm hover:shadow-lg p-4 sm:p-5">
+  <div class="kart p-4 sm:p-5">
     <div class="flex items-start justify-between gap-3">
       <p class="kart-etiket">Bugünkü alım</p>
       <span class="ikon-kutu bg-gradient-to-br from-emerald-500 to-fistik-600 text-emerald-600">
@@ -108,7 +117,7 @@
   </div>
 
   <!-- Brüt alım tutarı -->
-  <div class="kart rounded-2xl bg-white/70 backdrop-blur border border-emerald-100/60 shadow-sm hover:shadow-lg p-4 sm:p-5">
+  <div class="kart p-4 sm:p-5">
     <div class="flex items-start justify-between gap-3">
       <p class="kart-etiket">Brüt alım tutarı</p>
       <span class="ikon-kutu bg-gradient-to-br from-amber-400 to-amber-600 text-amber-500">
@@ -120,7 +129,7 @@
   </div>
 
   <!-- Kasadan çıkan ödeme -->
-  <div class="kart rounded-2xl bg-white/70 backdrop-blur border border-emerald-100/60 shadow-sm hover:shadow-lg p-4 sm:p-5">
+  <div class="kart p-4 sm:p-5">
     <div class="flex items-start justify-between gap-3">
       <p class="kart-etiket">Kasadan çıkan ödeme</p>
       <span class="ikon-kutu bg-gradient-to-br from-teal-500 to-emerald-700 text-teal-600">
@@ -132,7 +141,7 @@
   </div>
 
   <!-- Ortalama randıman -->
-  <div class="kart rounded-2xl bg-white/70 backdrop-blur border border-emerald-100/60 shadow-sm hover:shadow-lg p-4 sm:p-5">
+  <div class="kart p-4 sm:p-5">
     <div class="flex items-start justify-between gap-3">
       <p class="kart-etiket">Ortalama randıman</p>
       <span class="ikon-kutu bg-gradient-to-br from-lime-500 to-fistik-700 text-lime-600">
@@ -167,7 +176,7 @@
 
   <!-- Klavye akışı: Plaka → Üretici → Ürün türü → Brüt → Dara → Çuval → Kalite → Kaydet.
        Enter bir sonraki alana geçer; Ctrl+Enter / F9 fişi keser; F2 / F3 kantardan brüt / dara okur. -->
-  <form x-ref="kantarForm" class="lg:col-span-3 panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg space-y-6"
+  <form x-ref="kantarForm" class="lg:col-span-3 panel-kutu rounded-2xl space-y-6"
         @submit.prevent="fisKesKisayol()" @keydown="kantarTus($event)">
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <h2 class="baslik flex items-center gap-2">
@@ -411,7 +420,7 @@
 
   <!-- Canlı hesaplama -->
   <aside class="lg:col-span-2">
-    <div class="panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg lg:sticky lg:top-24 space-y-4 relative overflow-hidden"
+    <div class="panel-kutu rounded-2xl lg:sticky lg:top-24 space-y-4 relative overflow-hidden"
          x-effect="onizleme; if (onizleme) parlat($el)">
       <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-fistik-500 to-amber-400"></div>
       <div class="flex items-center justify-between">
@@ -1221,7 +1230,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.11.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.12.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -1930,7 +1939,7 @@
   </div>
 </div>
   <!-- ─── Giriş ekranı (yalnızca kimlik doğrulamalı sunucuda: Java sürümü) ─── -->
-<div x-show="girisGerekli" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50">
+<div x-show="girisGerekli" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto giris-zemin">
   <div class="min-h-full flex items-center justify-center p-4 sm:p-8">
     <div class="w-full max-w-4xl grid lg:grid-cols-5 gap-6 items-stretch">
 

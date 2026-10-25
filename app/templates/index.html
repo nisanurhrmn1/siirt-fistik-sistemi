@@ -11,11 +11,20 @@
     tailwind.config = {
       theme: {
         extend: {
+          // Kurumsal tema: derin fıstık ağacı yeşili (#1E4620) + olgun kabuk/kehribar vurgu + soğuk gri metin.
+          // Hazır ölçekler (emerald, teal, lime, stone) bu palete yeniden tanımlanır; şablonlardaki sınıflar değişmeden uyar.
           colors: {
-            // Siirt fıstığı yeşili (#558b2f) üzerine kurulu ölçek
-            fistik: { 50: '#f3f8ec', 100: '#e3efd3', 200: '#c8e0a8', 300: '#a6cb76', 400: '#85b24f',
-                      500: '#6a9a3a', 600: '#558b2f', 700: '#426d25', 800: '#365620', 900: '#2e481d' },
-            kabuk: { 50: '#fbf7f1', 100: '#f6ead6', 200: '#e8d5b7', 500: '#b98b52', 700: '#7d5a32' },
+            emerald: { 50: '#f1f5ef', 100: '#e1eadc', 200: '#c3d5ba', 300: '#9dba90', 400: '#6f9862',
+                       500: '#4a7a3f', 600: '#2d5a27', 700: '#1e4620', 800: '#173a1a', 900: '#0f291e', 950: '#0a1c14' },
+            fistik:  { 50: '#f3f6ee', 100: '#e4ead8', 200: '#cad6b4', 300: '#a8bb85', 400: '#869e5c',
+                       500: '#6a8443', 600: '#536a34', 700: '#41532a', 800: '#344224', 900: '#2b371f' },
+            teal:    { 50: '#eff5f3', 100: '#dbe9e5', 200: '#b8d4cc', 300: '#8db9ad', 400: '#5f978a',
+                       500: '#41796d', 600: '#326157', 700: '#294f47', 800: '#20403a', 900: '#18302c', 950: '#0e1e1b' },
+            lime:    { 50: '#f6f7ec', 100: '#e9edd2', 200: '#d5dcaa', 300: '#b9c477', 400: '#9daa4e',
+                       500: '#7f8c34', 600: '#646f28', 700: '#4d5622', 800: '#3f461f', 900: '#363c1d', 950: '#1c200c' },
+            stone:   { 50: '#f7f8f6', 100: '#edf2f7', 200: '#e2e8f0', 300: '#cbd5e0', 400: '#a0aec0',
+                       500: '#718096', 600: '#4a5568', 700: '#2d3748', 800: '#1a202c', 900: '#1a202c', 950: '#11151d' },
+            kabuk:   { 50: '#fdf6f0', 100: '#fae8d8', 200: '#f2cba8', 500: '#c05621', 700: '#9c4221' },
           },
           fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'] },
         },
@@ -28,7 +37,7 @@
   <script defer src="{{ url_for('static', path='js/app.js') }}?v={{ surum }}"></script>
   <script defer src="{{ url_for('static', path='vendor/alpinejs-3.14.1.min.js') }}"></script>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
+<body class="min-h-screen text-stone-600 antialiased"
       x-data="panel" x-cloak @keydown.window="kisayol($event)">
 
   <!-- ─── Üst bar (cam efekti) ─── -->

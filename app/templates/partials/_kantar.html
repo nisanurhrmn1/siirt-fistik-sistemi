@@ -2,7 +2,7 @@
 
   <!-- Klavye akışı: Plaka → Üretici → Ürün türü → Brüt → Dara → Çuval → Kalite → Kaydet.
        Enter bir sonraki alana geçer; Ctrl+Enter / F9 fişi keser; F2 / F3 kantardan brüt / dara okur. -->
-  <form x-ref="kantarForm" class="lg:col-span-3 panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg space-y-6"
+  <form x-ref="kantarForm" class="lg:col-span-3 panel-kutu rounded-2xl space-y-6"
         @submit.prevent="fisKesKisayol()" @keydown="kantarTus($event)">
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <h2 class="baslik flex items-center gap-2">
@@ -246,7 +246,7 @@
 
   <!-- Canlı hesaplama -->
   <aside class="lg:col-span-2">
-    <div class="panel-kutu rounded-2xl backdrop-blur border border-emerald-100/60 hover:shadow-lg lg:sticky lg:top-24 space-y-4 relative overflow-hidden"
+    <div class="panel-kutu rounded-2xl lg:sticky lg:top-24 space-y-4 relative overflow-hidden"
          x-effect="onizleme; if (onizleme) parlat($el)">
       <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-fistik-500 to-amber-400"></div>
       <div class="flex items-center justify-between">
