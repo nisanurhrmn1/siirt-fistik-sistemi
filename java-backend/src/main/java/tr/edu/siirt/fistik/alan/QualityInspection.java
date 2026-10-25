@@ -27,6 +27,13 @@ public class QualityInspection {
     @Column(name = "sample_weight_g")
     private BigDecimal sampleWeightG;
 
+    /** Numune analizinde girilen çatlak gram (varsa oran bundan hesaplanmıştır). */
+    @Column(name = "split_weight_g")
+    private BigDecimal splitWeightG;
+
+    @Column(name = "empty_weight_g")
+    private BigDecimal emptyWeightG;
+
     @Column(name = "split_ratio")
     private BigDecimal splitRatio;
 

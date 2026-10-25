@@ -22,10 +22,10 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.6.0">
+  <link rel="stylesheet" href="/static/css/app.css?v=2.7.0">
   <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
   <style id="sayfa-boyutu" media="print"></style>
-  <script defer src="/static/js/app.js?v=2.6.0"></script>
+  <script defer src="/static/js/app.js?v=2.7.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
@@ -101,7 +101,7 @@
       </span>
     </div>
     <p class="kart-deger" x-text="ozet ? kg(anim.alim) : '—'"></p>
-    <p class="kart-alt" x-text="ozet ? `${ozet.teslimat_sayisi} teslimat · ${ozet.uretici_sayisi} üretici` : ''"></p>
+    <p class="kart-alt" x-text="ozet ? `${ozet.teslimat_sayisi} teslimat · ${ozet.uretici_sayisi} üretici` + (ozet.emanet_teslimat_sayisi ? ` · +${kg(ozet.emanet_kg)} emanet` : '') : ''"></p>
   </div>
 
   <!-- Brüt alım tutarı -->
@@ -260,6 +260,24 @@
       </div>
     </fieldset>
 
+    <!-- Teslim şekli: hemen satış veya emanete bırakma -->
+    <fieldset x-show="sahaModu">
+      <legend class="etiket">Teslim şekli</legend>
+      <div class="flex gap-2">
+        <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400" :class="!kantar.emanet && 'secim-aktif'">
+          <input type="radio" name="teslim_sekli" class="sr-only" :value="false" @change="kantar.emanet = false" :checked="!kantar.emanet">
+          <span>Hemen satış</span>
+        </label>
+        <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-amber-400" :class="kantar.emanet && 'secim-aktif'">
+          <input type="radio" name="teslim_sekli" class="sr-only" :value="true" @change="kantar.emanet = true" :checked="kantar.emanet">
+          <span>Emanete bırak</span>
+        </label>
+      </div>
+      <p x-show="kantar.emanet" class="mt-2 text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2">
+        Fıstık siloya girer ve üreticinin emanet stoğuna yazılır; fiyat ve hakediş, üretici satmak istediği gün o günün fiyatıyla oluşur.
+      </p>
+    </fieldset>
+
     <!-- Ağırlık -->
     <div>
       <h3 class="alt-baslik">Ağırlık</h3>
@@ -304,7 +322,44 @@
 
     <!-- Kalite -->
     <div>
-      <h3 class="alt-baslik">Kalite analizi</h3>
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="alt-baslik">Kalite analizi</h3>
+        <button type="button" tabindex="-1" x-show="sahaModu" class="text-xs font-semibold text-emerald-700 hover:underline"
+                @click="kantar.numune.acik = !kantar.numune.acik"
+                x-text="kantar.numune.acik ? '− Numune analizini kapat' : '＋ Randıman analizi (numuneden)'"></button>
+      </div>
+      <!-- Numune analizi: gramlardan çatlak ve boş oranı hesaplanır -->
+      <div x-show="kantar.numune.acik" x-transition class="mini-kart p-4 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+        <div>
+          <label class="etiket" for="k_numune">Numune</label>
+          <div class="relative">
+            <input id="k_numune" type="number" step="0.01" min="1" inputmode="decimal" x-model="kantar.numune.numune" class="girdi pr-8">
+            <span class="birim">g</span>
+          </div>
+        </div>
+        <div>
+          <label class="etiket" for="k_catlak_g">Çatlak</label>
+          <div class="relative">
+            <input id="k_catlak_g" type="number" step="0.01" min="0" inputmode="decimal" x-model="kantar.numune.catlak"
+                   class="girdi pr-8" :class="hata('kalite.catlak_gram') && 'girdi-hata'">
+            <span class="birim">g</span>
+          </div>
+          <p class="hata-yazi" x-text="hata('kalite.catlak_gram')"></p>
+        </div>
+        <div>
+          <label class="etiket" for="k_bos_g">Kör / boş</label>
+          <div class="relative">
+            <input id="k_bos_g" type="number" step="0.01" min="0" inputmode="decimal" x-model="kantar.numune.bos"
+                   class="girdi pr-8" :class="hata('kalite.bos_gram') && 'girdi-hata'">
+            <span class="birim">g</span>
+          </div>
+          <p class="hata-yazi" x-text="hata('kalite.bos_gram')"></p>
+        </div>
+        <div class="text-sm">
+          <p class="text-stone-500">Çatlak <b class="text-stone-800 tabular-nums" x-text="yuzde(kantar.kalite.catlak_orani || null)"></b></p>
+          <p class="text-stone-500">Boş <b class="text-stone-800 tabular-nums" x-text="yuzde(kantar.kalite.bos_orani || null)"></b></p>
+        </div>
+      </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <template x-for="a in kaliteAlanlari" :key="a.alan">
           <div>
@@ -312,6 +367,7 @@
             <div class="relative">
               <input type="number" step="0.01" :min="0" :max="a.birim === '%' ? 100 : null" inputmode="decimal"
                      x-model="kantar.kalite[a.alan]" class="girdi pr-9"
+                     :readonly="kantar.numune.acik && ['catlak_orani', 'bos_orani', 'numune_gram'].includes(a.alan)"
                      :class="hata('kalite.' + a.alan) && 'girdi-hata'">
               <span class="birim" x-text="a.birim"></span>
             </div>
@@ -340,7 +396,7 @@
       <div class="flex items-end">
         <button type="submit" class="btn-birincil w-full h-11" :title="yetkiYok('tartim')"
                 :class="!fisKesilebilir && 'opacity-50'" :aria-disabled="!fisKesilebilir">
-          <span x-show="!kaydediliyor">Kaydet ve Fiş Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
+          <span x-show="!kaydediliyor"><span x-text="kantar.emanet ? 'Emanete Al ve Fiş Bas' : 'Kaydet ve Fiş Bas'"></span> <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
           <span x-show="kaydediliyor">Kaydediliyor…</span>
         </button>
       </div>
@@ -370,6 +426,8 @@
 
       <template x-if="onizleme">
         <div class="space-y-4">
+          <p x-show="kantar.emanet" class="text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2">
+            Emanet: bu teslimatta hakediş oluşmaz. Aşağıdaki tutarlar, bugün satılsaydı oluşacak tahmindir.</p>
           <div class="flex items-center gap-3">
             <span class="sinif-rozet" :class="kaliteRenk(onizleme.kalite_kodu).rozet" x-text="onizleme.kalite_kodu"></span>
             <div>
@@ -383,6 +441,14 @@
           </div>
 
           <dl class="text-sm divide-y divide-stone-100 border-y border-stone-100">
+            <template x-if="Number(onizleme.catlak_primi) !== 0">
+              <div>
+                <div class="satir text-stone-500"><dt>Baz fiyat</dt><dd class="tabular-nums" x-text="tl(onizleme.baz_fiyat) + ' /kg'"></dd></div>
+                <div class="satir" :class="Number(onizleme.catlak_primi) > 0 ? 'text-emerald-700' : 'text-rose-700'">
+                  <dt x-text="Number(onizleme.catlak_primi) > 0 ? 'Çatlak primi' : 'Çatlak iskontosu'"></dt>
+                  <dd class="tabular-nums" x-text="(Number(onizleme.catlak_primi) > 0 ? '+ ' : '− ') + tl(Math.abs(onizleme.catlak_primi)) + ' /kg'"></dd></div>
+              </div>
+            </template>
             <div class="satir"><dt>Brüt tutar</dt><dd class="tabular-nums" x-text="tl(onizleme.brut_tutar)"></dd></div>
             <template x-for="k in onizleme.kesintiler" :key="k.kod">
               <div class="satir text-stone-500"><dt x-text="k.ad"></dt><dd class="tabular-nums" x-text="'− ' + tl(k.tutar)"></dd></div>
@@ -510,7 +576,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6">
             <div class="mini-kart">
               <p class="kart-etiket">Cari bakiye</p>
               <p class="text-lg font-semibold tabular-nums" :class="bakiyeRenk(ekstre.ozet.bakiye)" x-text="tl(ekstre.ozet.bakiye)"></p>
@@ -523,6 +589,11 @@
             <div class="mini-kart">
               <p class="kart-etiket">Ödenebilir</p>
               <p class="text-lg font-semibold tabular-nums text-fistik-700" x-text="tl(ekstre.ozet.odenebilir_tutar)"></p>
+            </div>
+            <div class="mini-kart" :class="Number(ekstre.ozet.emanet_stok_kg) > 0 && 'border-amber-200 bg-amber-50/60'">
+              <p class="kart-etiket">Emanet stoğu</p>
+              <p class="text-lg font-semibold tabular-nums text-amber-700" x-text="kg(ekstre.ozet.emanet_stok_kg)"></p>
+              <p class="text-xs text-stone-500">satışa çevrilmemiş</p>
             </div>
             <div class="mini-kart">
               <p class="kart-etiket">Toplam teslimat</p>
@@ -545,7 +616,8 @@
                 <template x-for="t in [...ekstre.teslimatlar].reverse()" :key="t.tartim_id">
                   <tr>
                     <td><p class="font-medium" x-text="t.fis_no"></p><p class="text-xs text-stone-500 tabular-nums" x-text="tarihYaz(t.tarih)"></p></td>
-                    <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span></td>
+                    <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span>
+                      <span x-show="t.emanet" class="durum bg-amber-100 text-amber-800 ml-1">Emanet</span></td>
                     <td class="text-right tabular-nums" x-text="kg(t.net_kg)"></td>
                     <td class="text-right tabular-nums" x-text="tl(t.brut_tutar)"></td>
                     <td class="text-right tabular-nums">
@@ -554,9 +626,12 @@
                     </td>
                     <td class="text-right">
                       <p class="tabular-nums font-medium" x-text="tl(t.kalan)"></p>
-                      <span class="durum" :class="durumRenk(t.hakedis_durumu)" x-text="durumAd(t.hakedis_durumu)"></span>
+                      <span class="durum" :class="t.emanet ? 'bg-amber-100 text-amber-800' : durumRenk(t.hakedis_durumu)"
+                            x-text="t.emanet ? 'Emanette' : durumAd(t.hakedis_durumu)"></span>
                     </td>
                     <td class="text-right">
+                      <button class="btn-kucuk bg-gradient-to-br from-amber-500 to-amber-600" x-show="t.emanet" @click="emanetCevirAc(t)"
+                              :disabled="!yetkili('emanet_cevir')" :title="yetkiYok('emanet_cevir')">Satışa Çevir</button>
                       <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)" :disabled="!yetkili('odeme_yap')" :title="yetkiYok('odeme_yap')">Ödeme Yap</button>
                     </td>
                   </tr>
@@ -601,7 +676,8 @@
       <div class="grid lg:grid-cols-5 gap-6">
 
   <!-- Fiyat paneli -->
-  <form class="lg:col-span-2 panel-kutu space-y-4" @submit.prevent="fiyatYayinla()">
+  <div class="lg:col-span-2 space-y-6">
+  <form class="panel-kutu space-y-4" @submit.prevent="fiyatYayinla()">
     <div>
       <h2 class="baslik">Günlük Taban Fiyat</h2>
       <p class="text-xs text-stone-500 mt-1">Yeni fiyat yalnızca bundan sonraki tartımlara uygulanır; kesilmiş fişlerin fiyatı değişmez.</p>
@@ -637,6 +713,37 @@
     <p x-show="!yetkili('fiyat_gir')" class="text-xs text-stone-500 text-center" x-text="yetkiYok('fiyat_gir')"></p>
   </form>
 
+  <!-- Çatlak primi / iskontosu -->
+  <div class="panel-kutu space-y-4" x-show="kimlikDogrulama">
+    <div>
+      <h2 class="baslik">Çatlak Primi / İskontosu</h2>
+      <p class="text-xs text-stone-500 mt-1">Birim fiyat = baz fiyat + (çatlak % − baz %) × puan başı ₺. Yalnızca bundan sonraki tartımlara uygulanır.</p>
+    </div>
+    <template x-for="k in catlakPrimleri" :key="k.urun_turu">
+      <form class="mini-kart p-3 space-y-3" @submit.prevent="catlakPrimiKaydet(k)">
+        <div class="flex items-center justify-between">
+          <p class="font-medium text-sm" x-text="k.urun_turu_adi"></p>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" x-model="k.aktif" class="h-4 w-4 accent-emerald-600" :disabled="!yetkili('fiyat_gir')"> Uygula
+          </label>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <div><label class="etiket">Baz çatlak</label>
+            <div class="relative"><input type="number" step="0.01" min="0" max="100" x-model="k.baz_catlak_orani" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">%</span></div></div>
+          <div><label class="etiket">Puan başı</label>
+            <div class="relative"><input type="number" step="0.01" min="0" x-model="k.puan_basi_tl" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
+          <div><label class="etiket">Azami ±</label>
+            <div class="relative"><input type="number" step="0.01" min="0" x-model="k.azami_fark_tl" placeholder="sınırsız" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs text-stone-500" x-text="catlakOrnek(k)"></p>
+          <button type="submit" class="btn-kucuk" x-show="yetkili('fiyat_gir')">Kaydet</button>
+        </div>
+      </form>
+    </template>
+  </div>
+  </div>
+
   <!-- Depo -->
   <div class="lg:col-span-3 space-y-6">
     <div class="panel-kutu">
@@ -659,6 +766,7 @@
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.adanmis_kalite).rozet" x-text="s.adanmis_kalite || 'Genel'"></span>
               <p class="tabular-nums pt-1" x-text="kg(s.stok_kg)"></p>
               <p class="text-xs text-stone-500 tabular-nums" x-text="'/ ' + kg(s.kapasite_kg)"></p>
+              <p class="text-xs text-amber-700 tabular-nums" x-show="Number(s.emanet_kg) > 0" x-text="'emanet ' + kg(s.emanet_kg)"></p>
             </div>
           </div>
         </template>
@@ -816,6 +924,7 @@
     </div>
 
     <p x-show="sevkUyari" x-text="sevkUyari" class="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2"></p>
+    <p x-show="!sevkUyari && sevkEmanetUyari" x-text="sevkEmanetUyari" class="text-sm rounded-lg bg-orange-50 text-orange-800 px-3 py-2"></p>
     <button type="submit" class="btn-birincil w-full h-11" :class="(sevkUyari || sevkKaydediliyor) && 'opacity-50'"
             :aria-disabled="!!sevkUyari || sevkKaydediliyor">
       <span x-show="!sevkKaydediliyor">Sevkiyatı Onayla ve İrsaliye Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
@@ -837,6 +946,8 @@
             <template x-for="k in sevkSilo.kaliteler" :key="k.kalite_kodu">
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span></template></dd></div>
           <div class="satir py-1.5"><dt>Mevcut stok</dt><dd class="tabular-nums" x-text="kg(sevkSilo.stok_kg)"></dd></div>
+          <div class="satir py-1.5 text-amber-700" x-show="Number(sevkSilo.emanet_kg) > 0"><dt>Bunun emaneti</dt>
+            <dd class="tabular-nums" x-text="kg(sevkSilo.emanet_kg)"></dd></div>
           <div class="satir py-1.5"><dt>Çıkış</dt><dd class="tabular-nums" x-text="sevkNetKg !== null ? '− ' + kg(sevkNetKg) : '—'"></dd></div>
           <div class="satir py-1.5 font-semibold"><dt>Çıkış sonrası</dt>
             <dd class="tabular-nums" :class="sevkKalan < 0 && 'text-rose-700'" x-text="sevkKalan !== null ? kg(sevkKalan) : '—'"></dd></div>
@@ -993,7 +1104,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.6.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.7.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -1300,6 +1411,7 @@
               <div><dt>Nakit ödemeler</dt><dd x-text="'− ' + tl(dokumOdemeToplam('CASH'))"></dd></div>
               <div><dt>Havale / EFT ödemeler</dt><dd x-text="'− ' + tl(dokumOdemeToplam('BANK_TRANSFER'))"></dd></div>
               <div x-show="dokumOdemeToplam('CHEQUE') > 0"><dt>Çek ödemeler</dt><dd x-text="'− ' + tl(dokumOdemeToplam('CHEQUE'))"></dd></div>
+              <div x-show="Number(dokum.ozet.emanet_stok_kg) > 0"><dt>Emanet stoğu (satışa çevrilmemiş)</dt><dd x-text="kg(dokum.ozet.emanet_stok_kg)"></dd></div>
             </dl>
             <div class="dokum-bakiye" :class="Number(dokumBakiye()) < 0 ? 'dokum-borclu' : ''">
               <span>Kalan net bakiye</span>
@@ -1361,7 +1473,7 @@
           <div class="fis-cizgi"></div>
           <p class="fis-not"><b>Lotlar (izlenebilirlik)</b></p>
           <template x-for="l in irsaliye.lotlar" :key="l.lot_no">
-            <div class="fis-satir fis-not"><span x-text="`${l.lot_no} · ${l.uretici}`"></span><span x-text="kg(l.kg)"></span></div>
+            <div class="fis-satir fis-not"><span x-text="`${l.lot_no} · ${l.uretici}${l.emanet ? ' (emanet)' : ''}`"></span><span x-text="kg(l.kg)"></span></div>
           </template>
           <p class="fis-not" x-text="`Silo kalan stok: ${kg(irsaliye.silo_kalan_kg)}`"></p>
           <div class="fis-imzalar">
@@ -1383,6 +1495,44 @@
     </div>
   </div>
 
+  <!-- ─── Emaneti satışa çevir ─── -->
+  <div x-show="modal === 'emanet'" class="modal-kutu max-w-md no-print">
+    <div class="modal-baslik"><h3>Emaneti Satışa Çevir</h3><button type="button" @click="modal = null">✕</button></div>
+    <template x-if="emanetForm.tartim">
+      <div class="p-6 space-y-4 text-sm">
+        <dl class="rounded-lg bg-stone-50 p-3 space-y-1">
+          <div class="satir"><dt>Fiş</dt><dd class="font-mono" x-text="emanetForm.tartim.fis_no"></dd></div>
+          <div class="satir"><dt>Teslim tarihi</dt><dd x-text="tarihYaz(emanetForm.tartim.tarih)"></dd></div>
+          <div class="satir"><dt>Miktar / sınıf</dt><dd x-text="`${kg(emanetForm.tartim.net_kg)} · ${emanetForm.tartim.urun_turu_adi} ${emanetForm.tartim.kalite_kodu}`"></dd></div>
+        </dl>
+        <p x-show="!emanetForm.onizleme" class="text-stone-500">Bugünkü fiyat hesaplanıyor…</p>
+        <template x-if="emanetForm.onizleme">
+          <div class="space-y-1">
+            <p class="font-medium mb-1">Bugünkü fiyatla:</p>
+            <div class="satir text-stone-500" x-show="Number(emanetForm.onizleme.catlak_primi) !== 0"><dt>Baz fiyat</dt>
+              <dd class="tabular-nums" x-text="tl(emanetForm.onizleme.baz_fiyat) + ' /kg'"></dd></div>
+            <div class="satir" x-show="Number(emanetForm.onizleme.catlak_primi) !== 0"
+                 :class="Number(emanetForm.onizleme.catlak_primi) > 0 ? 'text-emerald-700' : 'text-rose-700'"><dt>Çatlak primi / iskontosu</dt>
+              <dd class="tabular-nums" x-text="tl(emanetForm.onizleme.catlak_primi) + ' /kg'"></dd></div>
+            <div class="satir font-medium"><dt>Birim fiyat</dt><dd class="tabular-nums" x-text="emanetForm.onizleme.birim_fiyat ? tl(emanetForm.onizleme.birim_fiyat) + ' /kg' : 'Fiyat yok'"></dd></div>
+            <div class="satir"><dt>Brüt tutar</dt><dd class="tabular-nums" x-text="tl(emanetForm.onizleme.brut_tutar)"></dd></div>
+            <div class="satir text-stone-500"><dt>Kesintiler</dt><dd class="tabular-nums" x-text="'− ' + tl(emanetForm.onizleme.kesinti_toplami)"></dd></div>
+            <div class="satir text-amber-700" x-show="Number(emanetForm.onizleme.avans_mahsubu) > 0"><dt>Avans mahsubu</dt>
+              <dd class="tabular-nums" x-text="'− ' + tl(emanetForm.onizleme.avans_mahsubu)"></dd></div>
+            <div class="satir text-base font-bold pt-2 border-t border-stone-200"><dt>Net hakediş</dt>
+              <dd class="tabular-nums" x-text="tl(emanetForm.onizleme.tahmini_net_odenecek)"></dd></div>
+            <template x-for="u in emanetForm.onizleme.uyarilar"><p class="text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2 mt-2" x-text="u"></p></template>
+          </div>
+        </template>
+        <p class="text-xs text-stone-500">Onayladığınızda fiyat bu anda kilitlenir, hakediş oluşur ve müstahsile SMS gider. Geri alınamaz.</p>
+      </div>
+    </template>
+    <div class="modal-alt">
+      <button type="button" class="btn-ghost" @click="modal = null">Vazgeç</button>
+      <button type="button" class="btn-birincil" :disabled="islemde || !emanetForm.onizleme?.birim_fiyat" @click="emanetCevir()">Satışa Çevir</button>
+    </div>
+  </div>
+
   <!-- ─── Kantar fişi: 80 / 58 mm termal rulo için (ekranda da aynı görünüm) ─── -->
   <div x-show="modal === 'fis'" class="modal-kutu yazdir-kutu max-w-md">
     <div class="modal-baslik no-print"><h3>Kantar Fişi</h3><button type="button" @click="modal = null">✕</button></div>
@@ -1399,7 +1549,7 @@
         <div class="print-area fis-termal" :class="{ 'fis-58': ayarlar.kagit === '58', 'fis-a5': ayarlar.kagit === 'A5' }">
           <div class="fis-orta">
             <p class="fis-buyuk">SİİRT FISTIĞI ALIM MERKEZİ</p>
-            <p>Kantar ve Müstahsil Fişi</p>
+            <p x-text="fis.emanet && !fis.hakedis ? 'KANTAR VE EMANET FİŞİ' : 'Kantar ve Müstahsil Fişi'"></p>
           </div>
           <div class="fis-cizgi"></div>
           <div class="fis-satir"><span>Fiş No</span><b x-text="fis.fis_no"></b></div>
@@ -1410,6 +1560,7 @@
           <div class="fis-satir"><span>Plaka</span><span x-text="fis.plaka"></span></div>
           <div class="fis-satir" x-show="fis.sofor_adi"><span>Şoför</span><span x-text="fis.sofor_adi"></span></div>
           <div class="fis-satir" x-show="fis.urun_turu_adi"><span>Ürün</span><span x-text="fis.urun_turu_adi"></span></div>
+          <div class="fis-satir" x-show="fis.emanet"><span>Teslim şekli</span><b x-text="fis.hakedis ? 'Emanet → satış' : 'EMANET'"></b></div>
           <div class="fis-cizgi"></div>
           <div class="fis-satir"><span>Brüt</span>
             <span><span x-text="kg(fis.brut_kg)"></span><small x-show="fis.brut_kaynagi" x-text="fis.brut_kaynagi === 'SCALE' ? ' (K)' : ' (E)'"></small></span></div>
@@ -1425,10 +1576,20 @@
             <div>
               <div class="fis-satir"><span>Kalite</span><b x-text="`${fis.kalite.sinif_kodu} · ${fis.kalite.sinif_adi}${fis.kalite.manuel_atama ? ' (M)' : ''}`"></b></div>
               <p class="fis-not" x-text="`Çatlak ${yuzde(fis.kalite.catlak_orani)} Randıman ${yuzde(fis.kalite.randiman)} Nem ${yuzde(fis.kalite.nem_orani)} Boş ${yuzde(fis.kalite.bos_orani)} Çürük ${yuzde(fis.kalite.curuk_orani)}`"></p>
+              <p class="fis-not" x-show="fis.kalite.catlak_gram !== null && fis.kalite.catlak_gram !== undefined"
+                 x-text="`Numune ${sayi(fis.kalite.numune_gram)} g: çatlak ${sayi(fis.kalite.catlak_gram)} g, kör/boş ${sayi(fis.kalite.bos_gram ?? 0)} g`"></p>
             </div>
           </template>
           <template x-if="fis.hakedis">
             <div>
+              <p class="fis-not" x-show="fis.emanetten_satis_zamani" x-text="`Emanetten satışa çevrildi: ${tarihYaz(fis.emanetten_satis_zamani)}`"></p>
+              <template x-if="fis.fiyat && Number(fis.fiyat.catlak_primi) !== 0">
+                <div>
+                  <div class="fis-satir"><span>Baz fiyat</span><span x-text="tl(fis.fiyat.baz_fiyat) + '/kg'"></span></div>
+                  <div class="fis-satir"><span x-text="Number(fis.fiyat.catlak_primi) > 0 ? 'Çatlak primi' : 'Çatlak iskontosu'"></span>
+                    <span x-text="(Number(fis.fiyat.catlak_primi) > 0 ? '+ ' : '− ') + tl(Math.abs(fis.fiyat.catlak_primi)) + '/kg'"></span></div>
+                </div>
+              </template>
               <div class="fis-satir"><span>Birim fiyat</span><span x-text="tl(fis.fiyat?.birim_fiyat) + '/kg'"></span></div>
               <div class="fis-satir"><span>Brüt tutar</span><span x-text="tl(fis.hakedis.brut_tutar)"></span></div>
               <template x-for="k in fis.hakedis.kesintiler" :key="k.kod">
@@ -1445,6 +1606,13 @@
                 </div>
               </template>
               <p class="fis-not" x-text="`${fis.hakedis.hakedis_no} · ${durumAd(fis.hakedis.durum)}`"></p>
+            </div>
+          </template>
+          <template x-if="fis.emanet && !fis.hakedis">
+            <div>
+              <div class="fis-cizgi"></div>
+              <p class="fis-not"><b>Bu fıstık EMANET olarak teslim alınmıştır.</b> Fiyat ve hakediş, müstahsil satışa çevirdiği gün
+                o günün fiyatıyla belirlenir. Bu fiş emanet belgesidir; saklayınız.</p>
             </div>
           </template>
           <div class="fis-cizgi"></div>

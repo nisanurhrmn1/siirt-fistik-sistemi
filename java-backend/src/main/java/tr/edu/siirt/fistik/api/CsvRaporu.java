@@ -82,7 +82,8 @@ public final class CsvRaporu {
         y.bos();
 
         y.satir("ÖZET", "Değer");
-        y.satir("Teslimat sayısı", o.teslimatSayisi());
+        y.satir("Teslimat sayısı (satış)", o.teslimatSayisi());
+        y.satir("Emanet teslimat / kg", o.emanetTeslimatSayisi(), sayi(o.emanetKg()));
         y.satir("Üretici sayısı", o.ureticiSayisi());
         y.satir("Toplam net kg", sayi(o.toplamNetKg()));
         y.satir("Ortalama birim fiyat (TL/kg)", sayi(o.ortalamaBirimFiyat()));
@@ -109,10 +110,10 @@ public final class CsvRaporu {
         y.bos();
 
         y.satir("TESLİMATLAR");
-        y.satir("Saat", "Fiş no", "Lot no", "Üretici", "Plaka", "Ürün", "Sınıf", "Net kg", "Birim fiyat", "Brüt tutar",
+        y.satir("Saat", "Fiş no", "Lot no", "Üretici", "Plaka", "Teslim şekli", "Ürün", "Sınıf", "Net kg", "Birim fiyat", "Brüt tutar",
                 "Kesinti", "Avans mahsubu", "Net hakediş", "Ödenen", "Kalan", "Brüt kaynağı", "Dara kaynağı");
         for (GunSonuTeslimat t : r.teslimatlar())
-            y.satir(saat(t.zaman()), t.fisNo(), t.lotNo(), t.uretici(), t.plaka(), t.urunTuruAdi(), t.kaliteKodu(),
+            y.satir(saat(t.zaman()), t.fisNo(), t.lotNo(), t.uretici(), t.plaka(), t.teslimSekli(), t.urunTuruAdi(), t.kaliteKodu(),
                     sayi(t.netKg()), sayi(t.birimFiyat()), sayi(t.brutTutar()), sayi(t.kesinti()), sayi(t.avansMahsubu()),
                     sayi(t.netOdenecek()), sayi(t.odenen()), sayi(t.kalan()), kaynak(t.brutKaynagi()), kaynak(t.daraKaynagi()));
         if (r.teslimatlar().isEmpty()) y.satir("Bu gün teslimat yok.");
@@ -123,6 +124,14 @@ public final class CsvRaporu {
         for (GunSonuKasaHareketi h : r.kasaHareketleri())
             y.satir(saat(h.zaman()), h.tur(), h.belgeNo(), h.uretici(), yontem(h.odemeYontemi()), sayi(h.tutar()), h.referansNo());
         if (r.kasaHareketleri().isEmpty()) y.satir("Bu gün ödeme veya avans yok.");
+        y.bos();
+
+        y.satir("EMANETTEN SATIŞA ÇEVRİLENLER");
+        y.satir("Saat", "Fiş no", "Üretici", "Teslim tarihi", "Sınıf", "Net kg", "Birim fiyat", "Net hakediş");
+        for (EmanetDonusumu d : r.emanetDonusumleri())
+            y.satir(saat(d.zaman()), d.fisNo(), d.uretici(), d.teslimTarihi().atZoneSameInstant(Dogrulama.TR).format(TARIH),
+                    d.kaliteKodu(), sayi(d.netKg()), sayi(d.birimFiyat()), sayi(d.netOdenecek()));
+        if (r.emanetDonusumleri().isEmpty()) y.satir("Bu gün emanetten satışa çevrilen yok.");
         y.bos();
 
         y.satir("SEVKİYATLAR (SATIŞ)");

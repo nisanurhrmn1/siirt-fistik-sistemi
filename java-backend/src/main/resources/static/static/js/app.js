@@ -164,7 +164,8 @@ const bosIseNull = (v) => (v === '' || v === undefined ? null : v);
 
 const bosKantar = () => ({
   uretici_id: '', plaka: '', sofor_adi: '', brut_kg: '', dara_kg: '', silo_id: '',
-  urun_turu: 'DRY', cuval_sayisi: '', brut_kaynagi: 'MANUAL', dara_kaynagi: 'MANUAL',
+  urun_turu: 'DRY', cuval_sayisi: '', brut_kaynagi: 'MANUAL', dara_kaynagi: 'MANUAL', emanet: false,
+  numune: { acik: false, numune: '100', catlak: '', bos: '' },   // randıman analizi (gram)
   kalite: { numune_gram: '500', catlak_orani: '', randiman: '', bos_orani: '', curuk_orani: '0', nem_orani: '' },
 });
 const bosSevk = () => ({
@@ -228,6 +229,8 @@ document.addEventListener('alpine:init', () => {
     sevkKaydediliyor: false,
     irsaliye: null,
     tahsilatlar: { CASH: 'Nakit alındı', BANK_TRANSFER: 'Havale alındı', ON_ACCOUNT: 'Vadeli / açık hesap' },
+    emanetForm: { tartim: null, onizleme: null },
+    catlakPrimleri: [],
     dokum: null,                  // yazdırılabilir cari hesap ekstresi
     dokumForm: { baslangic: '', bitis: '' },
     gunSonuTarihi: '',
@@ -291,6 +294,15 @@ document.addEventListener('alpine:init', () => {
       setInterval(() => this.saatGuncelle(), 30_000);
       setInterval(() => { if (!this.girisGerekli) this.yukleOzet().catch(() => {}); }, 60_000);
       this.$watch('kantar', () => this.onizlemeIste());
+      // Numune analizi: gramlardan çatlak ve boş oranı (sunucu da aynı hesabı yapar)
+      this.$watch('kantar.numune', (n) => {
+        if (!n.acik) return;
+        const num = parseFloat(n.numune), c = parseFloat(n.catlak), b = parseFloat(n.bos);
+        if (!(num > 0)) return;
+        this.kantar.kalite.numune_gram = n.numune;
+        if (Number.isFinite(c)) this.kantar.kalite.catlak_orani = String(Math.round((c * 100 / num) * 100) / 100);
+        if (Number.isFinite(b)) this.kantar.kalite.bos_orani = String(Math.round((b * 100 / num) * 100) / 100);
+      });
       this.$watch('ayarlar', (a) => { sahaAyarYaz(a); this.onizlemeIste(); });
       // Fiş kapanınca operatör doğrudan bir sonraki aracın plakasına geçer
       this.$watch('modal', (m) => {
@@ -402,7 +414,7 @@ document.addEventListener('alpine:init', () => {
     },
     yetkiYok(islem) {
       const kim = { tartim: 'kantar memuru', fiyat_gir: 'fiyat yöneticisi', uretici_ekle: 'muhasebe',
-                    avans_ver: 'muhasebe', odeme_yap: 'muhasebe' }[islem];
+                    avans_ver: 'muhasebe', odeme_yap: 'muhasebe', emanet_cevir: 'muhasebe' }[islem];
       return this.yetkili(islem) ? '' : `Bu işlem için ${kim} veya yönetici yetkisi gerekir.`;
     },
     /** Yetki gerektiren sekmeler (Kullanıcılar) yalnızca girişli sürümde ve yetkiliye görünür. */
@@ -492,7 +504,7 @@ document.addEventListener('alpine:init', () => {
       this.yenileniyor = true;
       try {
         await Promise.all([this.yukleOzet(), this.yukleUreticiler(), this.yukleTartimlar(), this.yukleFiyatlar(), this.yukleDepo(),
-                           this.yukleKullanicilar(), this.yukleSevkiyatlar()]);
+                           this.yukleKullanicilar(), this.yukleSevkiyatlar(), this.yukleCatlakPrimi()]);
         if (this.secili) await this.yukleEkstre();
       } catch (e) { this.hataGoster(e); }
       this.yenileniyor = false;
@@ -540,6 +552,16 @@ document.addEventListener('alpine:init', () => {
       const b = parseFloat(this.kantar.brut_kg), d = parseFloat(this.kantar.dara_kg);
       return Number.isFinite(b) && Number.isFinite(d) ? Math.round((b - d - this.cuvalDarasiToplam) * 100) / 100 : null;
     },
+    /** Kalite analizi gövdesi; numune analizi açıksa gramlar da gider (oranları sunucu da gramdan hesaplar). */
+    kaliteGovdesi() {
+      const k = this.kantar, g = { ...k.kalite };
+      if (this.sahaModu && k.numune.acik) {
+        g.numune_gram = bosIseNull(k.numune.numune);
+        g.catlak_gram = bosIseNull(k.numune.catlak);
+        g.bos_gram = bosIseNull(k.numune.bos);
+      }
+      return g;
+    },
     /** API'ye giden ağırlık alanları (önizleme ve kayıt için ortak). */
     agirlikGovdesi() {
       const k = this.kantar;
@@ -580,7 +602,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const sonuc = await api('/tartimlar/onizleme', {
           method: 'POST',
-          body: { uretici_id: bosIseNull(k.uretici_id) && Number(k.uretici_id), ...this.agirlikGovdesi(), kalite: { ...k.kalite } },
+          body: { uretici_id: bosIseNull(k.uretici_id) && Number(k.uretici_id), ...this.agirlikGovdesi(), kalite: this.kaliteGovdesi() },
         });
         if (sira !== this._onizlemeSira) return; // eski yanıt
         this.onizleme = sonuc;
@@ -603,25 +625,30 @@ document.addEventListener('alpine:init', () => {
           body: {
             uretici_id: k.uretici_id ? Number(k.uretici_id) : null,
             plaka: k.plaka, sofor_adi: bosIseNull(k.sofor_adi),
-            ...this.agirlikGovdesi(), kalite: { ...k.kalite },
+            ...this.agirlikGovdesi(), kalite: this.kaliteGovdesi(),
             silo_id: k.silo_id ? Number(k.silo_id) : null,
-            ...(this.sahaModu ? { brut_kaynagi: k.brut_kaynagi, dara_kaynagi: k.dara_kaynagi } : {}),
+            ...(this.sahaModu ? { brut_kaynagi: k.brut_kaynagi, dara_kaynagi: k.dara_kaynagi, emanet: k.emanet } : {}),
           },
         });
         this.fis = sonuc;
         this.modal = 'fis';
         if (this.ayarlar.otomatik_yazdir) this.$nextTick(() => setTimeout(() => this.fisYazdir(), 350));
-        this.bildir(`${sonuc.fis_no} kesildi · ${this.kg(sonuc.net_kg)} · ${this.tl(sonuc.fiyat.birim_fiyat)}/kg kilitlendi`);
+        this.bildir(sonuc.fiyat ? `${sonuc.fis_no} kesildi · ${this.kg(sonuc.net_kg)} · ${this.tl(sonuc.fiyat.birim_fiyat)}/kg kilitlendi`
+          : `${sonuc.fis_no}: ${this.kg(sonuc.net_kg)} emanete alındı (fiyat satışa çevrilince belirlenir).`);
         this.smsBildir(sonuc.sms);
-        const uretici = k.uretici_id;
+        const uretici = k.uretici_id, numuneAcik = k.numune.acik;
         this.kantar = bosKantar();
         this.kantar.uretici_id = uretici;
+        this.kantar.numune.acik = numuneAcik;   // analiz alışkanlığı korunur
         this.onizleme = null;
         await Promise.all([this.yukleOzet(), this.yukleTartimlar(), this.yukleDepo(), this.yukleUreticiler()]);
       } catch (e) { this.hataGoster(e); }
       this.kaydediliyor = false;
     },
-    get fisKesilebilir() { return !this.kaydediliyor && !!this.onizleme?.birim_fiyat && this.yetkili('tartim'); },
+    /** Emanette fiyat gerekmez (kalite sınıfı yeter); hemen satışta onaylı fiyat şart. */
+    get fisKesilebilir() {
+      return !this.kaydediliyor && this.yetkili('tartim') && (this.kantar.emanet ? !!this.onizleme : !!this.onizleme?.birim_fiyat);
+    },
 
     // ─── Kantar indikatörü ───
     async kantarBaglan() {
@@ -736,6 +763,13 @@ document.addEventListener('alpine:init', () => {
     get sevkKalan() {
       return this.sevkSilo && this.sevkNetKg !== null ? Number(this.sevkSilo.stok_kg) - this.sevkNetKg : null;
     },
+    /** Uyarı (engellemez): çıkışın bir kısmı üreticilerin emanetinden karşılanacaksa. */
+    get sevkEmanetUyari() {
+      if (!this.sevkSilo || this.sevkNetKg === null) return '';
+      const kendi = Number(this.sevkSilo.stok_kg) - Number(this.sevkSilo.emanet_kg || 0);
+      return this.sevkNetKg > kendi
+        ? `Dikkat: bu çıkışın ${this.kg(this.sevkNetKg - Math.max(kendi, 0))} kadarı üreticilerin emanet fıstığından karşılanacak.` : '';
+    },
     get sevkUyari() {
       if (!this.yetkili('sevkiyat')) return 'Sevkiyat için depo sorumlusu veya yönetici yetkisi gerekir.';
       if (this.sevkNetKg !== null && this.sevkNetKg <= 0) return 'Dara (boş araç) brüt (dolu araç) ağırlığından küçük olmalıdır.';
@@ -769,6 +803,48 @@ document.addEventListener('alpine:init', () => {
     },
     async irsaliyeGoster(id) {
       try { this.irsaliye = await api(`/sevkiyatlar/${id}`); this.modal = 'irsaliye'; } catch (e) { this.hataGoster(e); }
+    },
+
+    // ─── Emanet ───
+    async emanetCevirAc(t) {
+      this.emanetForm = { tartim: t, onizleme: null };
+      this.modal = 'emanet';
+      try { this.emanetForm.onizleme = await api(`/tartimlar/${t.tartim_id}/satis-onizleme`); } catch (e) { this.hataGoster(e); }
+    },
+    async emanetCevir() {
+      await this.islem(async () => {
+        const t = await api(`/tartimlar/${this.emanetForm.tartim.tartim_id}/satisa-cevir`, { method: 'POST' });
+        this.bildir(`${t.fis_no} satışa çevrildi: ${this.kg(t.net_kg)} × ${this.tl(t.fiyat.birim_fiyat)}/kg · net hakediş ${this.tl(t.hakedis.net_odenecek)}`);
+        this.smsBildir(t.sms);
+        this.fis = t;
+        this.modal = 'fis';
+        await Promise.all([this.yukleEkstre(), this.yukleUreticiler(), this.yukleOzet(), this.yukleDepo()]);
+      });
+    },
+
+    // ─── Çatlak primi ───
+    async yukleCatlakPrimi() {
+      if (!this.kimlikDogrulama) return;
+      this.catlakPrimleri = await api('/fiyatlar/catlak-primi');
+    },
+    async catlakPrimiKaydet(k) {
+      await this.islem(async () => {
+        const y = await api(`/fiyatlar/catlak-primi/${k.urun_turu}`, {
+          method: 'PUT',
+          body: { baz_catlak_orani: k.baz_catlak_orani, puan_basi_tl: k.puan_basi_tl,
+                  azami_fark_tl: bosIseNull(k.azami_fark_tl), aktif: !!k.aktif },
+        });
+        this.bildir(`${y.urun_turu_adi} çatlak primi ${y.aktif ? 'uygulanıyor' : 'kapalı'}.`);
+        await this.yukleCatlakPrimi();
+        this.onizlemeIste();
+      });
+    },
+    /** Kural açıklaması: "%91 çatlak → +12,00 ₺/kg". */
+    catlakOrnek(k) {
+      if (!k.aktif) return 'Kapalı: baz fiyat aynen uygulanır.';
+      const baz = Number(k.baz_catlak_orani), adim = Number(k.puan_basi_tl), azami = k.azami_fark_tl === null || k.azami_fark_tl === '' ? Infinity : Number(k.azami_fark_tl);
+      const ornek = (c) => { const p = Math.max(-azami, Math.min(azami, (c - baz) * adim)); return `%${c} → ${p >= 0 ? '+' : '−'}${this.tl(Math.abs(p))}`; };
+      return `Örnek: ${ornek(baz + 5)}, ${ornek(baz - 5)} /kg`;
     },
 
     // ─── Müstahsil cari hesap dökümü ───

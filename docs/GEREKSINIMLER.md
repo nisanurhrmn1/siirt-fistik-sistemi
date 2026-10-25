@@ -110,6 +110,10 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-KNT-12 | Çuval sayısı girilmeli; net = brüt − araç darası − çuval sayısı × çuval darası olmalıdır. Çuval darası ayarlanabilir olmalıdır. | Yüksek | ✅ |
 | FG-KNT-13 | Ürün türü (kuru-kavlak / yaş) seçilmeli; kalite sınıfları, fiyatlar ve silolar türe göre ayrı olmalıdır. | Yüksek | ✅ |
 | FG-KNT-14 | Tartım formu fare olmadan doldurulabilmeli (Enter ile sonraki alan; F9 / Ctrl+Enter ile kaydet ve fiş bas). | Orta | ✅ |
+| FG-KNT-16 | Teslimat "emanete bırakma" olarak alınabilmeli: fıstık siloya girer ve üreticinin emanet stoğuna yazılır; fiyat kilitlenmez, hakediş oluşmaz. | Yüksek | ✅ |
+| FG-KNT-17 | Emanet tek işlemle o günün fiyatı (ve çatlak primi) ile satışa çevrilebilmeli; hakediş, kesinti ve avans mahsubu normal akışla oluşmalı; bir fiş bir kez çevrilebilmelidir. | Yüksek | ✅ |
+| FG-KNT-18 | Kantarda numune analizi yapılabilmeli: numune, çatlak ve kör/boş gramından oranlar hesaplanmalı ve gramlar kaydedilmelidir. | Orta | ✅ |
+| FG-FYT-09 | Ürün türü başına çatlak primi / iskontosu tanımlanabilmeli (baz çatlak %, puan başı ₺, azami fark); birim fiyat = baz fiyat + prim olmalı ve fiyat kilidinin parçası olarak saklanmalıdır. | Orta | ✅ |
 | FG-KNT-15 | Fiş 80 mm ve 58 mm termal rulo kâğıda sığmalı; müstahsil ve kantar görevlisi imza alanları bulunmalıdır. | Orta | ✅ |
 
 ### 3.3 Fiyat yönetimi (FYT)

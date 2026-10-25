@@ -57,7 +57,7 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6">
             <div class="mini-kart">
               <p class="kart-etiket">Cari bakiye</p>
               <p class="text-lg font-semibold tabular-nums" :class="bakiyeRenk(ekstre.ozet.bakiye)" x-text="tl(ekstre.ozet.bakiye)"></p>
@@ -70,6 +70,11 @@
             <div class="mini-kart">
               <p class="kart-etiket">Ödenebilir</p>
               <p class="text-lg font-semibold tabular-nums text-fistik-700" x-text="tl(ekstre.ozet.odenebilir_tutar)"></p>
+            </div>
+            <div class="mini-kart" :class="Number(ekstre.ozet.emanet_stok_kg) > 0 && 'border-amber-200 bg-amber-50/60'">
+              <p class="kart-etiket">Emanet stoğu</p>
+              <p class="text-lg font-semibold tabular-nums text-amber-700" x-text="kg(ekstre.ozet.emanet_stok_kg)"></p>
+              <p class="text-xs text-stone-500">satışa çevrilmemiş</p>
             </div>
             <div class="mini-kart">
               <p class="kart-etiket">Toplam teslimat</p>
@@ -92,7 +97,8 @@
                 <template x-for="t in [...ekstre.teslimatlar].reverse()" :key="t.tartim_id">
                   <tr>
                     <td><p class="font-medium" x-text="t.fis_no"></p><p class="text-xs text-stone-500 tabular-nums" x-text="tarihYaz(t.tarih)"></p></td>
-                    <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span></td>
+                    <td><span class="sinif-rozet-kucuk" :class="kaliteRenk(t.kalite_kodu).rozet" x-text="t.kalite_kodu"></span>
+                      <span x-show="t.emanet" class="durum bg-amber-100 text-amber-800 ml-1">Emanet</span></td>
                     <td class="text-right tabular-nums" x-text="kg(t.net_kg)"></td>
                     <td class="text-right tabular-nums" x-text="tl(t.brut_tutar)"></td>
                     <td class="text-right tabular-nums">
@@ -101,9 +107,12 @@
                     </td>
                     <td class="text-right">
                       <p class="tabular-nums font-medium" x-text="tl(t.kalan)"></p>
-                      <span class="durum" :class="durumRenk(t.hakedis_durumu)" x-text="durumAd(t.hakedis_durumu)"></span>
+                      <span class="durum" :class="t.emanet ? 'bg-amber-100 text-amber-800' : durumRenk(t.hakedis_durumu)"
+                            x-text="t.emanet ? 'Emanette' : durumAd(t.hakedis_durumu)"></span>
                     </td>
                     <td class="text-right">
+                      <button class="btn-kucuk bg-gradient-to-br from-amber-500 to-amber-600" x-show="t.emanet" @click="emanetCevirAc(t)"
+                              :disabled="!yetkili('emanet_cevir')" :title="yetkiYok('emanet_cevir')">Satışa Çevir</button>
                       <button class="btn-kucuk" x-show="t.hakedis_id && Number(t.kalan) > 0" @click="odemeModalAc(t)" :disabled="!yetkili('odeme_yap')" :title="yetkiYok('odeme_yap')">Ödeme Yap</button>
                     </td>
                   </tr>

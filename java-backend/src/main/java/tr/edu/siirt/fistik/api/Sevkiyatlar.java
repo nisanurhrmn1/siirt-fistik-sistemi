@@ -71,7 +71,8 @@ public final class Sevkiyatlar {
         }
     }
 
-    public record SevkiyatLotu(String lotNo, String fisNo, String uretici, BigDecimal kg) {
+    /** emanet: lot üreticinin emanetiydi (satışa çevrilmemiş). */
+    public record SevkiyatLotu(String lotNo, String fisNo, String uretici, BigDecimal kg, boolean emanet) {
     }
 
     public record MusteriYaniti(Long id, String ad, String vergiNo, int sevkiyatSayisi, BigDecimal toplamKg,

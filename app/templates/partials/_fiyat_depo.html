@@ -1,7 +1,8 @@
 <div class="grid lg:grid-cols-5 gap-6">
 
   <!-- Fiyat paneli -->
-  <form class="lg:col-span-2 panel-kutu space-y-4" @submit.prevent="fiyatYayinla()">
+  <div class="lg:col-span-2 space-y-6">
+  <form class="panel-kutu space-y-4" @submit.prevent="fiyatYayinla()">
     <div>
       <h2 class="baslik">Günlük Taban Fiyat</h2>
       <p class="text-xs text-stone-500 mt-1">Yeni fiyat yalnızca bundan sonraki tartımlara uygulanır; kesilmiş fişlerin fiyatı değişmez.</p>
@@ -37,6 +38,37 @@
     <p x-show="!yetkili('fiyat_gir')" class="text-xs text-stone-500 text-center" x-text="yetkiYok('fiyat_gir')"></p>
   </form>
 
+  <!-- Çatlak primi / iskontosu -->
+  <div class="panel-kutu space-y-4" x-show="kimlikDogrulama">
+    <div>
+      <h2 class="baslik">Çatlak Primi / İskontosu</h2>
+      <p class="text-xs text-stone-500 mt-1">Birim fiyat = baz fiyat + (çatlak % − baz %) × puan başı ₺. Yalnızca bundan sonraki tartımlara uygulanır.</p>
+    </div>
+    <template x-for="k in catlakPrimleri" :key="k.urun_turu">
+      <form class="mini-kart p-3 space-y-3" @submit.prevent="catlakPrimiKaydet(k)">
+        <div class="flex items-center justify-between">
+          <p class="font-medium text-sm" x-text="k.urun_turu_adi"></p>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" x-model="k.aktif" class="h-4 w-4 accent-emerald-600" :disabled="!yetkili('fiyat_gir')"> Uygula
+          </label>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-sm">
+          <div><label class="etiket">Baz çatlak</label>
+            <div class="relative"><input type="number" step="0.01" min="0" max="100" x-model="k.baz_catlak_orani" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">%</span></div></div>
+          <div><label class="etiket">Puan başı</label>
+            <div class="relative"><input type="number" step="0.01" min="0" x-model="k.puan_basi_tl" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
+          <div><label class="etiket">Azami ±</label>
+            <div class="relative"><input type="number" step="0.01" min="0" x-model="k.azami_fark_tl" placeholder="sınırsız" class="girdi pr-7" :disabled="!yetkili('fiyat_gir')"><span class="birim">₺</span></div></div>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs text-stone-500" x-text="catlakOrnek(k)"></p>
+          <button type="submit" class="btn-kucuk" x-show="yetkili('fiyat_gir')">Kaydet</button>
+        </div>
+      </form>
+    </template>
+  </div>
+  </div>
+
   <!-- Depo -->
   <div class="lg:col-span-3 space-y-6">
     <div class="panel-kutu">
@@ -59,6 +91,7 @@
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.adanmis_kalite).rozet" x-text="s.adanmis_kalite || 'Genel'"></span>
               <p class="tabular-nums pt-1" x-text="kg(s.stok_kg)"></p>
               <p class="text-xs text-stone-500 tabular-nums" x-text="'/ ' + kg(s.kapasite_kg)"></p>
+              <p class="text-xs text-amber-700 tabular-nums" x-show="Number(s.emanet_kg) > 0" x-text="'emanet ' + kg(s.emanet_kg)"></p>
             </div>
           </div>
         </template>

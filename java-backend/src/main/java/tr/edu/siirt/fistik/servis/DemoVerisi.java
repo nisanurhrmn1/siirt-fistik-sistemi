@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import tr.edu.siirt.fistik.alan.PaymentMethod;
 import tr.edu.siirt.fistik.alan.ProducerType;
 import tr.edu.siirt.fistik.alan.SaleCollection;
+import tr.edu.siirt.fistik.alan.ProductType;
 import tr.edu.siirt.fistik.alan.WeightSource;
 import tr.edu.siirt.fistik.api.Istekler.*;
 import tr.edu.siirt.fistik.api.Sevkiyatlar.SevkiyatGirisi;
@@ -87,6 +88,8 @@ public class DemoVerisi implements ApplicationRunner {
         u.add(ureticiler.olustur(new UreticiGirisi(ProducerType.COMPANY, null, "1234567890", "Siirt", "Botan Tarım Ltd. Şti.",
                 "0484 223 45 67", null, null, "Merkez", null, null, null)));
 
+        // Çatlak primi: kuru-kavlakta %85 baz, her puan 2 ₺/kg, en fazla ±20 ₺/kg
+        fiyatlar.catlakPrimiGuncelle(ProductType.DRY, new CatlakPrimiGirisi(d("85"), d("2"), d("20"), true), k);
         fiyatlar.gir(new FiyatGirisi(List.of(new FiyatKalemi("A", d("300")), new FiyatKalemi("B", d("260")),
                 new FiyatKalemi("ISK", d("150")), // Yaş fıstık kurutma firesi nedeniyle kuru-kavlağın yaklaşık %45'i fiyatından alınır.
                 new FiyatKalemi("YA", d("135")), new FiyatKalemi("YB", d("115")), new FiyatKalemi("YISK", d("65"))), null, null), k);
@@ -103,9 +106,13 @@ public class DemoVerisi implements ApplicationRunner {
         for (Object[] t : teslimatlar) {
             TartimYaniti y = tartimlar.kaydet(new TartimGirisi(u.get((int) t[0]).id(), (String) t[1], null, d((String) t[2]),
                     d((String) t[3]), new KaliteAnalizi(null, d((String) t[4]), d((String) t[5]), d((String) t[6]),
-                    d((String) t[7]), d((String) t[8])), null, null, null, null, null, null, null, null), k);
+                    d((String) t[7]), d((String) t[8])), null, null, null, null, null, null, null, null, null), k);
             if (ilk == null) ilk = y;
         }
+        // Emanet: Fatma Demir 1.200 kg'ı satmadan emanete bırakıyor (numune: 100 g'da 89 g çatlak, 2 g boş)
+        tartimlar.kaydet(new TartimGirisi(u.get(1).id(), "56 DE 456", null, d("4400"), d("3200"),
+                new KaliteAnalizi(d("100"), null, d("57"), null, d("1"), d("6"), d("89"), d("2")), null, null, null,
+                null, null, null, null, null, true), k);
         finans.odemeYap(ilk.hakedis().id(), new OdemeGirisi(d("150000"), null, null, "EFT-DEMO-1", null), k);
 
         // Satış: A sınıfı siloyu fabrikaya, B sınıfının bir kısmını toptancıya (vadeli) sevk et
@@ -115,6 +122,6 @@ public class DemoVerisi implements ApplicationRunner {
         sevkiyatlar.kaydet(new SevkiyatGirisi("Gaziantep Kuruyemiş Toptan", null, "27 GK 404", "Ali Kaya", silo("S-B1"),
                 d("3500"), d("3100"), d("360"), SaleCollection.ON_ACCOUNT, WeightSource.SCALE, WeightSource.SCALE,
                 "30 gün vadeli"), k);
-        log.info("Demo verisi: 4 üretici, 6 teslimat, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.");
+        log.info("Demo verisi: 4 üretici, 6 teslimat, 1 emanet, 1 avans, 1 ödeme ve 2 sevkiyat eklendi.");
     }
 }

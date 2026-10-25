@@ -15,7 +15,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @NoArgsConstructor
 public class SmsMessage {
 
-    public enum Trigger { DELIVERY, ADVANCE }
+    public enum Trigger { DELIVERY, ADVANCE, CONVERSION }
 
     public enum Status {
         SENT("Gönderildi"), SIMULATED("Gönderildi (simülasyon)"), FAILED("Gönderilemedi");

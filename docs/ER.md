@@ -173,6 +173,13 @@ erDiagram
         numeric quantity_kg "işaretli"
         int shipment_id FK "yalnızca DISPATCH"
     }
+    SPLIT_PREMIUM_RULES {
+        varchar product_type PK "DRY, FRESH"
+        numeric base_split_ratio
+        numeric premium_per_point
+        numeric max_adjustment
+        boolean is_active
+    }
     CUSTOMERS {
         int id PK
         varchar name UK "Türkçe harf duyarsız"

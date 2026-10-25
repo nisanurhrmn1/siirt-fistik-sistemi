@@ -124,6 +124,7 @@
     </div>
 
     <p x-show="sevkUyari" x-text="sevkUyari" class="text-sm rounded-lg bg-amber-50 text-amber-800 px-3 py-2"></p>
+    <p x-show="!sevkUyari && sevkEmanetUyari" x-text="sevkEmanetUyari" class="text-sm rounded-lg bg-orange-50 text-orange-800 px-3 py-2"></p>
     <button type="submit" class="btn-birincil w-full h-11" :class="(sevkUyari || sevkKaydediliyor) && 'opacity-50'"
             :aria-disabled="!!sevkUyari || sevkKaydediliyor">
       <span x-show="!sevkKaydediliyor">Sevkiyatı Onayla ve İrsaliye Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
@@ -145,6 +146,8 @@
             <template x-for="k in sevkSilo.kaliteler" :key="k.kalite_kodu">
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span></template></dd></div>
           <div class="satir py-1.5"><dt>Mevcut stok</dt><dd class="tabular-nums" x-text="kg(sevkSilo.stok_kg)"></dd></div>
+          <div class="satir py-1.5 text-amber-700" x-show="Number(sevkSilo.emanet_kg) > 0"><dt>Bunun emaneti</dt>
+            <dd class="tabular-nums" x-text="kg(sevkSilo.emanet_kg)"></dd></div>
           <div class="satir py-1.5"><dt>Çıkış</dt><dd class="tabular-nums" x-text="sevkNetKg !== null ? '− ' + kg(sevkNetKg) : '—'"></dd></div>
           <div class="satir py-1.5 font-semibold"><dt>Çıkış sonrası</dt>
             <dd class="tabular-nums" :class="sevkKalan < 0 && 'text-rose-700'" x-text="sevkKalan !== null ? kg(sevkKalan) : '—'"></dd></div>

@@ -117,14 +117,39 @@ public final class Istekler {
             @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100", message = "En fazla 100 olabilir.")
             @Digits(integer = 3, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Çürük oranı %", example = "1") BigDecimal curukOrani,
             @NotNull(message = ZORUNLU) @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100", message = "En fazla 100 olabilir.")
-            @Digits(integer = 3, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Nem oranı %", example = "6") BigDecimal nemOrani) {
+            @Digits(integer = 3, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Nem oranı %", example = "6") BigDecimal nemOrani,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK)
+            @Schema(description = "Numune analizi: çatlak fıstık (gram). Verilirse çatlak oranı bundan hesaplanır.", example = "91")
+            BigDecimal catlakGram,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK)
+            @Schema(description = "Numune analizi: kör / boş fıstık (gram). Verilirse boş oranı bundan hesaplanır.", example = "2")
+            BigDecimal bosGram) {
 
         public KaliteAnalizi {
             numuneGram = numuneGram == null ? new BigDecimal("500") : numuneGram;
             curukOrani = curukOrani == null ? BigDecimal.ZERO : curukOrani;
+            // Numune gramları verildiyse oranlar onlardan hesaplanır (elle yazılan oranın önüne geçer)
+            if (numuneGram.signum() > 0) {
+                if (catlakGram != null) catlakOrani = yuzde(catlakGram, numuneGram);
+                if (bosGram != null) bosOrani = yuzde(bosGram, numuneGram);
+            }
+        }
+
+        public KaliteAnalizi(BigDecimal numuneGram, BigDecimal catlakOrani, BigDecimal randiman, BigDecimal bosOrani,
+                             BigDecimal curukOrani, BigDecimal nemOrani) {
+            this(numuneGram, catlakOrani, randiman, bosOrani, curukOrani, nemOrani, null, null);
+        }
+
+        /** Gram → %. Gram numuneden büyükse %100'de tutulur; asıl hata "gram > numune" olarak raporlanır (hatalar()). */
+        static BigDecimal yuzde(BigDecimal gram, BigDecimal numune) {
+            return gram.multiply(BigDecimal.valueOf(100)).divide(numune, 2, java.math.RoundingMode.HALF_UP).min(BigDecimal.valueOf(100));
         }
 
         List<AlanHatasi> hatalar() {
+            if (catlakGram != null && catlakGram.compareTo(numuneGram) > 0)
+                return List.of(new AlanHatasi("kalite.catlak_gram", "Çatlak gramı numune gramından büyük olamaz."));
+            if (bosGram != null && bosGram.compareTo(numuneGram) > 0)
+                return List.of(new AlanHatasi("kalite.bos_gram", "Kör / boş gramı numune gramından büyük olamaz."));
             if (bosOrani != null && bosOrani.add(curukOrani).compareTo(BigDecimal.valueOf(100)) > 0)
                 return List.of(new AlanHatasi("kalite", "Boş ve çürük oranlarının toplamı %100'ü aşamaz."));
             return List.of();
@@ -152,7 +177,9 @@ public final class Istekler {
             @Digits(integer = 2, fraction = 2, message = IKI_ONDALIK)
             @Schema(description = "Çuval başına dara, kg (boşsa 0)", example = "1") BigDecimal cuvalDarasiKg,
             @Schema(description = "Brüt ağırlık kantardan mı okundu (SCALE), elle mi girildi (MANUAL)? Boşsa MANUAL") WeightSource brutKaynagi,
-            @Schema(description = "Dara için aynısı") WeightSource daraKaynagi) implements ModelKontrollu {
+            @Schema(description = "Dara için aynısı") WeightSource daraKaynagi,
+            @Schema(description = "true: emanete bırakma (fiyat ve hakediş oluşmaz, üretici ileride satışa çevirir)")
+            Boolean emanet) implements ModelKontrollu {
 
         public TartimGirisi {
             soforAdi = kirp(soforAdi);
@@ -163,6 +190,7 @@ public final class Istekler {
             cuvalDarasiKg = cuvalDarasiKg == null ? BigDecimal.ZERO : cuvalDarasiKg;
             brutKaynagi = brutKaynagi == null ? WeightSource.MANUAL : brutKaynagi;
             daraKaynagi = daraKaynagi == null ? WeightSource.MANUAL : daraKaynagi;
+            emanet = Boolean.TRUE.equals(emanet);
         }
 
         /** Araç darası + çuval sayısı × çuval darası. */
@@ -219,6 +247,17 @@ public final class Istekler {
 
     static BigDecimal toplamDaraHesapla(BigDecimal aracDarasi, int cuvalSayisi, BigDecimal cuvalDarasi) {
         return aracDarasi.add(cuvalDarasi.multiply(BigDecimal.valueOf(cuvalSayisi)));
+    }
+
+    /** Çatlak primi kuralı güncellemesi (fiyat yöneticisi). */
+    public record CatlakPrimiGirisi(
+            @NotNull(message = ZORUNLU) @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100", message = "En fazla 100 olabilir.")
+            @Digits(integer = 3, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Baz çatlak oranı %", example = "85") BigDecimal bazCatlakOrani,
+            @NotNull(message = ZORUNLU) @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "1000", message = "En fazla 1000 olabilir.")
+            @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Her çatlak puanı için ₺/kg", example = "2") BigDecimal puanBasiTl,
+            @DecimalMin(value = "0", message = NEGATIF_OLAMAZ) @DecimalMax(value = "100000", message = "En fazla 100000 olabilir.")
+            @Digits(integer = 6, fraction = 2, message = IKI_ONDALIK) @Schema(description = "Azami prim / iskonto ₺/kg (boş = sınırsız)", example = "20") BigDecimal azamiFarkTl,
+            @NotNull(message = ZORUNLU) Boolean aktif) {
     }
 
     // ─── Fiyat ───

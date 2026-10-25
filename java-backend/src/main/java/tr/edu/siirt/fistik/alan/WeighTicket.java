@@ -54,6 +54,21 @@ public class WeighTicket {
     private BigDecimal sackTareKg = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "sale_mode")
+    private SaleMode saleMode = SaleMode.SALE;
+
+    /** Emanetin satışa çevrildiği an (fiyat bu anda kilitlenir). */
+    @Column(name = "deposit_converted_at")
+    private OffsetDateTime depositConvertedAt;
+
+    /** Günlük taban fiyat; birim fiyat = baz fiyat + çatlak primi. */
+    @Column(name = "base_unit_price")
+    private BigDecimal baseUnitPrice;
+
+    @Column(name = "split_premium")
+    private BigDecimal splitPremium = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "gross_source")
     private WeightSource grossSource = WeightSource.MANUAL;
 

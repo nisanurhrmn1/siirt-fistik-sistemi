@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import tr.edu.siirt.fistik.alan.Producer;
 import tr.edu.siirt.fistik.alan.SmsMessage;
+import tr.edu.siirt.fistik.alan.TicketStatus;
 import tr.edu.siirt.fistik.api.Yanitlar.AvansYaniti;
 import tr.edu.siirt.fistik.api.Yanitlar.TartimYaniti;
 import tr.edu.siirt.fistik.kural.Dogrulama;
@@ -54,12 +55,21 @@ public class SmsServisi {
         return bakiye.signum() < 0 ? "-" + Dogrulama.tl(bakiye.negate()) + " (avans borcu)" : Dogrulama.tl(bakiye);
     }
 
-    static String teslimatMesaji(String ad, TartimYaniti t) {
+    static String teslimatMesaji(String ad, TartimYaniti t, BigDecimal emanetToplam) {
         String sinif = t.urunTuruAdi() + (t.kalite() != null ? " " + t.kalite().sinifKodu() + " sınıfı" : "");
+        if (t.emanet() && t.hakedis() == null)
+            return "Sn. %s, %s ile %s %s fıstığınız emanet olarak teslim alınmıştır. Toplam emanet stoğunuz: %s. Fiyat, satışa çevirdiğiniz gün belirlenir."
+                    .formatted(ad, t.fisNo(), Dogrulama.kg(t.netKg()), sinif, Dogrulama.kg(emanetToplam));
         return "Sn. %s, %s ile %s %s fıstığınız teslim alınmıştır. Avans mahsubu sonrası net hakediş: %s. Güncel bakiyeniz: %s."
                 .formatted(ad, t.fisNo(), Dogrulama.kg(t.netKg()), sinif,
                         Dogrulama.tl(t.hakedis() != null ? t.hakedis().netOdenecek() : BigDecimal.ZERO),
                         bakiyeMetni(t.ureticiGuncelBakiye()));
+    }
+
+    static String satisaCevirmeMesaji(String ad, TartimYaniti t) {
+        return "Sn. %s, %s nolu %s emanetiniz bugünkü %s/kg fiyatla satışa çevrilmiştir. Avans mahsubu sonrası net hakediş: %s. Güncel bakiyeniz: %s."
+                .formatted(ad, t.fisNo(), Dogrulama.kg(t.netKg()), Dogrulama.tl(t.fiyat().birimFiyat()),
+                        Dogrulama.tl(t.hakedis().netOdenecek()), bakiyeMetni(t.ureticiGuncelBakiye()));
     }
 
     static String avansMesaji(String ad, AvansYaniti a) {
@@ -68,7 +78,13 @@ public class SmsServisi {
     }
 
     public SmsBildirimi teslimatBildir(TartimYaniti t) {
-        return bildir(t.ureticiId(), SmsMessage.Trigger.DELIVERY, t.id(), u -> teslimatMesaji(u.getFullName(), t));
+        return bildir(t.ureticiId(), SmsMessage.Trigger.DELIVERY, t.id(), u -> teslimatMesaji(u.getFullName(), t,
+                tx.execute(x -> em.createQuery("select coalesce(sum(w.netKg), 0) from WeighTicket w where w.producerId = :u and w.status = :e",
+                        BigDecimal.class).setParameter("u", t.ureticiId()).setParameter("e", TicketStatus.DEPOSITED).getSingleResult())));
+    }
+
+    public SmsBildirimi satisaCevirmeBildir(TartimYaniti t) {
+        return bildir(t.ureticiId(), SmsMessage.Trigger.CONVERSION, t.id(), u -> satisaCevirmeMesaji(u.getFullName(), t));
     }
 
     public SmsBildirimi avansBildir(AvansYaniti a) {

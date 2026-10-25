@@ -132,6 +132,22 @@ public final class Kontrolculer {
             return servis.getir(t.id());
         }
 
+        @GetMapping("/{id}/satis-onizleme")
+        @Operation(summary = "Emanet bugün satışa çevrilseydi: fiyat, çatlak primi, kesinti, avans mahsubu ve net ödenecek")
+        public TartimOnizleme satisOnizleme(@PathVariable Long id) {
+            return servis.satisOnizleme(id);
+        }
+
+        @PostMapping("/{id}/satisa-cevir")
+        @PreAuthorize(Yetki.FINANS)
+        @Operation(summary = "Emaneti satışa çevir (Yönetici, Muhasebe)",
+                description = "O günün onaylı fiyatı ve çatlak primiyle fiyat kilitlenir; hakediş, kesintiler ve açık avans mahsubu oluşur.")
+        public TartimYaniti satisaCevir(@PathVariable Long id) {
+            TartimYaniti t = servis.emanetiSatisaCevir(id, kullanici.mevcut());
+            sms.satisaCevirmeBildir(t);
+            return servis.getir(t.id());
+        }
+
         @PostMapping("/onizleme")
         @PreAuthorize(Yetki.TARTIM)
         @Operation(summary = "Kaydetmeden tahmini hakediş", description = "Kantar ekranındaki canlı hesaplama; veritabanına yazılmaz.")
@@ -180,6 +196,22 @@ public final class Kontrolculer {
         @Operation(summary = "Şu an geçerli fiyatlar (her kalite sınıfı için)")
         public GuncelFiyatlar guncel() {
             return servis.guncel();
+        }
+
+        @GetMapping("/catlak-primi")
+        @Operation(summary = "Çatlak primi / iskontosu kuralları (ürün türü başına)")
+        public List<CatlakPrimiKurali> catlakPrimi() {
+            return servis.catlakPrimiKurallari();
+        }
+
+        @PutMapping("/catlak-primi/{urunTuru}")
+        @PreAuthorize(Yetki.FIYAT)
+        @Operation(summary = "Çatlak primi kuralını güncelle (Yönetici, Fiyat yöneticisi)",
+                description = "Birim fiyat = baz fiyat + (çatlak % − baz çatlak %) × puan başı ₺, en fazla ± azami fark. "
+                        + "Yalnızca bundan sonraki tartımlara uygulanır.")
+        public CatlakPrimiKurali catlakPrimiGuncelle(@PathVariable tr.edu.siirt.fistik.alan.ProductType urunTuru,
+                                                     @Valid @RequestBody CatlakPrimiGirisi g) {
+            return servis.catlakPrimiGuncelle(urunTuru, g, kullanici.mevcut());
         }
     }
 

@@ -98,6 +98,24 @@
       </div>
     </fieldset>
 
+    <!-- Teslim şekli: hemen satış veya emanete bırakma -->
+    <fieldset x-show="sahaModu">
+      <legend class="etiket">Teslim şekli</legend>
+      <div class="flex gap-2">
+        <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400" :class="!kantar.emanet && 'secim-aktif'">
+          <input type="radio" name="teslim_sekli" class="sr-only" :value="false" @change="kantar.emanet = false" :checked="!kantar.emanet">
+          <span>Hemen satış</span>
+        </label>
+        <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-amber-400" :class="kantar.emanet && 'secim-aktif'">
+          <input type="radio" name="teslim_sekli" class="sr-only" :value="true" @change="kantar.emanet = true" :checked="kantar.emanet">
+          <span>Emanete bırak</span>
+        </label>
+      </div>
+      <p x-show="kantar.emanet" class="mt-2 text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2">
+        Fıstık siloya girer ve üreticinin emanet stoğuna yazılır; fiyat ve hakediş, üretici satmak istediği gün o günün fiyatıyla oluşur.
+      </p>
+    </fieldset>
+
     <!-- Ağırlık -->
     <div>
       <h3 class="alt-baslik">Ağırlık</h3>
@@ -142,7 +160,44 @@
 
     <!-- Kalite -->
     <div>
-      <h3 class="alt-baslik">Kalite analizi</h3>
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="alt-baslik">Kalite analizi</h3>
+        <button type="button" tabindex="-1" x-show="sahaModu" class="text-xs font-semibold text-emerald-700 hover:underline"
+                @click="kantar.numune.acik = !kantar.numune.acik"
+                x-text="kantar.numune.acik ? '− Numune analizini kapat' : '＋ Randıman analizi (numuneden)'"></button>
+      </div>
+      <!-- Numune analizi: gramlardan çatlak ve boş oranı hesaplanır -->
+      <div x-show="kantar.numune.acik" x-transition class="mini-kart p-4 mb-4 grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
+        <div>
+          <label class="etiket" for="k_numune">Numune</label>
+          <div class="relative">
+            <input id="k_numune" type="number" step="0.01" min="1" inputmode="decimal" x-model="kantar.numune.numune" class="girdi pr-8">
+            <span class="birim">g</span>
+          </div>
+        </div>
+        <div>
+          <label class="etiket" for="k_catlak_g">Çatlak</label>
+          <div class="relative">
+            <input id="k_catlak_g" type="number" step="0.01" min="0" inputmode="decimal" x-model="kantar.numune.catlak"
+                   class="girdi pr-8" :class="hata('kalite.catlak_gram') && 'girdi-hata'">
+            <span class="birim">g</span>
+          </div>
+          <p class="hata-yazi" x-text="hata('kalite.catlak_gram')"></p>
+        </div>
+        <div>
+          <label class="etiket" for="k_bos_g">Kör / boş</label>
+          <div class="relative">
+            <input id="k_bos_g" type="number" step="0.01" min="0" inputmode="decimal" x-model="kantar.numune.bos"
+                   class="girdi pr-8" :class="hata('kalite.bos_gram') && 'girdi-hata'">
+            <span class="birim">g</span>
+          </div>
+          <p class="hata-yazi" x-text="hata('kalite.bos_gram')"></p>
+        </div>
+        <div class="text-sm">
+          <p class="text-stone-500">Çatlak <b class="text-stone-800 tabular-nums" x-text="yuzde(kantar.kalite.catlak_orani || null)"></b></p>
+          <p class="text-stone-500">Boş <b class="text-stone-800 tabular-nums" x-text="yuzde(kantar.kalite.bos_orani || null)"></b></p>
+        </div>
+      </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <template x-for="a in kaliteAlanlari" :key="a.alan">
           <div>
@@ -150,6 +205,7 @@
             <div class="relative">
               <input type="number" step="0.01" :min="0" :max="a.birim === '%' ? 100 : null" inputmode="decimal"
                      x-model="kantar.kalite[a.alan]" class="girdi pr-9"
+                     :readonly="kantar.numune.acik && ['catlak_orani', 'bos_orani', 'numune_gram'].includes(a.alan)"
                      :class="hata('kalite.' + a.alan) && 'girdi-hata'">
               <span class="birim" x-text="a.birim"></span>
             </div>
@@ -178,7 +234,7 @@
       <div class="flex items-end">
         <button type="submit" class="btn-birincil w-full h-11" :title="yetkiYok('tartim')"
                 :class="!fisKesilebilir && 'opacity-50'" :aria-disabled="!fisKesilebilir">
-          <span x-show="!kaydediliyor">Kaydet ve Fiş Bas <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
+          <span x-show="!kaydediliyor"><span x-text="kantar.emanet ? 'Emanete Al ve Fiş Bas' : 'Kaydet ve Fiş Bas'"></span> <kbd class="ml-1 text-[.65rem] opacity-80">F9</kbd></span>
           <span x-show="kaydediliyor">Kaydediliyor…</span>
         </button>
       </div>
@@ -208,6 +264,8 @@
 
       <template x-if="onizleme">
         <div class="space-y-4">
+          <p x-show="kantar.emanet" class="text-xs rounded-md bg-amber-50 text-amber-800 px-3 py-2">
+            Emanet: bu teslimatta hakediş oluşmaz. Aşağıdaki tutarlar, bugün satılsaydı oluşacak tahmindir.</p>
           <div class="flex items-center gap-3">
             <span class="sinif-rozet" :class="kaliteRenk(onizleme.kalite_kodu).rozet" x-text="onizleme.kalite_kodu"></span>
             <div>
@@ -221,6 +279,14 @@
           </div>
 
           <dl class="text-sm divide-y divide-stone-100 border-y border-stone-100">
+            <template x-if="Number(onizleme.catlak_primi) !== 0">
+              <div>
+                <div class="satir text-stone-500"><dt>Baz fiyat</dt><dd class="tabular-nums" x-text="tl(onizleme.baz_fiyat) + ' /kg'"></dd></div>
+                <div class="satir" :class="Number(onizleme.catlak_primi) > 0 ? 'text-emerald-700' : 'text-rose-700'">
+                  <dt x-text="Number(onizleme.catlak_primi) > 0 ? 'Çatlak primi' : 'Çatlak iskontosu'"></dt>
+                  <dd class="tabular-nums" x-text="(Number(onizleme.catlak_primi) > 0 ? '+ ' : '− ') + tl(Math.abs(onizleme.catlak_primi)) + ' /kg'"></dd></div>
+              </div>
+            </template>
             <div class="satir"><dt>Brüt tutar</dt><dd class="tabular-nums" x-text="tl(onizleme.brut_tutar)"></dd></div>
             <template x-for="k in onizleme.kesintiler" :key="k.kod">
               <div class="satir text-stone-500"><dt x-text="k.ad"></dt><dd class="tabular-nums" x-text="'− ' + tl(k.tutar)"></dd></div>

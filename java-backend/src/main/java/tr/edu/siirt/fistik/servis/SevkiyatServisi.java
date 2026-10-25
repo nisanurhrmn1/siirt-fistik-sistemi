@@ -129,11 +129,12 @@ public class SevkiyatServisi {
         QualityGrade g = em.find(QualityGrade.class, s.getQualityGradeId());
         User u = em.find(User.class, s.getCreatedById());
         List<SevkiyatLotu> lotlar = em.createQuery("""
-                        select l.lotNo, t.ticketNo, p.fullName, -sum(m.quantityKg) from StockMovement m, Lot l, WeighTicket t, Producer p
+                        select l.lotNo, t.ticketNo, p.fullName, -sum(m.quantityKg), t.status from StockMovement m, Lot l, WeighTicket t, Producer p
                         where m.shipmentId = :s and m.lotId = l.id and l.ticketId = t.id and t.producerId = p.id
-                        group by l.lotNo, t.ticketNo, p.fullName, l.id order by l.id""", Object[].class)
+                        group by l.lotNo, t.ticketNo, p.fullName, l.id, t.status order by l.id""", Object[].class)
                 .setParameter("s", s.getId()).getResultStream()
-                .map(r -> new SevkiyatLotu((String) r[0], (String) r[1], (String) r[2], (BigDecimal) r[3])).toList();
+                .map(r -> new SevkiyatLotu((String) r[0], (String) r[1], (String) r[2], (BigDecimal) r[3],
+                        r[4] == TicketStatus.DEPOSITED)).toList();
         return new SevkiyatYaniti(s.getId(), s.getShipmentNo(), s.getShippedAt(), c.getId(), c.getName(), c.getTaxNumber(),
                 s.getVehiclePlate(), s.getDriverName(), silo.getId(), silo.getCode(), silo.getName(), g.getCode(), g.getName(),
                 s.getProductType(), s.getProductType().getAd(), s.getGrossKg(), s.getTareKg(), s.getNetKg(),

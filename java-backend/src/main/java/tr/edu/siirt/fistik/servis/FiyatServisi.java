@@ -4,6 +4,10 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tr.edu.siirt.fistik.alan.DailyPrice;
+import tr.edu.siirt.fistik.alan.ProductType;
+import tr.edu.siirt.fistik.alan.SplitPremiumRule;
+import tr.edu.siirt.fistik.api.Istekler.CatlakPrimiGirisi;
+import tr.edu.siirt.fistik.api.Yanitlar.CatlakPrimiKurali;
 import tr.edu.siirt.fistik.alan.PriceStatus;
 import tr.edu.siirt.fistik.alan.QualityGrade;
 import tr.edu.siirt.fistik.api.Istekler.FiyatGirisi;
@@ -73,6 +77,31 @@ public class FiyatServisi {
             olusan.add(p);
         }
         return olusan.stream().map(this::yanit).toList();
+    }
+
+    private static CatlakPrimiKurali kural(SplitPremiumRule k) {
+        return new CatlakPrimiKurali(k.getProductType(), k.getProductType().getAd(), k.getBaseSplitRatio(),
+                k.getPremiumPerPoint(), k.getMaxAdjustment(), k.isActive(), k.getUpdatedAt());
+    }
+
+    @Transactional(readOnly = true)
+    public List<CatlakPrimiKurali> catlakPrimiKurallari() {
+        return em.createQuery("select k from SplitPremiumRule k order by k.productType", SplitPremiumRule.class)
+                .getResultStream().map(FiyatServisi::kural).toList();
+    }
+
+    /** Yalnızca bundan sonraki tartımlara (ve satışa çevrilen emanetlere) uygulanır; kilitli fiyatlar değişmez. */
+    @Transactional
+    public CatlakPrimiKurali catlakPrimiGuncelle(ProductType tur, CatlakPrimiGirisi g, Long kullaniciId) {
+        SplitPremiumRule k = em.find(SplitPremiumRule.class, tur);
+        if (k == null) throw new BulunamadiHatasi("Bu ürün türü için çatlak primi kuralı yok.");
+        k.setBaseSplitRatio(g.bazCatlakOrani());
+        k.setPremiumPerPoint(g.puanBasiTl());
+        k.setMaxAdjustment(g.azamiFarkTl());
+        k.setActive(g.aktif());
+        k.setUpdatedById(kullaniciId);
+        em.flush();
+        return kural(k);
     }
 
     @Transactional(readOnly = true)

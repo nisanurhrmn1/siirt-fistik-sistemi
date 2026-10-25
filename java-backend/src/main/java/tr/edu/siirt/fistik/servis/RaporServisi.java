@@ -80,6 +80,10 @@ public class RaporServisi {
         }
 
         Map<Long, List<Pozisyon>> siloya = pozisyonlar.stream().collect(Collectors.groupingBy(Pozisyon::siloId));
+        // Siloda üreticilerin emaneti olarak duran lotlar (henüz satışa çevrilmemiş)
+        Set<Long> emanetLotlari = new HashSet<>(em.createQuery(
+                        "select l.id from Lot l, WeighTicket t where l.ticketId = t.id and t.status = :e", Long.class)
+                .setParameter("e", TicketStatus.DEPOSITED).getResultList());
         List<Silo> secilen = siloId != null ? List.of(silolar.get(siloId))
                 : silolar.values().stream().filter(s -> s.isActive() || siloya.containsKey(s.getId())).toList();
         List<SiloStok> sonuc = new ArrayList<>();
@@ -92,7 +96,8 @@ public class RaporServisi {
                     s.getCapacityKg(), stok, s.getCapacityKg().subtract(stok),
                     stok.multiply(BigDecimal.valueOf(100)).divide(s.getCapacityKg(), 2, RoundingMode.HALF_UP),
                     sinifPay.entrySet().stream().map(e -> new KaliteStokPayi(siniflar.get(e.getKey()).getCode(),
-                            topla(e.getValue(), Pozisyon::kg), e.getValue().size())).toList()));
+                            topla(e.getValue(), Pozisyon::kg), e.getValue().size())).toList(),
+                    q(emanetLotlari.isEmpty() ? ZERO : topla(ps.stream().filter(p -> emanetLotlari.contains(p.lotId())).toList(), Pozisyon::kg))));
         }
         return new StokDurumu("silo", simdi, toplam, sonuc, null);
     }
@@ -109,11 +114,15 @@ public class RaporServisi {
         Map<Long, BigDecimal> avans = grupla("select a.producerId, sum(a.amount - a.offsetAmount) from Advance a group by a.producerId");
         Map<Long, BigDecimal> odenmemis = grupla("select s.producerId, sum(s.netPayable - s.paidAmount) from Settlement s group by s.producerId");
         Map<Long, BigDecimal> kg = grupla("select s.producerId, sum(s.netKg) from Settlement s group by s.producerId");
+        Map<Long, BigDecimal> emanet = em.createQuery(
+                        "select t.producerId, sum(t.netKg) from WeighTicket t where t.status = :e group by t.producerId", Object[].class)
+                .setParameter("e", TicketStatus.DEPOSITED).getResultStream()
+                .collect(Collectors.toMap(x -> (Long) x[0], x -> (BigDecimal) x[1]));
         return em.createQuery("select p from Producer p order by p.fullName, p.id", Producer.class).getResultStream()
                 .map(p -> {
                     BigDecimal b = q(bakiye.getOrDefault(p.getId(), ZERO)), o = q(odenmemis.getOrDefault(p.getId(), ZERO));
                     return new UreticiBakiye(p.getId(), p.getFullName(), b, q(avans.getOrDefault(p.getId(), ZERO)), o,
-                            o.min(b).max(ZERO), q(kg.getOrDefault(p.getId(), ZERO)));
+                            o.min(b).max(ZERO), q(kg.getOrDefault(p.getId(), ZERO)), q(emanet.getOrDefault(p.getId(), ZERO)));
                 }).toList();
     }
 
@@ -147,7 +156,8 @@ public class RaporServisi {
                     q != null ? siniflar.get(q.getQualityGradeId()).getCode() : null, t.getNetKg(), t.getUnitPrice(),
                     s != null ? s.getGrossAmount() : null, s != null ? s.getDeductionsTotal() : null,
                     s != null ? s.getAdvanceOffsetTotal() : null, s != null ? net : null, s != null ? odenen : null,
-                    s != null ? net.subtract(odenen) : null, t.getGrossSource(), t.getTareSource()));
+                    s != null ? net.subtract(odenen) : null, t.getGrossSource(), t.getTareSource(),
+                    t.getStatus() == TicketStatus.DEPOSITED ? "Emanet" : t.getSaleMode().getAd()));
         }
         List<UrunTuruOzeti> urunTurleri = tureGore.entrySet().stream()
                 .map(e -> new UrunTuruOzeti(e.getKey(), e.getKey().getAd(), e.getValue().size(),
@@ -211,8 +221,20 @@ public class RaporServisi {
                         q((BigDecimal) r[6])))
                 .toList();
 
+        // O gün emanetten satışa çevrilen fişler (teslim tarihi daha eski olabilir)
+        List<EmanetDonusumu> donusumler = em.createQuery("""
+                        select t from WeighTicket t where t.depositConvertedAt >= :b and t.depositConvertedAt < :son
+                        order by t.depositConvertedAt, t.id""", WeighTicket.class)
+                .setParameter("b", a[0]).setParameter("son", a[1]).getResultStream().map(t -> {
+                    Settlement s = TartimServisi.hakedis(em, t.getId());
+                    QualityInspection q = TartimServisi.analiz(em, t.getId());
+                    return new EmanetDonusumu(t.getDepositConvertedAt(), t.getTicketNo(), ureticiAdi.get(t.getProducerId()),
+                            t.getGrossWeighedAt(), q != null ? siniflar.get(q.getQualityGradeId()).getCode() : null, t.getNetKg(),
+                            t.getUnitPrice(), s != null ? s.getNetPayable() : null);
+                }).toList();
+
         return new GunSonuRaporu(gun, Dogrulama.simdi(), gunlukOzet(gun), kasa, urunTurleri, teslimatlar, kasaHareketleri,
-                siloGirisleri, sevkiyatlar);
+                siloGirisleri, sevkiyatlar, donusumler);
     }
 
     // ─── Günlük özet ───
@@ -224,6 +246,10 @@ public class RaporServisi {
                         and t.status in :durumlar""", WeighTicket.class)
                 .setParameter("b", a[0]).setParameter("s", a[1])
                 .setParameter("durumlar", List.of(TicketStatus.GRADED, TicketStatus.SETTLED)).getResultList();
+        List<WeighTicket> emanetler = em.createQuery("""
+                        select t from WeighTicket t where t.grossWeighedAt >= :b and t.grossWeighedAt < :s and t.status = :emanet""",
+                        WeighTicket.class)   // hâlâ emanette olanlar; satışa çevrilenler alım (GRADED/SETTLED) içinde sayılır
+                .setParameter("b", a[0]).setParameter("s", a[1]).setParameter("emanet", TicketStatus.DEPOSITED).getResultList();
         List<Payment> odemeler = em.createQuery("select p from Payment p where p.paidAt >= :b and p.paidAt < :s", Payment.class)
                 .setParameter("b", a[0]).setParameter("s", a[1]).getResultList();
         List<Advance> avanslar = em.createQuery("select v from Advance v where v.givenAt >= :b and v.givenAt < :s", Advance.class)
@@ -261,6 +287,7 @@ public class RaporServisi {
                 netKg, agirlikli(topla(tartimlar, kgRandiman), netKg), agirlikli(topla(tartimlar, kgFiyat), netKg),
                 topla(hs, Settlement::getGrossAmount), topla(hs, Settlement::getDeductionsTotal),
                 topla(hs, Settlement::getAdvanceOffsetTotal), topla(hs, Settlement::getNetPayable),
-                topla(odemeler, Payment::getAmount), odemeler.size(), topla(avanslar, Advance::getAmount), kirilim);
+                topla(odemeler, Payment::getAmount), odemeler.size(), topla(avanslar, Advance::getAmount), kirilim,
+                emanetler.size(), topla(emanetler, WeighTicket::getNetKg));
     }
 }
