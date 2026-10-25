@@ -22,21 +22,33 @@ import java.util.stream.Collectors;
 @Order(1)   // Her zaman ilk: hesaplar ve tanımlar, demo verisinden (Order 10) önce oluşmalı
 public class BaslangicVerisi implements ApplicationRunner {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BaslangicVerisi.class);
+
     private final EntityManager em;
     private final boolean etkin;
     private final boolean demoHesaplari;
     private final String baslangicSifresi;
     private final PasswordEncoder sifreleyici;
+    private final String yoneticiKullanici, yoneticiAd, yoneticiSifre;
+    private final boolean yoneticiSifreSifirla;
 
     public BaslangicVerisi(EntityManager em, PasswordEncoder sifreleyici,
                            @Value("${fistik.seed-demo-data:true}") boolean etkin,
                            @Value("${fistik.demo-hesaplari:true}") boolean demoHesaplari,
-                           @Value("${fistik.baslangic-sifresi}") String baslangicSifresi) {
+                           @Value("${fistik.baslangic-sifresi}") String baslangicSifresi,
+                           @Value("${fistik.yonetici.kullanici:}") String yoneticiKullanici,
+                           @Value("${fistik.yonetici.ad:}") String yoneticiAd,
+                           @Value("${fistik.yonetici.sifre:}") String yoneticiSifre,
+                           @Value("${fistik.yonetici.sifre-sifirla:false}") boolean yoneticiSifreSifirla) {
         this.em = em;
         this.sifreleyici = sifreleyici;
         this.etkin = etkin;
         this.demoHesaplari = demoHesaplari;
         this.baslangicSifresi = baslangicSifresi;
+        this.yoneticiKullanici = yoneticiKullanici.strip().toLowerCase(java.util.Locale.ROOT);
+        this.yoneticiAd = yoneticiAd.strip();
+        this.yoneticiSifre = yoneticiSifre;
+        this.yoneticiSifreSifirla = yoneticiSifreSifirla;
     }
 
     private boolean bos(Class<?> varlik) {
@@ -48,6 +60,7 @@ public class BaslangicVerisi implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         if (!etkin) return;
         hesaplariHazirla();
+        kaliciYoneticiHazirla();
         // Sınıflar ve silolar koda göre tek tek eklenir: sonradan eklenen yaş fıstık sınıfları mevcut veritabanlarına da gelir.
         // ÖRNEK eşikler — merkezin kendi kalite yönergesine göre güncelleyin. Yaş fıstıkta nem sınırı yoktur.
         sinifEkle("A", "1. Sınıf", ProductType.DRY, 1, "85", "55", "5", "8");
@@ -113,6 +126,40 @@ public class BaslangicVerisi implements ApplicationRunner {
             if (u.getPasswordHash() == null) u.setPasswordHash(sifreleyici.encode(baslangicSifresi));
         }
         em.flush();
+    }
+
+    /**
+     * Ortam değişkenleriyle tanımlanan kalıcı yönetici (YONETICI_KULLANICI, YONETICI_SIFRESI, isteğe bağlı YONETICI_AD).
+     * Şifre koda veya depoya girmez; yalnızca hesap ilk oluşturulurken (ya da YONETICI_SIFRE_SIFIRLA=true ise) atanır,
+     * böylece panelden değiştirilen şifre yeniden başlatmada ezilmez. Gece sıfırlaması bu hesabı silmez.
+     */
+    private void kaliciYoneticiHazirla() {
+        if (yoneticiKullanici.isEmpty() && yoneticiSifre.isEmpty()) return;
+        if (!yoneticiKullanici.matches("[a-z0-9._-]{3,30}") || yoneticiSifre.length() < 8) {
+            log.warn("YONETICI_KULLANICI (3–30 karakter: küçük harf, rakam, . _ -) veya YONETICI_SIFRESI (en az 8 karakter) "
+                    + "geçersiz; kalıcı yönetici oluşturulmadı.");
+            return;
+        }
+        User u = em.createQuery("select u from User u where lower(u.username) = :a", User.class)
+                .setParameter("a", yoneticiKullanici).getResultStream().findFirst().orElse(null);
+        boolean yeni = u == null;
+        if (yeni) {
+            u = new User();
+            u.setUsername(yoneticiKullanici);
+            u.setFullName(yoneticiAd.isEmpty() ? yoneticiKullanici : yoneticiAd);
+        } else if (!yoneticiAd.isEmpty()) {
+            u.setFullName(yoneticiAd);
+        }
+        u.setRole(UserRole.ADMIN);
+        u.setActive(true);
+        u.setPendingApproval(false);
+        if (yeni || yoneticiSifreSifirla || u.getPasswordHash() == null) {
+            u.setPasswordHash(sifreleyici.encode(yoneticiSifre));
+            u.setMustChangePassword(false);
+        }
+        if (yeni) em.persist(u);   // tüm zorunlu alanlar dolduktan sonra (IDENTITY: persist hemen INSERT eder)
+        em.flush();
+        log.info("Kalıcı yönetici hazır: {}{}", yoneticiKullanici, yeni ? " (yeni oluşturuldu)" : "");
     }
 
     private static BigDecimal d(String s) {

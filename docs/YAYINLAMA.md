@@ -81,6 +81,7 @@ flowchart LR
 - **Yönetici şifresi:** Render, `BASLANGIC_SIFRESI` değişkenini rastgele üretir. Şifreyle giriş yapmak isterseniz değeri Render panelinde **Environment** sekmesinde görebilirsiniz.
 - **Güncelleme:** GitHub'a her `git push` sonrası Render otomatik olarak yeniden derleyip yayınlar (`autoDeploy: true`).
 - **Demoyu kapatmak (gerçek kullanım):** Render → **Environment** → `DEMO_HESAPLARI`, `DEMO_VERISI` ve `GECE_SIFIRLAMA` değerlerini `false` yapın. Swagger'ı da kapatmak için `API_DOKUMANI=false` ekleyin.
+- **Kendi yönetici hesabınız (kalıcı):** Render → **Environment** → **Add Environment Variable** ile `YONETICI_KULLANICI` (ör. `nisanurhrmn`; küçük harf, rakam, `.` `_` `-`), `YONETICI_SIFRESI` (en az 8 karakter) ve isteğe bağlı `YONETICI_AD` (ör. `Nisanur Harman`) ekleyip **Save Changes** deyin. Sunucu yeniden başlayınca bu kullanıcı adı ve şifreyle Yönetici olarak giriş yapılır; hesap gece sıfırlamasında silinmez. Şifre koda ve GitHub'a girmez.
 - **Gerçek SMS:** Render → **Environment** → `SMS_SAGLAYICI=netgsm`, `SMS_KULLANICI`, `SMS_SIFRE` ve `SMS_BASLIK` (Netgsm'de onaylı gönderici adı) ekleyin. Bunlar yoksa SMS simülasyon modunda çalışır; gerçek SMS gitmez.
 - **Ücretsiz plan sınırları:**
   - Render: aylık 750 saat çalışma ve 512 MB bellek. Dockerfile'daki JVM ayarları bu belleğe göre yapıldı.

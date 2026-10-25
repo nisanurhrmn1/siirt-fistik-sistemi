@@ -281,6 +281,7 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `GECE_SIFIRLAMA` | `false` | `true` ise demo verisini her gece 03:00'te ve açılışta o güne ait tartım yoksa sıfırlar |
 | `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
+| `YONETICI_KULLANICI`, `YONETICI_SIFRESI`, `YONETICI_AD` | — | Kalıcı yönetici hesabı: açılışta oluşturulur, gece sıfırlamasında silinmez. Şifre yalnızca ortam değişkeninde durur; panelden değiştirilebilir (`YONETICI_SIFRE_SIFIRLA=true` ile bir sonraki açılışta ortam değişkenindeki şifreye döner) |
 | `SMS_SAGLAYICI` | `simulasyon` | `netgsm` ise gerçek SMS gönderilir (`SMS_KULLANICI`, `SMS_SIFRE`, `SMS_BASLIK` gerekir); eksikse simülasyona düşer |
 | `SMS_ETKIN` | `true` | `false` ise tartım ve avans SMS'i hiç gönderilmez |
 | `API_DOKUMANI` | `true` | `false` ise Swagger (`/docs`), ReDoc ve `/openapi.json` tamamen kapanır (gerçek kullanımda önerilir). Paneldeki "API" bağlantısı zaten yalnızca Yöneticiye görünür. |

@@ -13,6 +13,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 import tr.edu.siirt.fistik.api.Oturum;
+
+import java.util.ArrayList;
+import java.util.List;
 import tr.edu.siirt.fistik.kural.Dogrulama;
 
 /**
@@ -41,10 +44,14 @@ public class GeceSifirlama implements ApplicationRunner {
     private final TransactionTemplate tx;
     private final DemoVerisi demo;
 
-    public GeceSifirlama(EntityManager em, TransactionTemplate tx, DemoVerisi demo) {
+    private final String kaliciYonetici;
+
+    public GeceSifirlama(EntityManager em, TransactionTemplate tx, DemoVerisi demo,
+                         @org.springframework.beans.factory.annotation.Value("${fistik.yonetici.kullanici:}") String kaliciYonetici) {
         this.em = em;
         this.tx = tx;
         this.demo = demo;
+        this.kaliciYonetici = kaliciYonetici.strip().toLowerCase(java.util.Locale.ROOT);
     }
 
     /** Açılışta: bugünün (Türkiye saati) hiç tartımı yoksa demo verisi eskidir → yenile. */
@@ -67,9 +74,11 @@ public class GeceSifirlama implements ApplicationRunner {
         log.info("Demo sıfırlaması: işlem verisi siliniyor, örnek veri yeniden yükleniyor…");
         tx.executeWithoutResult(s -> {
             em.createNativeQuery("TRUNCATE " + ISLEM_TABLOLARI + " RESTART IDENTITY CASCADE").executeUpdate();
-            // Ziyaretçilerin eklediği kullanıcılar ve hesap talepleri de silinir; demo hesapları kalır.
-            em.createQuery("delete from User u where u.username not in :demolar")
-                    .setParameter("demolar", Oturum.DEMO_HESAPLARI.stream().map(h -> (String) h[0]).toList()).executeUpdate();
+            // Ziyaretçilerin eklediği kullanıcılar ve hesap talepleri de silinir; demo hesapları ve kalıcı yönetici kalır.
+            List<String> korunan = new ArrayList<>(Oturum.DEMO_HESAPLARI.stream().map(h -> (String) h[0]).toList());
+            if (!kaliciYonetici.isEmpty()) korunan.add(kaliciYonetici);
+            em.createQuery("delete from User u where lower(u.username) not in :korunan")
+                    .setParameter("korunan", korunan).executeUpdate();
         });
         demo.yukle();
         log.info("Demo sıfırlaması tamamlandı.");
