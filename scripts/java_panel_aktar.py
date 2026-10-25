@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 HEDEF = ROOT / "java-backend" / "src" / "main" / "resources" / "static"
-SURUM = "2.10.0"
+SURUM = "2.11.0"
 
 REDOC = """<!doctype html>
 <html lang="tr">
@@ -39,6 +39,7 @@ def main() -> None:
     HEDEF.mkdir(parents=True, exist_ok=True)
     (HEDEF / "index.html").write_text(html, encoding="utf-8")
     (HEDEF / "redoc.html").write_text(REDOC, encoding="utf-8")
+    (HEDEF / "sw.js").write_text(env.get_template("sw.js").render(surum=SURUM), encoding="utf-8")
     shutil.rmtree(HEDEF / "static", ignore_errors=True)
     shutil.copytree(ROOT / "app" / "static", HEDEF / "static")
     print(f"Panel aktarıldı → {HEDEF.relative_to(ROOT)}")

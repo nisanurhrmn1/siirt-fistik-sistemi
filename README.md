@@ -198,6 +198,8 @@ Sistem önce Python (FastAPI) ile prototiplendi, ardından aynı mimariyle Java'
 
 Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, ReDoc) `static/vendor/` klasöründedir; Swagger UI jar içinde gelir. Sistem **hiçbir dış adrese istek atmaz**.
 
+**Görseller ve çevrimdışı önbellek.** Giriş ekranında dalında olgunlaşmış kırmızı kabuklu fıstık, panel şeridinde kavlak (çatlak) fıstık fotoğrafı; ürün türü seçiminde, fiyat listesinde, çatlak primi ve silo kartlarında yaş / kuru-kavlak minyatürleri vardır. Fotoğraflar WebP'dir (4 dosya, toplam ~78 KB) ve koyu yeşil perde/maske ile verilerin okunurluğunu bozmaz. `/sw.js` service worker'ı panel kabuğunu, kütüphaneleri ve bu görselleri önbelleğe alır (API yanıtlarını almaz); önbellek adı sürüme bağlıdır. Fotoğraf kaynakları ve lisansları: [`app/static/img/foto/KAYNAKLAR.md`](app/static/img/foto/KAYNAKLAR.md).
+
 ---
 
 ## 5. Kurulum ve çalıştırma
@@ -530,17 +532,18 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (93 test: 27 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu)
-.\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (27 test)
-.\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (19 test)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (94 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu)
+.\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (28 test)
+.\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (20 test)
 ```
 
-- **`tests/test_api.py`** (19 test): Uç noktaların hepsini HTTP üzerinden dener. Kapsam:
+- **`tests/test_api.py`** (20 test): Uç noktaların hepsini HTTP üzerinden dener. Kapsam:
   - doğrulama hataları (negatif kg, %100'ü aşan oran, geçersiz TC/IBAN)
   - fiyat kilidi ve aynı gün çoklu teslimat
   - avansın teslimattan büyük olması ve sonradan verilen avansın mahsubu
   - parçalı ödeme, stok ve günlük rapor
   - panelin ve doküman sayfalarının hiçbir dış adrese bağlı olmaması
+  - fıstık fotoğraflarının WebP ve toplam 150 KB altında olması; service worker'ın bunları önbelleğe alıp API'yi almaması
 - **`tests/test_postgres.py`** (8 test): Uygulamayı atlayıp doğrudan SQL ile veri bozmaya çalışır ve PostgreSQL'in reddettiğini doğrular. Kapsam: cari hesap defterinin değiştirilememesi, onaylı ve kilitli fiyatların korunması, çakışan fiyat aralığı, hakediş formülü, yanlış kalitenin siloya girememesi, rapor view'larının API ile aynı sonucu vermesi.
 - **`tests/test_guvenlik.py`** (10 test, yalnızca Java): Kapsam:
   - giriş yapılmadan API'ye erişilememesi; sahte token ve yanlış şifrenin reddi
@@ -624,5 +627,6 @@ siirt-fistik-sistemi/
 
 Bu proje eğitim amaçlı geliştirilmiştir. Arayüzde kullanılan üçüncü taraf kütüphanelerin lisansları için:
 [`app/static/vendor/README.md`](app/static/vendor/README.md)
+Fotoğraflar (Wikimedia Commons; CC BY 4.0, CC BY 2.0, kamu malı): [`app/static/img/foto/KAYNAKLAR.md`](app/static/img/foto/KAYNAKLAR.md)
 
 Önceki Python (FastAPI) sürümüne `git checkout python-surum` ile dönülebilir.

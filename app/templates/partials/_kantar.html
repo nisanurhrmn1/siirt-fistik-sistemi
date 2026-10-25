@@ -92,7 +92,10 @@
           <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400"
                  :class="kantar.urun_turu === kod && 'secim-aktif'">
             <input type="radio" name="urun_turu" class="sr-only" :value="kod" x-model="kantar.urun_turu">
-            <span x-text="ad"></span>
+            <span class="inline-flex items-center gap-2">
+              <img :src="urunFotolari[kod]" alt="" class="urun-foto h-7 w-7" width="28" height="28" loading="lazy">
+              <span x-text="ad"></span>
+            </span>
           </label>
         </template>
       </div>

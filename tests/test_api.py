@@ -214,6 +214,21 @@ def test_panel_sayfasi_ve_statik_dosyalar(client):
     assert client.get("/static/css/app.css").status_code == 200
 
 
+def test_fistik_fotograflari_ve_service_worker(client):
+    """Görseller WebP ve küçük; service worker hepsini önbelleğe alır ama API'yi almaz."""
+    fotolar = ("dalda-fistik", "kavlak-fistik", "rozet-yas", "rozet-kavlak")
+    toplam = 0
+    for ad in fotolar:
+        r = client.get(f"/static/img/foto/{ad}.webp")
+        assert r.status_code == 200 and r.content[:4] == b"RIFF" and r.content[8:12] == b"WEBP", ad
+        toplam += len(r.content)
+    assert toplam < 150_000, toplam
+    sw = client.get("/sw.js")
+    assert sw.status_code == 200 and "javascript" in sw.headers["content-type"]
+    assert all(f"/static/img/foto/{ad}.webp" in sw.text for ad in fotolar)
+    assert "startsWith('/api/')" in sw.text and "{{" not in sw.text
+
+
 def test_cevrimdisi_calisir_dis_kaynak_yok(client):
     """Panel ve doküman sayfaları yalnızca yerel /static dosyalarını kullanmalı (internetsiz sunum)."""
     import re

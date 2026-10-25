@@ -79,7 +79,10 @@
 
     <!-- ─── Karşılama şeridi ─── -->
     <section class="serit px-6 py-5 sm:px-8 sm:py-6">
-      <img src="{{ url_for('static', path='img/fistik-dal.svg') }}" alt="" class="serit-dal hidden sm:block">
+      <div class="serit-gorsel hidden sm:block" aria-hidden="true">
+        <img src="{{ url_for('static', path='img/foto/kavlak-fistik.webp') }}" alt="" width="800" height="450" decoding="async">
+      </div>
+      <span class="foto-kunye absolute right-4 bottom-2 z-10 hidden sm:block">Fotoğraf: THOR · CC BY 2.0</span>
       <div class="relative z-10 max-w-xl">
         <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
         <h2 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight" x-text="selamlama"></h2>
@@ -167,5 +170,11 @@
       </div>
     </template>
   </div>
+  <script>
+    // Çevrimdışı önbellek: panel kabuğu, kütüphaneler ve görseller (API yanıtları önbelleğe alınmaz)
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>

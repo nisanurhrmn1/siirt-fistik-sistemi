@@ -24,6 +24,13 @@ def panel(request: Request):
     return templates.TemplateResponse(request, "index.html", {"surum": request.app.version})
 
 
+@router.get("/sw.js")
+def service_worker(request: Request):
+    """Kök kapsamlı service worker (önbellek adı sürüme bağlı; yeni sürümde eskisi silinir)."""
+    return templates.TemplateResponse(request, "sw.js", {"surum": request.app.version},
+                                      media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+
+
 @router.get("/docs", response_class=HTMLResponse)
 def swagger(request: Request):
     return get_swagger_ui_html(

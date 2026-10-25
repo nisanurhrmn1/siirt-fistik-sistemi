@@ -5,7 +5,9 @@
 
       <!-- Sol: tanıtım -->
       <div class="serit lg:col-span-2 p-8 flex-col" :class="girisModu === 'sorgu' ? 'hidden lg:flex' : 'flex'">
-        <img src="{{ url_for('static', path='img/fistik-dal.svg') }}" alt="" class="serit-dal">
+        <img src="{{ url_for('static', path='img/foto/dalda-fistik.webp') }}" alt="" class="serit-foto" width="480" height="640"
+             fetchpriority="high" decoding="async">
+        <div class="serit-perde serit-perde-dikey"></div>
         <img src="{{ url_for('static', path='img/logo.svg') }}" alt="Siirt Fıstığı amblemi" class="amblem relative z-10 h-14 w-14">
         <div class="relative z-10 mt-6">
           <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
@@ -20,6 +22,7 @@
           <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Otomatik avans mahsubu</li>
           <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Rol bazlı yetkilendirme</li>
         </ul>
+        <p class="foto-kunye relative z-10 mt-4">Fotoğraf: Sarah Stierch · CC BY 4.0</p>
       </div>
 
       <!-- Sağ: giriş formu ve demo hesapları -->

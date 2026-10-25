@@ -12,7 +12,9 @@
       <template x-for="(k, i) in fiyatlar" :key="k.kalite_kodu">
         <div>
         <p x-show="k.urun_turu_adi && (i === 0 || fiyatlar[i - 1].urun_turu !== k.urun_turu)"
-           class="alt-baslik mt-2 mb-2" x-text="k.urun_turu_adi"></p>
+           class="alt-baslik mt-2 mb-2 flex items-center gap-2">
+          <img :src="urunFotolari[k.urun_turu]" alt="" class="urun-foto h-6 w-6" width="24" height="24" loading="lazy">
+          <span x-text="k.urun_turu_adi"></span></p>
         <div class="mini-kart p-3 flex items-center gap-3">
           <span class="sinif-rozet" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span>
           <div class="min-w-0 flex-1">
@@ -47,7 +49,9 @@
     <template x-for="k in catlakPrimleri" :key="k.urun_turu">
       <form class="mini-kart p-3 space-y-3" @submit.prevent="catlakPrimiKaydet(k)">
         <div class="flex items-center justify-between">
-          <p class="font-medium text-sm" x-text="k.urun_turu_adi"></p>
+          <p class="font-medium text-sm flex items-center gap-2">
+            <img :src="urunFotolari[k.urun_turu]" alt="" class="urun-foto h-7 w-7" width="28" height="28" loading="lazy">
+            <span x-text="k.urun_turu_adi"></span></p>
           <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" x-model="k.aktif" class="h-4 w-4 accent-emerald-600" :disabled="!yetkili('fiyat_gir')"> Uygula
           </label>
@@ -125,7 +129,11 @@
               <span class="silo-yuzde" x-text="'%' + Number(s.doluluk_orani).toLocaleString('tr-TR', {maximumFractionDigits: 1})"></span>
             </div>
             <div class="min-w-0 text-sm space-y-1">
-              <p class="font-semibold" x-text="s.silo_kodu"></p>
+              <div class="flex items-center gap-2">
+                <img x-show="kaliteFoto(s.adanmis_kalite)" :src="kaliteFoto(s.adanmis_kalite)" class="urun-foto h-7 w-7"
+                     :alt="String(s.adanmis_kalite).startsWith('Y') ? 'Yaş fıstık' : 'Kuru-kavlak fıstık'" width="28" height="28" loading="lazy">
+                <p class="font-semibold" x-text="s.silo_kodu"></p>
+              </div>
               <p class="text-xs text-stone-500 truncate" x-text="s.silo_adi"></p>
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.adanmis_kalite).rozet" x-text="s.adanmis_kalite || 'Genel'"></span>
               <p class="tabular-nums pt-1" x-text="kg(s.stok_kg)"></p>

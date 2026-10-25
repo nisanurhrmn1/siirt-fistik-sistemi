@@ -22,10 +22,10 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.10.0">
+  <link rel="stylesheet" href="/static/css/app.css?v=2.11.0">
   <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
   <style id="sayfa-boyutu" media="print"></style>
-  <script defer src="/static/js/app.js?v=2.10.0"></script>
+  <script defer src="/static/js/app.js?v=2.11.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-emerald-50 via-stone-50 to-amber-50 text-stone-800 antialiased"
@@ -79,7 +79,10 @@
 
     <!-- ─── Karşılama şeridi ─── -->
     <section class="serit px-6 py-5 sm:px-8 sm:py-6">
-      <img src="/static/img/fistik-dal.svg" alt="" class="serit-dal hidden sm:block">
+      <div class="serit-gorsel hidden sm:block" aria-hidden="true">
+        <img src="/static/img/foto/kavlak-fistik.webp" alt="" width="800" height="450" decoding="async">
+      </div>
+      <span class="foto-kunye absolute right-4 bottom-2 z-10 hidden sm:block">Fotoğraf: THOR · CC BY 2.0</span>
       <div class="relative z-10 max-w-xl">
         <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
         <h2 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight" x-text="selamlama"></h2>
@@ -254,7 +257,10 @@
           <label class="secim cursor-pointer text-center focus-within:ring-2 focus-within:ring-emerald-400"
                  :class="kantar.urun_turu === kod && 'secim-aktif'">
             <input type="radio" name="urun_turu" class="sr-only" :value="kod" x-model="kantar.urun_turu">
-            <span x-text="ad"></span>
+            <span class="inline-flex items-center gap-2">
+              <img :src="urunFotolari[kod]" alt="" class="urun-foto h-7 w-7" width="28" height="28" loading="lazy">
+              <span x-text="ad"></span>
+            </span>
           </label>
         </template>
       </div>
@@ -692,7 +698,9 @@
       <template x-for="(k, i) in fiyatlar" :key="k.kalite_kodu">
         <div>
         <p x-show="k.urun_turu_adi && (i === 0 || fiyatlar[i - 1].urun_turu !== k.urun_turu)"
-           class="alt-baslik mt-2 mb-2" x-text="k.urun_turu_adi"></p>
+           class="alt-baslik mt-2 mb-2 flex items-center gap-2">
+          <img :src="urunFotolari[k.urun_turu]" alt="" class="urun-foto h-6 w-6" width="24" height="24" loading="lazy">
+          <span x-text="k.urun_turu_adi"></span></p>
         <div class="mini-kart p-3 flex items-center gap-3">
           <span class="sinif-rozet" :class="kaliteRenk(k.kalite_kodu).rozet" x-text="k.kalite_kodu"></span>
           <div class="min-w-0 flex-1">
@@ -727,7 +735,9 @@
     <template x-for="k in catlakPrimleri" :key="k.urun_turu">
       <form class="mini-kart p-3 space-y-3" @submit.prevent="catlakPrimiKaydet(k)">
         <div class="flex items-center justify-between">
-          <p class="font-medium text-sm" x-text="k.urun_turu_adi"></p>
+          <p class="font-medium text-sm flex items-center gap-2">
+            <img :src="urunFotolari[k.urun_turu]" alt="" class="urun-foto h-7 w-7" width="28" height="28" loading="lazy">
+            <span x-text="k.urun_turu_adi"></span></p>
           <label class="flex items-center gap-2 text-sm">
             <input type="checkbox" x-model="k.aktif" class="h-4 w-4 accent-emerald-600" :disabled="!yetkili('fiyat_gir')"> Uygula
           </label>
@@ -805,7 +815,11 @@
               <span class="silo-yuzde" x-text="'%' + Number(s.doluluk_orani).toLocaleString('tr-TR', {maximumFractionDigits: 1})"></span>
             </div>
             <div class="min-w-0 text-sm space-y-1">
-              <p class="font-semibold" x-text="s.silo_kodu"></p>
+              <div class="flex items-center gap-2">
+                <img x-show="kaliteFoto(s.adanmis_kalite)" :src="kaliteFoto(s.adanmis_kalite)" class="urun-foto h-7 w-7"
+                     :alt="String(s.adanmis_kalite).startsWith('Y') ? 'Yaş fıstık' : 'Kuru-kavlak fıstık'" width="28" height="28" loading="lazy">
+                <p class="font-semibold" x-text="s.silo_kodu"></p>
+              </div>
               <p class="text-xs text-stone-500 truncate" x-text="s.silo_adi"></p>
               <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.adanmis_kalite).rozet" x-text="s.adanmis_kalite || 'Genel'"></span>
               <p class="tabular-nums pt-1" x-text="kg(s.stok_kg)"></p>
@@ -1207,7 +1221,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.10.0 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.11.0 · çevrimdışı çalışır
     </footer>
   </main>
 
@@ -1922,7 +1936,9 @@
 
       <!-- Sol: tanıtım -->
       <div class="serit lg:col-span-2 p-8 flex-col" :class="girisModu === 'sorgu' ? 'hidden lg:flex' : 'flex'">
-        <img src="/static/img/fistik-dal.svg" alt="" class="serit-dal">
+        <img src="/static/img/foto/dalda-fistik.webp" alt="" class="serit-foto" width="480" height="640"
+             fetchpriority="high" decoding="async">
+        <div class="serit-perde serit-perde-dikey"></div>
         <img src="/static/img/logo.svg" alt="Siirt Fıstığı amblemi" class="amblem relative z-10 h-14 w-14">
         <div class="relative z-10 mt-6">
           <p class="text-xs font-semibold uppercase tracking-[.2em] text-amber-200">Siirt · Fıstık Alım Merkezi</p>
@@ -1937,6 +1953,7 @@
           <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Otomatik avans mahsubu</li>
           <li class="flex items-center gap-2"><span class="text-amber-200">✓</span> Rol bazlı yetkilendirme</li>
         </ul>
+        <p class="foto-kunye relative z-10 mt-4">Fotoğraf: Sarah Stierch · CC BY 4.0</p>
       </div>
 
       <!-- Sağ: giriş formu ve demo hesapları -->
@@ -2154,5 +2171,11 @@
       </div>
     </template>
   </div>
+  <script>
+    // Çevrimdışı önbellek: panel kabuğu, kütüphaneler ve görseller (API yanıtları önbelleğe alınmaz)
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>

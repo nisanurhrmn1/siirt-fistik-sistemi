@@ -223,6 +223,7 @@ document.addEventListener('alpine:init', () => {
     kantarDurum: { bagli: false, mesaj: 'Bağlı değil', sonOkuma: null },
     kantarOkunan: '',             // şu an kantardan okunan alan: 'brut' | 'dara'
     urunTurleri: { DRY: 'Kuru-kavlak', FRESH: 'Yaş fıstık' },
+    urunFotolari: { DRY: '/static/img/foto/rozet-kavlak.webp', FRESH: '/static/img/foto/rozet-yas.webp' },
     // sevkiyat (satış / depodan çıkış)
     sevk: bosSevk(),
     sevkiyatlar: [],
@@ -1226,6 +1227,11 @@ document.addEventListener('alpine:init', () => {
     ibanYaz(v) { return (v || '').replace(/(.{4})/g, '$1 ').trim(); },
     basHarfler(ad) { return (ad || '?').split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toLocaleUpperCase('tr'); },
 
+    /** Silo/kalite kodundan ürün türü minyatürü: Y ile başlayan sınıflar yaş fıstık, diğerleri kuru-kavlak. */
+    kaliteFoto(kod) {
+      if (!kod) return null;
+      return this.urunFotolari[String(kod).startsWith('Y') ? 'FRESH' : 'DRY'];
+    },
     kaliteRenk(kod) {
       return ({
         A: { rozet: 'bg-fistik-100 text-fistik-800 ring-fistik-300', dolgu: 'bg-fistik-500' },
