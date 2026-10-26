@@ -179,6 +179,7 @@ Sistem önce Python (FastAPI) ile prototiplendi; iki sürüm aynı REST sözleş
 | FG-GUV-08 | Hesabı olmayan çalışan giriş ekranından hesap talebi gönderebilmeli; talep yönetici onaylayana kadar giriş yapamamalıdır. Yönetici rolü talep edilememeli, yönetici onaylarken rolü değiştirebilmelidir. | Orta | ✅ |
 | FG-GUV-09 | Yöneticinin verdiği geçici şifre ilk girişte değiştirilmeli; her kullanıcı kendi şifresini değiştirebilmelidir. | Orta | ✅ |
 | FG-GUV-10 | Yönetici kendi rolünü düşüremez, kendini pasifleştiremez; sistemde en az bir aktif yönetici kalmalıdır. Herkese açık demoda demo hesapları değiştirilemez. | Orta | ✅ |
+| FG-GUV-11 | Giriş ekranından hesap talebi geldiğinde yöneticiye Telegram ile anında bildirim gitmelidir. Bildirim ayarı yoksa veya Telegram'a ulaşılamazsa talep kaydı etkilenmemeli; mesajda şifre bulunmamalıdır. | Düşük | ✅ |
 
 ### 3.7 Raporlama (RAP)
 | No | Gereksinim | Öncelik | Durum |

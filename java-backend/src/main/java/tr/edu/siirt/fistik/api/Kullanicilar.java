@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import tr.edu.siirt.fistik.alan.User;
 import tr.edu.siirt.fistik.alan.UserRole;
+import tr.edu.siirt.fistik.bildirim.TelegramBildirimServisi.HesapTalebiOlustu;
 import tr.edu.siirt.fistik.kural.Hatalar.BulunamadiHatasi;
 import tr.edu.siirt.fistik.kural.Hatalar.CakismaHatasi;
 import tr.edu.siirt.fistik.kural.Hatalar.DogrulamaHatasi;
@@ -132,12 +134,14 @@ public final class Kullanicilar {
         private final EntityManager em;
         private final PasswordEncoder sifreleyici;
         private final boolean demoModu;
+        private final ApplicationEventPublisher olaylar;
 
         public KullaniciServisi(EntityManager em, PasswordEncoder sifreleyici,
-                                @Value("${fistik.demo-hesaplari:true}") boolean demoModu) {
+                                @Value("${fistik.demo-hesaplari:true}") boolean demoModu, ApplicationEventPublisher olaylar) {
             this.em = em;
             this.sifreleyici = sifreleyici;
             this.demoModu = demoModu;
+            this.olaylar = olaylar;
         }
 
         private boolean demo(User u) {
@@ -187,6 +191,9 @@ public final class Kullanicilar {
             u.setRequestNote(t.aciklama());
             u.setPasswordHash(sifreleyici.encode(t.sifre()));
             em.persist(u);
+            // Yöneticiye Telegram bildirimi: kayıt commit edildikten sonra, arka planda (TelegramBildirimServisi)
+            olaylar.publishEvent(new HesapTalebiOlustu(u.getFullName(), u.getUsername(), u.getRole().getAd(),
+                    u.getRequestNote(), OffsetDateTime.now()));
             return new MesajYaniti("Talebiniz alındı. Yönetici onayladığında bu kullanıcı adı ve şifreyle giriş yapabilirsiniz.");
         }
 

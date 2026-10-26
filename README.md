@@ -286,6 +286,7 @@ Tartım yapabilmek için önce **Fiyat & Depo** sekmesinden günlük fiyat giril
 | `JWT_SECRET` (`.env`) | geçici | Giriş token'larının imza anahtarı (en az 32 karakter) |
 | `SEED_DEMO_DATA` | `true` | Kalite sınıfı, kesinti ve silo tanımlarını oluşturur |
 | `YONETICI_KULLANICI`, `YONETICI_SIFRESI`, `YONETICI_AD` | — | Kalıcı yönetici hesabı: açılışta oluşturulur, gece sıfırlamasında silinmez. Şifre yalnızca ortam değişkeninde durur; panelden değiştirilebilir (`YONETICI_SIFRE_SIFIRLA=true` ile bir sonraki açılışta ortam değişkenindeki şifreye döner) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_CHAT_ID` | — | Hesap talebi gelince yöneticiye Telegram bildirimi. İkisi de boşsa bildirim atlanır (loga uyarı), talep yine kaydedilir |
 | `SMS_SAGLAYICI` | `simulasyon` | `netgsm` ise gerçek SMS gönderilir (`SMS_KULLANICI`, `SMS_SIFRE`, `SMS_BASLIK` gerekir); eksikse simülasyona düşer |
 | `SMS_ETKIN` | `true` | `false` ise tartım ve avans SMS'i hiç gönderilmez |
 | `API_DOKUMANI` | `true` | `false` ise Swagger (`/docs`), ReDoc ve `/openapi.json` tamamen kapanır (gerçek kullanımda önerilir). Paneldeki "API" bağlantısı zaten yalnızca Yöneticiye görünür. |
@@ -388,7 +389,7 @@ Okuma işlemleri (listeler, raporlar, ekstre) giriş yapmış herkese açıktır
 
 **Yeni kullanıcılar nasıl eklenir?** Herkese açık bir "kaydol" yoktur, çünkü rolü kullanıcı değil yönetici belirler (aksi halde herkes kendini Muhasebe yapıp ödeme girebilirdi). İki yol vardır:
 
-1. **Hesap talebi:** Giriş ekranındaki **"Hesap talep edin"** bağlantısıyla çalışan ad, kullanıcı adı, görev ve şifresini gönderir. Hesap, yönetici onaylayana kadar giriş yapamaz. Yönetici rolü talep edilemez.
+1. **Hesap talebi:** Giriş ekranındaki **"Hesap talep edin"** bağlantısıyla çalışan ad, kullanıcı adı, görev ve şifresini gönderir. Hesap, yönetici onaylayana kadar giriş yapamaz. Yönetici rolü talep edilemez. `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_BOT_CHAT_ID` tanımlıysa yöneticinin Telegram'ına anında bildirim düşer (ad, kullanıcı adı, rol, not, tarih ve panel bağlantısı; şifre asla gönderilmez). Bildirim talep veritabanına işlendikten sonra arka planda gider: Telegram'a ulaşılamasa da form beklemez ve talep kaybolmaz.
 2. **Yöneticinin eklemesi:** Yönetici **Kullanıcılar** sekmesinden kullanıcıyı geçici bir şifreyle ekler. Kullanıcı ilk girişte kendi şifresini belirler.
 
 Yönetici aynı sekmeden talepleri onaylar (gerekirse rolü değiştirerek) veya reddeder, rol değiştirir, hesabı pasifleştirir ve şifre sıfırlar. Rol değişikliği ve pasifleştirme, kullanıcının açık oturumunda bir sonraki istekte geçerli olur (rol token'dan değil veritabanından okunur). Her kullanıcı üst bardaki **Şifre** düğmesiyle kendi şifresini değiştirebilir.
@@ -527,14 +528,14 @@ cd java-backend
 .\mvnw.cmd test
 ```
 
-`KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı.
+`KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı. `SmsTest`: Netgsm yanıtları. `TelegramTest` (7 test, sahte Telegram sunucusuyla): mesaj biçimi ve Türkiye saati, kullanıcı metninin HTML olarak yorumlanmaması, ayarsızken istek atılmaması, `sendMessage` isteği ve Telegram hata verdiğinde ya da ulaşılamadığında istisna fırlatılmaması.
 
 **Sözleşme testleri (uçtan uca)** — aynı test paketi hem Java hem Python sunucusuna karşı çalışır. Böylece iki sürümün aynı davrandığı kanıtlanır:
 
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (94 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (98 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu + 4 Telegram)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (28 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (20 test)
 ```
@@ -558,6 +559,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_telegram.py`** (4 test, yalnızca Java): test, 127.0.0.1 üzerinde sahte bir Telegram API'si açar. Sunucu `TELEGRAM_API_ADRESI=http://127.0.0.1:8029`, `TELEGRAM_BOT_TOKEN=123456:TEST`, `TELEGRAM_BOT_CHAT_ID=42` ile başlatılır; test `FISTIK_TELEGRAM_SAHTE_PORT=8029` ile çalıştırılır. Kapsam: talep kaydedilince doğru sohbete HTML mesaj gitmesi (şifre içermez, kullanıcı metni kaçışlı); başarısız talepte (alınmış kullanıcı adı, yönetici rolü) mesaj gitmemesi; yanıtın Telegram'ı beklememesi. Bu değişkenler yoksa yalnızca "ayarsızken de talep kaydedilir" testi çalışır, diğer 3'ü atlanır.
 - **`tests/test_sorgu.py`** (5 test, yalnızca Java): doğru bilgiyle yalnızca kendi özetinin dönmesi (başka üreticinin verisi, T.C., telefon, IBAN ve soyadının yanıtta olmaması); "kayıt yok" ile "telefon yanlış"ın aynı mesajı vermesi; doğrulamalar; 5 hatalı denemeden sonra 429 (doğru bilgi de bekletilir, başka T.C. etkilenmez); sorgunun giriş gerektirmemesi.
 - **`tests/test_tahsilat.py`** (7 test, yalnızca Java): açık hesap ve tahsilat (fazlası alıcı avansı), alıcı ekstresinde yürüyen bakiye ve dönem devri, tarih ve tutar doğrulamaları, yetki, tahsilat kaydının değiştirilemezliği, gün sonu kasasına giriş; resmî kesintilerin açılıp kapatılması ve oran değişikliğinin yalnızca yeni hakedişlere uygulanması.
 - **`tests/test_emanet.py`** (11 test, yalnızca Java): parçalı bozdurma (400 / 1.200 kg; kalan emanet, silodaki emanet ve lot aktarımı, kalandan fazlasının reddi, kalanın başka gün fiyatıyla satılması); boş tane iskontosu; emanetin siloya girip hakediş ve cari hareket oluşturmaması; fiyat yokken de alınabilmesi; satışa çevirmenin o günün fiyatıyla ve avans mahsubuyla hakediş oluşturması, ikinci kez çevrilememesi, yetkisi; sevkiyatta önce merkezin kendi lotlarının çıkması; çatlak primi, iskontosu ve azami sınır; numune gramlarından oran hesabı; veritabanının emanet fişine fiyat yazılmasını engellemesi.

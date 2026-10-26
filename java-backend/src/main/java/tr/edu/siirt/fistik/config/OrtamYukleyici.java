@@ -33,6 +33,11 @@ public final class OrtamYukleyici {
         if (env.get("JWT_SECRET") != null && System.getProperty("fistik.jwt-anahtar") == null) {
             System.setProperty("fistik.jwt-anahtar", env.get("JWT_SECRET"));
         }
+        // Telegram bildirimi: yerelde .env'den de okunur (ortam değişkeni varsa Spring onu zaten kullanır)
+        if (env.get("TELEGRAM_BOT_TOKEN") != null && System.getenv("TELEGRAM_BOT_TOKEN") == null)
+            System.setProperty("telegram.bot.token", env.get("TELEGRAM_BOT_TOKEN"));
+        if (env.get("TELEGRAM_BOT_CHAT_ID") != null && System.getenv("TELEGRAM_BOT_CHAT_ID") == null)
+            System.setProperty("telegram.bot.chat-id", env.get("TELEGRAM_BOT_CHAT_ID"));
         String url = env.get("DATABASE_URL");
         if (url == null || System.getProperty("spring.datasource.url") != null || System.getenv("SPRING_DATASOURCE_URL") != null) {
             return;
