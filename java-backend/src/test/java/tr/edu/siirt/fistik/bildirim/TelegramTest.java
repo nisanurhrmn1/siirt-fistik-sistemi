@@ -41,6 +41,7 @@ class TelegramTest {
             int kod = getMe ? getMeKodu : yanitKodu;
             String metin = getMe
                     ? (kod == 200 ? "{\"ok\":true,\"result\":{\"id\":1,\"is_bot\":true,\"username\":\"fistik_bot\"}}"
+                                  : kod == 429 ? "{\"ok\":false,\"error_code\":429,\"description\":\"Too Many Requests: retry after 26\",\"parameters\":{\"retry_after\":26}}"
                                   : "{\"ok\":false,\"error_code\":401,\"description\":\"Unauthorized\"}")
                     : (kod == 200 ? "{\"ok\":true}" : "{\"ok\":false,\"description\":\"" + hataAciklamasi + "\"}");
             byte[] yanit = metin.getBytes(StandardCharsets.UTF_8);
@@ -170,6 +171,14 @@ class TelegramTest {
     }
 
     @Test
+    void telegramHizSiniriTokenHatasiSayilmaz() {
+        getMeKodu = 429;
+        var t = ayarli().test();
+        assertEquals("TELEGRAM_SINIR", t.durum());
+        assertTrue(t.aciklama().contains("26 saniye"));
+    }
+
+    @Test
     void testArtArdaBasilamaz() {
         var s = ayarli();
         assertEquals("BASARILI", s.test().durum());
@@ -190,6 +199,8 @@ class TelegramTest {
         assertEquals("123:ABC", TelegramBildirimServisi.temizle("  \"123:ABC\" "));
         assertEquals("-1001234", TelegramBildirimServisi.temizle("'-1001234'"));
         assertEquals("", TelegramBildirimServisi.temizle(null));
+        assertEquals("123:ABC", TelegramBildirimServisi.temizle("bot123:ABC"));       // adresteki "bot" ile karıştırılan önek
+        assertEquals("botfather", TelegramBildirimServisi.temizle("botfather"));
         assertEquals("-1••••••34", TelegramBildirimServisi.maskele("-100123434"));
         assertEquals("••••", TelegramBildirimServisi.maskele("42"));
     }

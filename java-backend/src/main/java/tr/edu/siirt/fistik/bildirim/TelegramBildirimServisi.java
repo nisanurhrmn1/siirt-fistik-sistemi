@@ -80,8 +80,9 @@ public class TelegramBildirimServisi {
         this.chatId = temizle(chatId);
         this.panelAdresi = panelAdresi;
         this.apiAdresi = apiAdresi.replaceAll("/+$", "");
-        var istemci = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build());
-        istemci.setReadTimeout(Duration.ofSeconds(10));
+        // Ücretsiz sunucu uykudan yeni uyandığında ilk TLS bağlantısı 10 saniyeyi aşabiliyor: süreler cömert tutulur
+        var istemci = new JdkClientHttpRequestFactory(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
+        istemci.setReadTimeout(Duration.ofSeconds(20));
         // Gövde tamponlanır: istek Content-Length ile gider (parça parça aktarım yerine)
         this.http = RestClient.builder().requestFactory(new BufferingClientHttpRequestFactory(istemci)).build();
         if (!ayarli()) log.warn("Telegram bildirimi kapalı: TELEGRAM_BOT_TOKEN ve TELEGRAM_BOT_CHAT_ID tanımlı değil.");
@@ -94,6 +95,7 @@ public class TelegramBildirimServisi {
         s = s.strip();
         while (s.length() >= 2 && (s.startsWith("\"") && s.endsWith("\"") || s.startsWith("'") && s.endsWith("'")))
             s = s.substring(1, s.length() - 1).strip();
+        if (s.matches("(?i)bot\\d+:.+")) s = s.substring(3);
         return s;
     }
 
@@ -146,6 +148,10 @@ public class TelegramBildirimServisi {
             return false;
         }
         Yanit y = mesajGonder(metin);
+        if (!y.basarili() && y.httpKodu() == null) {          // ağ / zaman aşımı: bir kez daha dene
+            log.info("Telegram'a ulaşılamadı ({}); yeniden deneniyor.", y.aciklama());
+            y = mesajGonder(metin);
+        }
         if (y.basarili()) log.info("Telegram bildirimi gönderildi.");
         else if (y.httpKodu() != null) log.warn("Telegram bildirimi reddedildi (HTTP {}): {}", y.httpKodu(), y.aciklama());
         else log.warn("Telegram bildirimi gönderilemedi: {}", y.aciklama());
@@ -209,10 +215,13 @@ public class TelegramBildirimServisi {
         Yanit ben = istek("getMe", null);
         if (!ben.basarili()) {
             if (ben.httpKodu() == null)
-                return sonuc(false, "ULASILAMADI", "Telegram'a ulaşılamadı: " + ben.aciklama(), null, ben, simdi);
+                return sonuc(false, "ULASILAMADI", "Telegram'a ulaşılamadı: " + ben.aciklama()
+                        + " Sunucu uykudan yeni uyandıysa yarım dakika sonra bir kez daha deneyin.", null, ben, simdi);
+            if (ben.httpKodu() == 429) return sinir(ben, null, simdi);
             boolean bicim = token.matches("\\d+:[A-Za-z0-9_-]{30,}");
-            return sonuc(false, "TOKEN_HATALI", "Telegram bu token'ı tanımadı. BotFather'dan token'ı yeniden kopyalayıp "
-                    + "TELEGRAM_BOT_TOKEN'a yapıştırın (başında/sonunda boşluk olmasın)."
+            return sonuc(false, "TOKEN_HATALI", "Telegram bu token'ı tanımadı. BotFather'da /mybots → bot → API Token ile güncel "
+                    + "token'ı kopyalayıp TELEGRAM_BOT_TOKEN'a yapıştırın (başında/sonunda boşluk olmasın). Token BotFather'da "
+                    + "yenilendiyse (Revoke) eski token artık geçmez."
                     + (bicim ? "" : " Girilen değer bir bot token'ına benzemiyor: \"123456789:AAH…\" biçiminde olmalı."),
                     null, ben, simdi);
         }
@@ -227,6 +236,7 @@ public class TelegramBildirimServisi {
                     bot, y, simdi);
         if (y.httpKodu() == null)
             return sonuc(false, "ULASILAMADI", "Telegram'a ulaşılamadı: " + y.aciklama(), bot, y, simdi);
+        if (y.httpKodu() == 429) return sinir(y, bot, simdi);
         String a = y.aciklama() == null ? "" : y.aciklama().toLowerCase(Locale.ROOT);
         if (a.contains("chat not found"))
             return sonuc(false, "SOHBET_YOK", "Sohbet bulunamadı. TELEGRAM_BOT_CHAT_ID yanlış olabilir ya da " + kim
@@ -241,6 +251,13 @@ public class TelegramBildirimServisi {
         if (a.contains("not a member") || a.contains("kicked"))
             return sonuc(false, "GRUPTA_YOK", "Bot bu gruba üye değil: botu gruba ekleyin, sonra tekrar test edin.", bot, y, simdi);
         return sonuc(false, "HATA", "Telegram mesajı reddetti (HTTP " + y.httpKodu() + ").", bot, y, simdi);
+    }
+
+    /** Telegram "Too Many Requests": kaç saniye beklenmesi gerektiği yanıttaki parameters.retry_after'dadır. */
+    private TestSonucu sinir(Yanit y, String bot, OffsetDateTime zaman) {
+        int saniye = y.govde() == null ? 0 : y.govde().path("parameters").path("retry_after").asInt(0);
+        return sonuc(false, "TELEGRAM_SINIR", "Telegram kısa sürede çok fazla istek geldiği için bekletiyor"
+                + (saniye > 0 ? "; " + saniye + " saniye sonra tekrar deneyin." : "; biraz sonra tekrar deneyin."), bot, y, zaman);
     }
 
     /** Yalnızca yönetici: Kullanıcılar sekmesindeki "Telegram'ı test et" düğmesi. */

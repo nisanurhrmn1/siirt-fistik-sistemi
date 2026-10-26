@@ -495,7 +495,8 @@ document.addEventListener('alpine:init', () => {
       return ({
         BASARILI: 'Çalışıyor', AYAR_YOK: 'Ayar eksik', TOKEN_HATALI: 'Token geçersiz', SOHBET_YOK: 'Sohbet bulunamadı',
         START_YOK: 'Bota /start yazılmamış', BOT_ENGELLI: 'Bot engellenmiş', GRUPTA_YOK: 'Bot grupta değil',
-        ULASILAMADI: "Telegram'a ulaşılamadı", BEKLE: 'Biraz bekleyin', HATA: 'Telegram hatası',
+        ULASILAMADI: "Telegram'a ulaşılamadı", BEKLE: 'Biraz bekleyin', TELEGRAM_SINIR: 'Telegram bekletiyor',
+        HATA: 'Telegram hatası',
       })[d] || 'Hata';
     },
     async talepReddet(u) {
