@@ -12,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 HEDEF = ROOT / "java-backend" / "src" / "main" / "resources" / "static"
-SURUM = "2.12.0"
+SURUM = "2.13.0"
 
 REDOC = """<!doctype html>
 <html lang="tr">

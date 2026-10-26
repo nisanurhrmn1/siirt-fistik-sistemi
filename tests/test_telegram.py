@@ -53,6 +53,14 @@ def telegram():
             self.end_headers()
             self.wfile.write(yanit)
 
+        def do_GET(self):                                            # getMe: token denetimi
+            yanit = b'{"ok":true,"result":{"id":1,"is_bot":true,"username":"fistik_test_bot"}}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(yanit)))
+            self.end_headers()
+            self.wfile.write(yanit)
+
         def log_message(self, *a):
             pass
 
@@ -105,3 +113,36 @@ def test_telegram_ayarsizken_de_talep_kaydedilir(anonim):
     """Sunucu Telegram ayarı olmadan da çalışır (canlı demo ve diğer testler bu durumda)."""
     r = talep(anonim, "tg.ayarsiz")
     assert r.status_code == 201 and "Talebiniz alındı" in r.json()["mesaj"]
+
+
+# ─── Yöneticinin "Telegram'ı test et" düğmesi ───
+
+def test_telegram_testi_yalnizca_yoneticiye_acik(anonim):
+    assert anonim.post(f"{API}/kullanicilar/telegram-test").status_code == 401
+    r = anonim.post(f"{API}/oturum/demo-giris", json={"kullanici_adi": "kantar"})
+    anonim.headers["Authorization"] = f"Bearer {r.json()['token']}"
+    assert anonim.post(f"{API}/kullanicilar/telegram-test").status_code == 403
+
+
+def test_telegram_testi_deneme_mesaji_gonderir(client, telegram):
+    time.sleep(20)                                                   # önceki testlerin 20 sn sınırı dolsun
+    r = client.post(f"{API}/kullanicilar/telegram-test")
+    assert r.status_code == 200, r.text
+    s = r.json()
+    assert s["basarili"] and s["durum"] == "BASARILI", s
+    assert s["bot_adi"] == "@fistik_test_bot"
+    assert s["sohbet"] == "••••" and "123456:TEST" not in r.text      # token ve kimlik açıkça dönmez
+    yollar = [g[0] for g in bekle(telegram, 1)]
+    assert yollar == ["/bot123456:TEST/sendMessage"]                 # getMe GET'tir, sahte sunucu yalnızca POST toplar
+    assert client.post(f"{API}/kullanicilar/telegram-test").json()["durum"] == "BEKLE"
+
+
+def test_telegram_testi_ayarsizken_eksik_degiskeni_soyler(client):
+    if SAHTE_PORT:
+        pytest.skip("Sunucu Telegram ayarlıyken çalışıyor")
+    s = client.post(f"{API}/kullanicilar/telegram-test").json()
+    if s["durum"] == "BEKLE":
+        time.sleep(20)
+        s = client.post(f"{API}/kullanicilar/telegram-test").json()
+    assert s["durum"] == "AYAR_YOK" and not s["basarili"]
+    assert "TELEGRAM_BOT_TOKEN" in s["aciklama"] and "TELEGRAM_BOT_CHAT_ID" in s["aciklama"]

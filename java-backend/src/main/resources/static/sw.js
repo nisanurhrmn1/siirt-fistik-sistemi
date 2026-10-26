@@ -1,11 +1,11 @@
-// Siirt Fıstığı Alım Paneli — service worker (sürüm 2.12.0)
+// Siirt Fıstığı Alım Paneli — service worker (sürüm 2.13.0)
 // Panel kabuğu, yerel kütüphaneler ve fıstık görselleri önbellekte tutulur; bağlantı kopsa da arayüz açılır.
 // API yanıtları (/api/) asla önbelleğe alınmaz: para ve stok verisi her zaman sunucudan gelir.
-const ONBELLEK = 'fistik-panel-2.12.0';
+const ONBELLEK = 'fistik-panel-2.13.0';
 const ON_YUKLE = [
   '/',
-  '/static/css/app.css?v=2.12.0',
-  '/static/js/app.js?v=2.12.0',
+  '/static/css/app.css?v=2.13.0',
+  '/static/js/app.js?v=2.13.0',
   '/static/vendor/tailwindcss-3.4.5.js',
   '/static/vendor/alpinejs-3.14.1.min.js',
   '/static/vendor/fonts/inter-latin-ext-wght-normal.woff2',

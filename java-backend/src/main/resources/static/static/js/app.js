@@ -297,6 +297,8 @@ document.addEventListener('alpine:init', () => {
     kullaniciForm: {},
     sifirlamaForm: {},
     sifreForm: {},
+    telegramSonuc: null,
+    telegramTestEdiliyor: false,
 
     async init() {
       this.saatGuncelle();
@@ -478,6 +480,23 @@ document.addEventListener('alpine:init', () => {
         this.bildir(`${k.ad_soyad} onaylandı (${k.rol_adi}). Artık giriş yapabilir.`);
         await this.yukleKullanicilar();
       });
+    },
+    async telegramTest() {
+      this.telegramTestEdiliyor = true;
+      try {
+        this.telegramSonuc = await api('/kullanicilar/telegram-test', { method: 'POST' });
+      } catch (e) {
+        this.telegramSonuc = { basarili: false, durum: 'HATA', aciklama: e.message };
+      } finally {
+        this.telegramTestEdiliyor = false;
+      }
+    },
+    telegramDurumAd(d) {
+      return ({
+        BASARILI: 'Çalışıyor', AYAR_YOK: 'Ayar eksik', TOKEN_HATALI: 'Token geçersiz', SOHBET_YOK: 'Sohbet bulunamadı',
+        START_YOK: 'Bota /start yazılmamış', BOT_ENGELLI: 'Bot engellenmiş', GRUPTA_YOK: 'Bot grupta değil',
+        ULASILAMADI: "Telegram'a ulaşılamadı", BEKLE: 'Biraz bekleyin', HATA: 'Telegram hatası',
+      })[d] || 'Hata';
     },
     async talepReddet(u) {
       if (!confirm(`${u.ad_soyad} (@${u.kullanici_adi}) talebi reddedilsin mi? Talep silinir.`)) return;
