@@ -65,6 +65,16 @@ class KurallarTest {
         assertEquals(24, java.time.Duration.between(aralik[0], aralik[1]).toHours());
     }
 
+    @Test
+    void sabitSaatYalnizcaIsSuresinceGecerliVeGeriAlinir() {
+        var gecmis = java.time.OffsetDateTime.parse("2026-09-30T09:15:00+03:00");
+        assertEquals(gecmis.toInstant(), Dogrulama.saatiSabitle(gecmis, Dogrulama::simdi).toInstant());
+        var ic = Dogrulama.saatiSabitle(gecmis, () -> Dogrulama.saatiSabitle(gecmis.plusDays(1), Dogrulama::simdi));
+        assertEquals(gecmis.plusDays(1).toInstant(), ic.toInstant());                         // iç içe kullanım
+        assertThrows(IllegalStateException.class, () -> Dogrulama.saatiSabitle(gecmis, () -> { throw new IllegalStateException(); }));
+        assertTrue(java.time.Duration.between(Dogrulama.simdi(), java.time.OffsetDateTime.now()).abs().getSeconds() < 5);   // hata sonrası da geri alındı
+    }
+
     private static DeductionType kesinti(DeductionCalcMethod yontem, String oran) {
         DeductionType d = new DeductionType();
         d.setCalcMethod(yontem);

@@ -21,6 +21,12 @@
   --metin-soluk: #718096;
   --golge: 0 4px 6px -1px rgba(0, 0, 0, .05), 0 2px 4px -2px rgba(0, 0, 0, .03);
   --golge-buyuk: 0 12px 24px -10px rgba(15, 41, 30, .18), 0 4px 8px -4px rgba(0, 0, 0, .06);
+  /* Grafikler: iki seri (renk körlüğü denetiminden geçti; ikinci seri ayrıca kesikli çizilir) */
+  --seri-1: #4a7a3f;
+  --seri-1-koyu: #2d5a27;
+  --seri-2: #d97706;
+  --izgara: #edf2f7;
+  --eksen: #a0aec0;
   /* Eski adlar (geri uyumluluk) */
   --fistik: var(--birincil-hover);
   --zumrut: var(--birincil);
@@ -240,6 +246,20 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
 .tablo tbody tr { transition: background .15s; }
 .tablo tbody tr:hover { background: #f7faf6; }
 .tablo th.text-right { text-align: right; }
+
+/* ─── Grafikler (Raporlar sekmesi) ─── */
+.grafik { position: relative; }
+.grafik svg { overflow: visible; }
+.eksen-yazi { font-size: 11px; fill: var(--metin-soluk); font-variant-numeric: tabular-nums; }
+.deger-yazi { font-weight: 650; fill: var(--metin); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.grafik-ipucu {
+  position: absolute; z-index: 5; pointer-events: none; min-width: 10rem; max-width: 13rem;
+  background: #fff; border: 1px solid var(--kenar); border-radius: .6rem; padding: .5rem .7rem;
+  box-shadow: 0 10px 24px -10px rgba(15, 41, 30, .35); font-size: .75rem; line-height: 1.45; color: var(--metin);
+}
+.ipucu-nokta { display: inline-block; width: .55rem; height: .55rem; border-radius: 999px; margin-right: .35rem; vertical-align: middle; }
+.lejant-cizgi { display: inline-block; width: 1.4rem; border-top: 2px solid; }
+.lejant-cizgi.kesikli { border-top-style: dashed; }
 
 /* ─── Silo görseli ─── */
 .silo { position: relative; width: 3.25rem; height: 7.5rem; flex-shrink: 0; border: 2px solid var(--kenar-koyu); border-radius: 1.4rem 1.4rem .5rem .5rem; background: linear-gradient(90deg, #fafaf9, #fff 45%, #f5f5f4); overflow: hidden; }

@@ -31,10 +31,10 @@
       },
     };
   </script>
-  <link rel="stylesheet" href="/static/css/app.css?v=2.13.1">
+  <link rel="stylesheet" href="/static/css/app.css?v=2.14.0">
   <!-- Yazdırırken kâğıt genişliği (80 / 58 mm) buraya yazılır: fisYazdir() -->
   <style id="sayfa-boyutu" media="print"></style>
-  <script defer src="/static/js/app.js?v=2.13.1"></script>
+  <script defer src="/static/js/app.js?v=2.14.0"></script>
   <script defer src="/static/vendor/alpinejs-3.14.1.min.js"></script>
 </head>
 <body class="min-h-screen text-stone-600 antialiased"
@@ -1135,6 +1135,237 @@
   </div>
 </div>
     </section>
+    <section x-show="tab === 'raporlar'"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+      <!-- ─── Raporlar: grafikli sezon analizi (Yönetici, Muhasebe, Fiyat yöneticisi) ─── -->
+<div class="space-y-6">
+
+  <!-- Süzgeç: tarih aralığı -->
+  <div class="panel-kutu flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+    <div>
+      <h2 class="baslik">Sezon Analizi</h2>
+      <p class="text-xs text-stone-500 mt-1">Alım, kalite, fiyat ve ödeme eğilimleri. Ortalamalar kg ağırlıklıdır; emanette bekleyen fıstık satışa çevrilene kadar alıma sayılmaz.</p>
+    </div>
+    <div class="flex flex-wrap items-end gap-2">
+      <div class="sekme-cubugu !p-1 !shadow-none" role="group" aria-label="Hazır aralıklar">
+        <template x-for="h in analizHazirAraliklar" :key="h.gun">
+          <button type="button" class="tab !py-1.5 !px-3 text-xs" :class="analizHazir === h.gun && 'tab-aktif'"
+                  @click="analizAralikSec(h.gun)" x-text="h.ad"></button>
+        </template>
+      </div>
+      <div class="flex items-end gap-2">
+        <label class="flex flex-col gap-1 text-xs text-stone-500">Başlangıç
+          <input type="date" class="girdi !py-1.5 text-sm" x-model="analizBas" :max="analizSon" @change="analizHazir = null; yukleAnaliz()"></label>
+        <label class="flex flex-col gap-1 text-xs text-stone-500">Bitiş
+          <input type="date" class="girdi !py-1.5 text-sm" x-model="analizSon" :min="analizBas" @change="analizHazir = null; yukleAnaliz()"></label>
+      </div>
+    </div>
+  </div>
+
+  <p x-show="analizHata" x-text="analizHata" class="text-sm rounded-lg bg-rose-50 text-rose-700 px-3 py-2"></p>
+
+  <template x-if="analiz">
+    <div class="space-y-6" :class="analizYukleniyor && 'opacity-60 transition-opacity'">
+
+      <!-- Özet rakamlar -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6 gap-3">
+        <div class="kart p-4"><p class="kart-etiket">Toplam alım</p><p class="kart-deger" x-text="kg(analiz.ozet.toplam_kg)"></p>
+          <p class="kart-alt" x-text="`${analiz.ozet.teslimat_sayisi} teslimat · ${analiz.ozet.uretici_sayisi} üretici`"></p></div>
+        <div class="kart p-4"><p class="kart-etiket">Brüt alım tutarı</p><p class="kart-deger" x-text="tl(analiz.ozet.brut_tutar)"></p>
+          <p class="kart-alt" x-text="'net hakediş ' + tl(analiz.ozet.net_hakedis)"></p></div>
+        <div class="kart p-4"><p class="kart-etiket">Ort. birim fiyat</p><p class="kart-deger" x-text="analiz.ozet.ortalama_fiyat ? tl(analiz.ozet.ortalama_fiyat) : '—'"></p>
+          <p class="kart-alt">kg başına</p></div>
+        <div class="kart p-4"><p class="kart-etiket">Ort. randıman</p><p class="kart-deger" x-text="yuzde(analiz.ozet.ortalama_randiman)"></p>
+          <p class="kart-alt" x-text="'çatlak ' + yuzde(analiz.ozet.ortalama_catlak)"></p></div>
+        <div class="kart p-4"><p class="kart-etiket">Ödenen</p><p class="kart-deger" x-text="tl(analiz.ozet.odenen)"></p>
+          <p class="kart-alt" x-text="'hakedişin ' + yuzde(oran(analiz.ozet.odenen, analiz.ozet.net_hakedis))"></p></div>
+        <div class="kart p-4"><p class="kart-etiket">Açık hakediş</p><p class="kart-deger text-amber-700" x-text="tl(analiz.ozet.acik_hakedis)"></p>
+          <p class="kart-alt" x-text="Number(analiz.ozet.emanet_kg) > 0 ? 'emanette ' + kg(analiz.ozet.emanet_kg) : 'üreticilere borç'"></p></div>
+      </div>
+
+      <!-- Günlük alım -->
+      <div class="panel-kutu">
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 class="baslik">Günlük alım</h3>
+            <p class="text-xs text-stone-500">Net kg · çubuğun üzerine gelince günün teslimat, tutar ve fiyatı</p>
+          </div>
+          <button type="button" class="btn-ghost text-xs" @click="analizTablo = !analizTablo"
+                  x-text="analizTablo ? 'Grafiği göster' : 'Tablo olarak göster'"></button>
+        </div>
+        <div x-show="!analizTablo" class="grafik" @mousemove="grafikUzerinde($event, 'gunluk')" @mouseleave="grafikIpucu = null">
+          <div x-html="gunlukGrafik"></div>
+          <template x-if="grafikIpucu && grafikIpucu.grafik === 'gunluk'">
+            <div class="grafik-ipucu" :style="`left:${grafikIpucu.x}px;top:${grafikIpucu.y}px`">
+              <p class="font-semibold text-stone-900" x-text="tarihUzun(grafikIpucu.gun.tarih)"></p>
+              <p><span class="ipucu-nokta" style="background:var(--seri-1)"></span><span x-text="kg(grafikIpucu.gun.kg)"></span></p>
+              <p class="text-stone-500" x-text="`${grafikIpucu.gun.teslimat_sayisi} teslimat · ${tl(grafikIpucu.gun.tutar)}`"></p>
+              <p class="text-stone-500" x-show="grafikIpucu.gun.ortalama_fiyat" x-text="'ort. ' + tl(grafikIpucu.gun.ortalama_fiyat) + '/kg'"></p>
+            </div>
+          </template>
+        </div>
+        <div x-show="analizTablo" class="overflow-x-auto max-h-80">
+          <table class="tablo">
+            <thead><tr><th>Tarih</th><th class="text-right">Teslimat</th><th class="text-right">Net kg</th><th class="text-right">Brüt tutar</th>
+              <th class="text-right">Ort. fiyat</th><th class="text-right">Ort. randıman</th><th class="text-right">Ort. çatlak</th></tr></thead>
+            <tbody>
+              <template x-for="g in analiz.gunluk.filter((x) => x.teslimat_sayisi)" :key="g.tarih">
+                <tr><td x-text="tarihUzun(g.tarih)"></td><td class="text-right tabular-nums" x-text="g.teslimat_sayisi"></td>
+                  <td class="text-right tabular-nums" x-text="kg(g.kg)"></td><td class="text-right tabular-nums" x-text="tl(g.tutar)"></td>
+                  <td class="text-right tabular-nums" x-text="tl(g.ortalama_fiyat)"></td><td class="text-right tabular-nums" x-text="yuzde(g.ortalama_randiman)"></td>
+                  <td class="text-right tabular-nums" x-text="yuzde(g.ortalama_catlak)"></td></tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Taban fiyat geçmişi -->
+        <div class="panel-kutu">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 class="baslik">Taban fiyat geçmişi</h3>
+              <p class="text-xs text-stone-500">Her günün sonunda geçerli ₺/kg</p>
+            </div>
+            <select class="girdi !w-auto !py-1.5 text-sm" x-model="analizFiyatSinifi" aria-label="Kalite sınıfı">
+              <template x-for="f in analiz.fiyatlar" :key="f.kalite_kodu">
+                <option :value="f.kalite_kodu" x-text="`${f.kalite_kodu} · ${f.kalite_adi}`" :selected="f.kalite_kodu === analizFiyatSinifi"></option>
+              </template>
+            </select>
+          </div>
+          <div class="grafik" @mousemove="grafikUzerinde($event, 'fiyat')" @mouseleave="grafikIpucu = null">
+            <div x-html="fiyatGrafik"></div>
+            <template x-if="grafikIpucu && grafikIpucu.grafik === 'fiyat'">
+              <div class="grafik-ipucu" :style="`left:${grafikIpucu.x}px;top:${grafikIpucu.y}px`">
+                <p class="font-semibold text-stone-900" x-text="tarihUzun(grafikIpucu.gun.tarih)"></p>
+                <p><span class="ipucu-nokta" style="background:var(--seri-1)"></span>
+                  <span x-text="grafikIpucu.gun.fiyat ? tl(grafikIpucu.gun.fiyat) + '/kg' : 'fiyat yok'"></span></p>
+              </div>
+            </template>
+          </div>
+          <p class="text-xs text-stone-500 mt-2" x-show="fiyatDegisimi" x-text="fiyatDegisimi"></p>
+        </div>
+
+        <!-- Kalite eğilimi -->
+        <div class="panel-kutu">
+          <div class="mb-3">
+            <h3 class="baslik">Kalite eğilimi</h3>
+            <p class="text-xs text-stone-500">Günlük ortalama çatlak ve randıman oranı (%)</p>
+          </div>
+          <div class="flex flex-wrap gap-4 text-xs text-stone-600 mb-1" aria-label="Lejant">
+            <span class="inline-flex items-center gap-1.5"><span class="lejant-cizgi" style="border-color:var(--seri-1)"></span>Çatlak oranı</span>
+            <span class="inline-flex items-center gap-1.5"><span class="lejant-cizgi kesikli" style="border-color:var(--seri-2)"></span>Randıman</span>
+          </div>
+          <div class="grafik" @mousemove="grafikUzerinde($event, 'kalite')" @mouseleave="grafikIpucu = null">
+            <div x-html="kaliteGrafik"></div>
+            <template x-if="grafikIpucu && grafikIpucu.grafik === 'kalite'">
+              <div class="grafik-ipucu" :style="`left:${grafikIpucu.x}px;top:${grafikIpucu.y}px`">
+                <p class="font-semibold text-stone-900" x-text="tarihUzun(grafikIpucu.gun.tarih)"></p>
+                <template x-if="grafikIpucu.gun.teslimat_sayisi">
+                  <div>
+                    <p><span class="ipucu-nokta" style="background:var(--seri-1)"></span>Çatlak <b x-text="yuzde(grafikIpucu.gun.ortalama_catlak)"></b></p>
+                    <p><span class="ipucu-nokta" style="background:var(--seri-2)"></span>Randıman <b x-text="yuzde(grafikIpucu.gun.ortalama_randiman)"></b></p>
+                  </div>
+                </template>
+                <p x-show="!grafikIpucu.gun.teslimat_sayisi" class="text-stone-500">Teslimat yok</p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- Kalite sınıfı dağılımı + ürün türü -->
+        <div class="panel-kutu">
+          <h3 class="baslik mb-1">Kalite sınıfına göre alım</h3>
+          <p class="text-xs text-stone-500 mb-4">Net kg ve toplam alımdaki payı</p>
+          <div class="space-y-3">
+            <template x-for="s in analiz.siniflar" :key="s.kalite_kodu">
+              <div>
+                <div class="flex items-center justify-between gap-3 text-sm mb-1">
+                  <span class="flex items-center gap-2 min-w-0">
+                    <img :src="kaliteFoto(s.kalite_kodu)" alt="" class="urun-foto h-5 w-5" width="20" height="20">
+                    <span class="sinif-rozet-kucuk" :class="kaliteRenk(s.kalite_kodu).rozet" x-text="s.kalite_kodu"></span>
+                    <span class="truncate text-stone-600" x-text="s.kalite_adi"></span>
+                  </span>
+                  <span class="tabular-nums shrink-0"><b class="text-stone-900" x-text="kg(s.kg)"></b>
+                    <span class="text-stone-500" x-text="' · %' + Number(s.yuzde).toLocaleString('tr-TR')"></span></span>
+                </div>
+                <div class="h-2.5 rounded-full bg-stone-100 overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-700" :class="kaliteRenk(s.kalite_kodu).dolgu" :style="`width:${s.yuzde}%`"></div>
+                </div>
+              </div>
+            </template>
+            <p x-show="!analiz.siniflar.length" class="text-sm text-stone-500 text-center py-6">Bu aralıkta alım yok.</p>
+          </div>
+          <template x-if="analiz.urun_turleri.length">
+            <div class="mt-6">
+              <p class="alt-baslik !mb-2">Ürün türü</p>
+              <div class="flex h-3 rounded-full overflow-hidden gap-0.5 bg-white">
+                <template x-for="(u, i) in analiz.urun_turleri" :key="u.urun_turu">
+                  <div class="h-full first:rounded-l-full last:rounded-r-full" :style="`width:${u.yuzde}%;background:var(--seri-${i + 1})`"></div>
+                </template>
+              </div>
+              <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-stone-600">
+                <template x-for="(u, i) in analiz.urun_turleri" :key="u.urun_turu">
+                  <span class="inline-flex items-center gap-1.5">
+                    <img :src="urunFotolari[u.urun_turu]" alt="" class="urun-foto h-4 w-4" width="16" height="16">
+                    <span class="ipucu-nokta" :style="`background:var(--seri-${i + 1})`"></span>
+                    <span x-text="`${u.ad}: ${kg(u.kg)} (%${Number(u.yuzde).toLocaleString('tr-TR')})`"></span>
+                  </span>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- En çok teslim eden üreticiler -->
+        <div class="panel-kutu">
+          <h3 class="baslik mb-1">En çok teslim eden üreticiler</h3>
+          <p class="text-xs text-stone-500 mb-4">İlk 10 · net kg ve brüt alım tutarı</p>
+          <div class="space-y-2.5">
+            <template x-for="(u, i) in analiz.ureticiler" :key="u.uretici_id">
+              <div class="grid grid-cols-[1.25rem_minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm">
+                <span class="text-xs text-stone-400 tabular-nums text-right" x-text="i + 1"></span>
+                <span class="truncate text-stone-800" x-text="u.ad_soyad" :title="u.ad_soyad"></span>
+                <div class="h-2.5 rounded-full bg-stone-100 overflow-hidden">
+                  <div class="h-full rounded-full transition-all duration-700" style="background:var(--seri-1)"
+                       :style="`width:${analiz.ureticiler[0].kg > 0 ? u.kg / analiz.ureticiler[0].kg * 100 : 0}%;background:var(--seri-1)`"></div>
+                </div>
+                <span class="text-right tabular-nums leading-tight"><b class="text-stone-900" x-text="kg(u.kg)"></b>
+                  <span class="block text-xs text-stone-500" x-text="`${tl(u.tutar)} · ${u.teslimat_sayisi} tes.`"></span></span>
+              </div>
+            </template>
+            <p x-show="!analiz.ureticiler.length" class="text-sm text-stone-500 text-center py-6">Bu aralıkta alım yok.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ödeme durumu -->
+      <div class="panel-kutu" x-show="Number(analiz.ozet.net_hakedis) > 0">
+        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+          <h3 class="baslik">Hakediş ödeme durumu</h3>
+          <span class="text-sm text-stone-500" x-text="'Toplam net hakediş ' + tl(analiz.ozet.net_hakedis)"></span>
+        </div>
+        <div class="flex h-4 rounded-full overflow-hidden gap-0.5 bg-white">
+          <div class="h-full rounded-l-full" style="background:var(--seri-1)" :style="`width:${oran(analiz.ozet.odenen, analiz.ozet.net_hakedis)}%;background:var(--seri-1)`"></div>
+          <div class="h-full rounded-r-full bg-stone-200" :style="`width:${100 - oran(analiz.ozet.odenen, analiz.ozet.net_hakedis)}%`"></div>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-stone-600">
+          <span class="inline-flex items-center gap-1.5"><span class="ipucu-nokta" style="background:var(--seri-1)"></span>
+            <span x-text="`Ödenen ${tl(analiz.ozet.odenen)} (${yuzde(oran(analiz.ozet.odenen, analiz.ozet.net_hakedis))})`"></span></span>
+          <span class="inline-flex items-center gap-1.5"><span class="ipucu-nokta bg-stone-300"></span>
+            <span x-text="`Açık ${tl(analiz.ozet.acik_hakedis)}`"></span></span>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div x-show="!analiz && analizYukleniyor" class="panel-kutu text-center text-sm text-stone-500 py-12">Rapor hazırlanıyor…</div>
+</div>
+    </section>
     <section x-show="tab === 'kullanicilar'"
              x-transition:enter="transition ease-out duration-300 transform"
              x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
@@ -1259,7 +1490,7 @@
     </section>
 
     <footer class="pt-2 pb-4 text-center text-xs text-stone-400">
-      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.13.1 · çevrimdışı çalışır
+      Siirt Fıstığı Alım ve Üretici Ödeme Sistemi · v2.14.0 · çevrimdışı çalışır
     </footer>
   </main>
 

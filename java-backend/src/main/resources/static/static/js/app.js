@@ -3,6 +3,76 @@ const API = '/api/v1';
 const fmtTL = new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' });
 const fmtSayi = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 });
 
+// ─── Raporlar sekmesi: hafif SVG grafikler (dış kütüphane yok, internetsiz çalışır) ───
+// Her gün bir "yuva": çubuklar yuvayı doldurur, çizgi noktaları yuvanın ortasındadır; fareyle aynı yuva seçilir.
+// Ölçüler grafiğin ekrandaki genişliğine yakın seçilir; böylece eksen yazıları her grafikte ~11 px görünür.
+const GRAFIK = {
+  gunluk: { W: 1200, H: 300, L: 56, R: 14, T: 16, B: 30 },
+  fiyat: { W: 620, H: 260, L: 56, R: 14, T: 18, B: 30 },
+  kalite: { W: 620, H: 260, L: 50, R: 14, T: 18, B: 30 },
+  dar: { W: 360, H: 230, L: 44, R: 8, T: 16, B: 28 },     // telefon: tüm grafikler
+};
+
+/** 0'dan başlayan ölçek için "yuvarlak" üst sınır ve 4 aralık (ör. 7.340 → 8.000). */
+function olcekUst(enBuyuk) {
+  if (!(enBuyuk > 0)) return { ust: 1, adim: 0.25 };
+  const ham = enBuyuk / 4, us = 10 ** Math.floor(Math.log10(ham));
+  const adim = [1, 2, 2.5, 5, 10].map((k) => k * us).find((a) => a >= ham);
+  return { ust: adim * 4, adim };
+}
+
+/** Alt ve üst sınırı olan ölçek (fiyat, oran): veriyi 3–5 düzgün aralığa yayar; tavan verilirse aşmaz (ör. %100). */
+function olcekAralik(enKucuk, enBuyuk, tavan = Infinity) {
+  if (!(enBuyuk > enKucuk)) { enKucuk -= 1; enBuyuk += 1; }
+  const ham = (enBuyuk - enKucuk) / 4, us = 10 ** Math.floor(Math.log10(ham));
+  const adim = [1, 2, 2.5, 5, 10].map((k) => k * us).find((a) => a >= ham);
+  const alt = Math.floor(enKucuk / adim) * adim;
+  let ust = alt + adim * Math.max(1, Math.ceil((enBuyuk - alt) / adim));
+  if (ust === enBuyuk && ust + adim <= tavan) ust += adim;   // en yüksek değer tavana yapışmasın
+  return { alt, ust: Math.min(ust, tavan), adim };
+}
+
+/** Üst köşeleri yuvarlatılmış, tabana oturan çubuk. */
+function cubukYolu(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+
+function svgMetin(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Yatay ızgara + y ekseni etiketleri + x ekseni (seyrek tarih etiketleri). */
+function grafikEksenleri(D, gunler, y, adimlar, etiket) {
+  const { W, H, L, R, B } = D;
+  let s = '';
+  for (const v of adimlar) {
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--izgara)" stroke-width="1"/>`
+       + `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" class="eksen-yazi">${svgMetin(etiket(v))}</text>`;
+  }
+  const n = gunler.length, gw = (W - L - R) / n, sik = Math.max(1, Math.ceil(n / (W < 500 ? 5 : 8)));
+  gunler.forEach((g, i) => {
+    if (i % sik && i !== n - 1) return;
+    if (i === n - 1 && (n - 1) % sik && (n - 1) % sik < sik / 2) return;   // son etiket bir öncekine çok yakınsa çizme
+    const [, a, d] = g.tarih.split('-');
+    s += `<text x="${L + (i + 0.5) * gw}" y="${H - B + 18}" text-anchor="middle" class="eksen-yazi">${d}.${a}</text>`;
+  });
+  return s;
+}
+
+/** Değerleri çizgiye çevirir; boş (null) günlerde çizgi kesilir. Tek kalan noktalar küçük daireyle gösterilir. */
+function cizgiYolu(degerler, x, y, renk, kesikli) {
+  let yol = '', acik = false, noktalar = '';
+  degerler.forEach((v, i) => {
+    if (v === null || v === undefined || Number.isNaN(v)) { acik = false; return; }
+    const tek = (degerler[i - 1] === null || degerler[i - 1] === undefined) && (degerler[i + 1] === null || degerler[i + 1] === undefined);
+    if (tek) noktalar += `<circle cx="${x(i)}" cy="${y(v)}" r="2.5" fill="${renk}"/>`;
+    yol += `${acik ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
+    acik = true;
+  });
+  return `<path d="${yol}" fill="none" stroke="${renk}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${kesikli ? ' stroke-dasharray="6 4"' : ''}/>${noktalar}`;
+}
+
 class ApiHatasi extends Error {
   constructor(mesaj, detaylar = [], durum = 0) { super(mesaj); this.detaylar = detaylar; this.durum = durum; }
 }
@@ -186,6 +256,7 @@ document.addEventListener('alpine:init', () => {
       { id: 'fiyat', ad: 'Fiyat & Depo', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.13C3 12.5 3.5 12 4.13 12h2.25c.62 0 1.12.5 1.12 1.13v6.75C7.5 20.5 7 21 6.38 21H4.13C3.5 21 3 20.5 3 19.88v-6.75ZM9.75 8.63c0-.63.5-1.13 1.13-1.13h2.25c.62 0 1.12.5 1.12 1.13v11.25c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V8.63ZM16.5 4.13c0-.63.5-1.13 1.13-1.13h2.25C20.5 3 21 3.5 21 4.13v15.75c0 .62-.5 1.12-1.12 1.12h-2.25c-.63 0-1.13-.5-1.13-1.12V4.13Z"/></svg>' },
       { id: 'sevkiyat', ad: 'Sevkiyat', yalnizJava: true, ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.38a1.13 1.13 0 0 1-1.13-1.13V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.13c.62 0 1.13-.5 1.13-1.13v-5.07a2.25 2.25 0 0 0-.44-1.34l-2.71-3.62a1.13 1.13 0 0 0-.9-.44H14.25M16.5 18.75h-2.25m0-11.25v11.25m0-11.25V4.88c0-.62-.5-1.13-1.13-1.13H3.38c-.62 0-1.13.5-1.13 1.13v9.37m12 0H2.25"/></svg>' },
       { id: 'alicilar', ad: 'Alıcılar', yalnizJava: true, ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.8 2.1c.73.2 1.45-.34 1.45-1.1V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.38c0-.62.5-1.12 1.13-1.12H20.25M2.25 6v9m18-10.5v.75c0 .41.34.75.75.75h.75m-1.5-1.5h.38c.62 0 1.12.5 1.12 1.13v9.75c0 .62-.5 1.12-1.12 1.12h-.38m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.38c-.62 0-1.12-.5-1.12-1.12V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.01v.01H18v-.01Zm-12 0h.01v.01H6v-.01Z"/></svg>' },
+      { id: 'raporlar', ad: 'Raporlar', yetki: 'rapor_analiz', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v16.5A1.5 1.5 0 0 0 4.5 21H21M7.5 15l3.75-4.5 3 3L19.5 7.5"/></svg>' },
       { id: 'kullanicilar', ad: 'Kullanıcılar', yetki: 'kullanici_yonet', ikon: '<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.13a3.38 3.38 0 1 1-6.75 0 3.38 3.38 0 0 1 6.75 0ZM3 19.24v-.12a6.38 6.38 0 0 1 12.75 0v.12A12.32 12.32 0 0 1 9.37 21 12.3 12.3 0 0 1 3 19.24Z"/></svg>' },
     ],
     tab: 'kantar',
@@ -297,6 +368,18 @@ document.addEventListener('alpine:init', () => {
     kullaniciForm: {},
     sifirlamaForm: {},
     sifreForm: {},
+    // raporlar (grafikli analiz)
+    analiz: null,
+    analizYukleniyor: false,
+    analizHata: '',
+    analizHazir: 30,
+    analizHazirAraliklar: [{ gun: 7, ad: '7 gün' }, { gun: 30, ad: '30 gün' }, { gun: 90, ad: '90 gün' }, { gun: 365, ad: '1 yıl' }],
+    analizBas: '',
+    analizSon: '',
+    analizTablo: false,
+    analizFiyatSinifi: 'A',
+    grafikIpucu: null,
+    darEkran: false,
     telegramSonuc: null,
     telegramTestEdiliyor: false,
 
@@ -306,6 +389,10 @@ document.addEventListener('alpine:init', () => {
       setInterval(() => this.saatGuncelle(), 30_000);
       setInterval(() => { if (!this.girisGerekli) this.yukleOzet().catch(() => {}); }, 60_000);
       this.$watch('kantar', () => this.onizlemeIste());
+      const dar = matchMedia('(max-width: 639px)');
+      this.darEkran = dar.matches;
+      dar.addEventListener('change', (e) => { this.darEkran = e.matches; });
+      this.$watch('tab', (t) => { if (t === 'raporlar' && !this.analiz && !this.analizYukleniyor) this.analizAralikSec(this.analizHazir || 30); });
       // Numune analizi: gramlardan çatlak ve boş oranı (sunucu da aynı hesabı yapar)
       this.$watch('kantar.numune', (n) => {
         if (!n.acik) return;
@@ -480,6 +567,131 @@ document.addEventListener('alpine:init', () => {
         this.bildir(`${k.ad_soyad} onaylandı (${k.rol_adi}). Artık giriş yapabilir.`);
         await this.yukleKullanicilar();
       });
+    },
+    // ─── Raporlar ───
+    analizAralikSec(gun) {
+      this.analizHazir = gun;
+      const son = this.bugunIso();
+      const d = new Date(`${son}T12:00:00`);
+      d.setDate(d.getDate() - (gun - 1));
+      this.analizSon = son;
+      this.analizBas = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      this.yukleAnaliz();
+    },
+    async yukleAnaliz() {
+      if (!this.analizBas || !this.analizSon) return;
+      this.analizYukleniyor = true;
+      this.analizHata = '';
+      try {
+        this.analiz = await api('/raporlar/analiz', { params: { baslangic: this.analizBas, bitis: this.analizSon } });
+        this.grafikIpucu = null;
+        if (!this.analiz.fiyatlar.some((f) => f.kalite_kodu === this.analizFiyatSinifi))
+          this.analizFiyatSinifi = this.analiz.fiyatlar[0]?.kalite_kodu || 'A';
+      } catch (e) {
+        this.analizHata = e.message;
+      } finally {
+        this.analizYukleniyor = false;
+      }
+    },
+    olcu(grafik) {
+      return this.darEkran ? GRAFIK.dar : GRAFIK[grafik];
+    },
+    oran(pay, toplam) {
+      return Number(toplam) > 0 ? Math.round(Number(pay) / Number(toplam) * 1000) / 10 : 0;
+    },
+    tarihUzun(iso) {
+      return new Date(`${iso}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'short' });
+    },
+    /** Fare hangi gün yuvasındaysa ipucunu o güne taşır (tüm grafikler aynı gün yuvalarını kullanır). */
+    grafikUzerinde(e, grafik) {
+      const svg = e.currentTarget.querySelector('svg');
+      if (!svg || !this.analiz) return;
+      const r = svg.getBoundingClientRect(), kutu = e.currentTarget.getBoundingClientRect();
+      const { W, L, R } = this.olcu(grafik), olcek = W / r.width, n = this.analiz.gunluk.length, gw = (W - L - R) / n;
+      const i = Math.floor(((e.clientX - r.left) * olcek - L) / gw);
+      if (i < 0 || i >= n) { this.grafikIpucu = null; return; }
+      const gun = grafik === 'fiyat' ? { tarih: this.analiz.gunluk[i].tarih, fiyat: this.fiyatSerisi?.noktalar[i]?.fiyat } : this.analiz.gunluk[i];
+      const x = (L + (i + 0.5) * gw) / olcek + (r.left - kutu.left);
+      this.grafikIpucu = { grafik, i, gun, x: x > kutu.width - 190 ? x - 186 : x + 14, y: Math.max(4, e.clientY - kutu.top - 70) };
+    },
+    vurguCizgisi(grafik, gw) {
+      if (!this.grafikIpucu || this.grafikIpucu.grafik !== grafik) return '';
+      const { L, T, H, B } = this.olcu(grafik), x = L + (this.grafikIpucu.i + 0.5) * gw;
+      return `<line x1="${x}" x2="${x}" y1="${T}" y2="${H - B}" stroke="var(--eksen)" stroke-width="1"/>`;
+    },
+    get gunlukGrafik() {
+      const g = this.analiz?.gunluk;
+      if (!g?.length) return '';
+      const D = this.olcu('gunluk'), { W, H, L, R, T, B } = D, n = g.length, gw = (W - L - R) / n;
+      const o = olcekUst(Math.max(...g.map((d) => Number(d.kg))));
+      const y = (v) => T + (H - T - B) * (1 - v / o.ust);
+      const adimlar = [0, 1, 2, 3, 4].map((k) => k * o.adim);
+      let s = grafikEksenleri(D, g, y, adimlar, (v) => (o.ust >= 10000 ? `${fmtSayi.format(v / 1000)} t` : fmtSayi.format(v)));
+      const secili = this.grafikIpucu?.grafik === 'gunluk' ? this.grafikIpucu.i : -1;
+      const bosluk = gw > 6 ? 2 : 1;
+      g.forEach((d, i) => {
+        const v = Number(d.kg);
+        if (!(v > 0)) return;
+        const w = Math.max(1, gw - bosluk), x = L + i * gw + bosluk / 2;
+        s += `<path d="${cubukYolu(x, y(v), w, y(0) - y(v), 4)}" fill="${i === secili ? 'var(--seri-1-koyu)' : 'var(--seri-1)'}"/>`;
+      });
+      s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--eksen)" stroke-width="1"/>`;
+      return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto block" role="img" aria-label="Günlük alım (net kg) çubuk grafiği">${s}</svg>`;
+    },
+    get fiyatSerisi() {
+      return this.analiz?.fiyatlar.find((f) => f.kalite_kodu === this.analizFiyatSinifi) || this.analiz?.fiyatlar[0];
+    },
+    get fiyatGrafik() {
+      const f = this.fiyatSerisi;
+      if (!f) return '<p class="text-sm text-stone-500 text-center py-12">Bu aralıkta fiyat yok.</p>';
+      const D = this.olcu('fiyat'), { W, H, L, R, T, B } = D, n = f.noktalar.length, gw = (W - L - R) / n;
+      const v = f.noktalar.map((p) => (p.fiyat === null ? null : Number(p.fiyat)));
+      const dolu = v.filter((x) => x !== null);
+      const o = olcekAralik(Math.min(...dolu), Math.max(...dolu));
+      const y = (x) => T + (H - T - B) * (1 - (x - o.alt) / (o.ust - o.alt));
+      const adimlar = [];
+      for (let a = o.alt; a <= o.ust + 1e-9; a += o.adim) adimlar.push(a);
+      let s = grafikEksenleri(D, f.noktalar, y, adimlar, (x) => `₺${fmtSayi.format(x)}`) + this.vurguCizgisi('fiyat', gw);
+      s += cizgiYolu(v, (i) => L + (i + 0.5) * gw, y, 'var(--seri-1)', false);
+      const son = v.length - 1 - [...v].reverse().findIndex((x) => x !== null);
+      s += `<text x="${L + (son + 0.5) * gw - 4}" y="${y(v[son]) - 9}" text-anchor="end" class="eksen-yazi deger-yazi">₺${fmtSayi.format(v[son])}</text>`;
+      if (this.grafikIpucu?.grafik === 'fiyat' && v[this.grafikIpucu.i] !== null) {
+        const i = this.grafikIpucu.i;
+        s += `<circle cx="${L + (i + 0.5) * gw}" cy="${y(v[i])}" r="4.5" fill="var(--seri-1)" stroke="#fff" stroke-width="2"/>`;
+      }
+      return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto block" role="img" aria-label="${svgMetin(f.kalite_kodu)} sınıfı taban fiyat çizgi grafiği">${s}</svg>`;
+    },
+    get fiyatDegisimi() {
+      const v = (this.fiyatSerisi?.noktalar || []).map((p) => p.fiyat).filter((x) => x !== null).map(Number);
+      if (v.length < 2) return '';
+      const ilk = v[0], son = v[v.length - 1], fark = son - ilk;
+      if (!fark) return `Dönem boyunca ${fmtTL.format(son)}/kg'da sabit kaldı.`;
+      return `Dönem başından bu yana ${fmtTL.format(ilk)} → ${fmtTL.format(son)} (${fark > 0 ? '+' : ''}%${fmtSayi.format(Math.round(fark / ilk * 1000) / 10)}).`;
+    },
+    get kaliteGrafik() {
+      const g = this.analiz?.gunluk;
+      if (!g?.length) return '';
+      const D = this.olcu('kalite'), { W, H, L, R, T, B } = D, n = g.length, gw = (W - L - R) / n;
+      const c = g.map((d) => (d.ortalama_catlak === null ? null : Number(d.ortalama_catlak)));
+      const r = g.map((d) => (d.ortalama_randiman === null ? null : Number(d.ortalama_randiman)));
+      const dolu = [...c, ...r].filter((x) => x !== null);
+      if (!dolu.length) return '<p class="text-sm text-stone-500 text-center py-12">Bu aralıkta alım yok.</p>';
+      const o = olcekAralik(Math.min(...dolu), Math.max(...dolu), 100);
+      const y = (x) => T + (H - T - B) * (1 - (x - o.alt) / (o.ust - o.alt));
+      const adimlar = [];
+      for (let a = o.alt; a <= o.ust + 1e-9; a += o.adim) adimlar.push(a);
+      const x = (i) => L + (i + 0.5) * gw;
+      let s = grafikEksenleri(D, g, y, adimlar, (v) => `%${fmtSayi.format(v)}`) + this.vurguCizgisi('kalite', gw);
+      s += cizgiYolu(c, x, y, 'var(--seri-1)', false) + cizgiYolu(r, x, y, 'var(--seri-2)', true);
+      // Doğrudan etiketler: her serinin son değeri
+      for (const [seri, ad, renk] of [[c, 'çatlak', 'var(--seri-1)'], [r, 'randıman', 'var(--seri-2)']]) {
+        const i = seri.length - 1 - [...seri].reverse().findIndex((v) => v !== null);
+        if (i >= 0 && i < seri.length)
+          s += `<text x="${x(i) - 6}" y="${y(seri[i]) - 8}" text-anchor="end" class="eksen-yazi deger-yazi">${ad} %${fmtSayi.format(seri[i])}</text>`;
+        if (this.grafikIpucu?.grafik === 'kalite' && seri[this.grafikIpucu.i] !== null && seri[this.grafikIpucu.i] !== undefined)
+          s += `<circle cx="${x(this.grafikIpucu.i)}" cy="${y(seri[this.grafikIpucu.i])}" r="4.5" fill="${renk}" stroke="#fff" stroke-width="2"/>`;
+      }
+      return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto block" role="img" aria-label="Günlük ortalama çatlak ve randıman çizgi grafiği">${s}</svg>`;
     },
     async telegramTest() {
       this.telegramTestEdiliyor = true;

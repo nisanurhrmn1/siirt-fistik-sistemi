@@ -198,6 +198,15 @@ Sistem önce Python (FastAPI) ile prototiplendi, ardından aynı mimariyle Java'
 
 Arayüz kütüphaneleri (Tailwind, Alpine.js, Inter yazı tipi, ReDoc) `static/vendor/` klasöründedir; Swagger UI jar içinde gelir. Sistem **hiçbir dış adrese istek atmaz**.
 
+**Raporlar (grafikli sezon analizi).** Yönetici, Muhasebe ve Fiyat yöneticisi **Raporlar** sekmesinde seçilen tarih aralığı (7 gün, 30 gün, 90 gün, 1 yıl ya da özel) için şunları görür:
+- özet: toplam alım, brüt tutar, ortalama birim fiyat, ortalama randıman ve çatlak, ödenen ve açık hakediş
+- günlük alım çubuk grafiği (üzerine gelince günün teslimat sayısı, tutarı ve ortalama fiyatı; tablo görünümü de var)
+- seçilen kalite sınıfının taban fiyat geçmişi ve dönem içindeki değişimi
+- günlük ortalama çatlak ve randıman eğilimi
+- kalite sınıfı ve ürün türüne göre dağılım, en çok teslim eden 10 üretici, hakediş ödeme durumu
+
+Grafikler dış kütüphane kullanmadan SVG olarak çizilir; site internetsiz çalışmaya devam eder. Renkler renk körlüğü denetiminden geçirilmiş, ikinci seri ayrıca kesikli çizgi ve doğrudan etiketle ayrılmıştır. Ortalamalar kg ağırlıklıdır; emanette bekleyen fıstık satışa çevrilene kadar alıma sayılmaz. Demo verisi, grafikler anlamlı olsun diye son 5 haftalık bir sezonu da içerir: 8 üretici, değişen günlük fiyatlar, ödemeler ve silo dolunca yapılan sevkiyatlar. Bu sezon gerçek servislerden "o günün saatiyle" geçirilerek üretildiği için fiyat kilidi, silo ve kesinti kuralları aynen uygulanır.
+
 **Tema.** Renkler `app/static/css/app.css` başındaki CSS değişkenlerinde tanımlıdır: birincil derin fıstık ağacı yeşili `#1E4620` (hover `#2D5A27`), vurgu olgun kabuk `#C05621` / kehribar `#D97706`, zemin `#F7F8F6`, kartlar beyaz (`#E2E8F0` kenar, yumuşak gölge), başlıklar `#1A202C`, gövde metni `#4A5568`, tablo başlıkları `#EDF2F7`. Tailwind'in `emerald`, `teal`, `lime` ve `stone` ölçekleri de bu palete yeniden tanımlandığından şablonlardaki hazır sınıflar aynı temaya uyar. Aktif sekme koyu yeşil zemin ve altta kehribar çizgiyle gösterilir.
 
 **Görseller ve çevrimdışı önbellek.** Giriş ekranında dalında olgunlaşmış kırmızı kabuklu fıstık, panel şeridinde kavlak (çatlak) fıstık fotoğrafı; ürün türü seçiminde, fiyat listesinde, çatlak primi ve silo kartlarında yaş / kuru-kavlak minyatürleri vardır. Fotoğraflar WebP'dir (4 dosya, toplam ~78 KB) ve koyu yeşil perde/maske ile verilerin okunurluğunu bozmaz. `/sw.js` service worker'ı panel kabuğunu, kütüphaneleri ve bu görselleri önbelleğe alır (API yanıtlarını almaz); önbellek adı sürüme bağlıdır. Fotoğraf kaynakları ve lisansları: [`app/static/img/foto/KAYNAKLAR.md`](app/static/img/foto/KAYNAKLAR.md).
@@ -455,6 +464,7 @@ Giriş dışındaki tüm `/api/v1` uç noktaları `Authorization: Bearer <token>
 | `GET` | `/depo/stok-durumu?gruplama=silo\|kalite` | Silo veya kalite sınıfına göre stok ve doluluk | 200 |
 | `GET` | `/raporlar/gunluk-ozet?tarih=` | Günlük alım (kg), ödenen tutar, ortalama randıman | 200 |
 | `GET` | `/raporlar/uretici-bakiyeleri` | Tüm üreticilerin bakiye ve açık avansı | 200 |
+| `GET` | `/raporlar/analiz?baslangic=&bitis=` *(Yönetici, Muhasebe, Fiyat yön.)* | Grafikli analiz: günlük seri, kalite / ürün dağılımı, en çok teslim eden üreticiler, taban fiyat geçmişi, ödeme durumu (varsayılan son 30 gün, en fazla 366 gün) | 200 / 422 |
 | `GET` | `/raporlar/gun-sonu?tarih=` | Gün sonu kasa & kantar raporu (JSON) | 200 |
 | `POST` | `/tartimlar/{id}/satisa-cevir` | Emaneti (gövdede `miktar_kg` ile kısmen veya tamamen) bugünkü fiyatla satışa çevir; EB-… bozdurma fişi döner (Yönetici, Muhasebe) | 200 |
 | `GET` | `/tartimlar/{id}/satis-onizleme?miktar_kg=` | Emanet bugün satılsaydı: fiyat, prim, boş kesintisi, kesinti, avans mahsubu, net | 200 |
@@ -529,14 +539,14 @@ cd java-backend
 .\mvnw.cmd test
 ```
 
-`KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı. `SmsTest`: Netgsm yanıtları. `TelegramTest` (15 test, sahte Telegram sunucusuyla): mesaj biçimi ve Türkiye saati, kullanıcı metninin HTML olarak yorumlanmaması, ayarsızken istek atılmaması, `sendMessage` isteği, Telegram hata verdiğinde ya da ulaşılamadığında istisna fırlatılmaması; test düğmesinde eksik değişkenin, geçersiz token'ın, "chat not found" / "/start yazılmamış" / "engellenmiş" hatalarının Türkçe açıklamaya çevrilmesi, art arda basışın sınırlanması, yanıtta token olmaması, yapıştırılan tırnak ve boşlukların temizlenmesi.
+`KurallarTest`: TC Kimlik ve IBAN algoritmaları, plaka/telefon normalizasyonu, kuruş yuvarlama, kesinti yöntemleri, Türkiye saatine göre gün sınırı, demo verisi için sabitlenen saatin iş bitince geri alınması. `SmsTest`: Netgsm yanıtları. `TelegramTest` (15 test, sahte Telegram sunucusuyla): mesaj biçimi ve Türkiye saati, kullanıcı metninin HTML olarak yorumlanmaması, ayarsızken istek atılmaması, `sendMessage` isteği, Telegram hata verdiğinde ya da ulaşılamadığında istisna fırlatılmaması; test düğmesinde eksik değişkenin, geçersiz token'ın, "chat not found" / "/start yazılmamış" / "engellenmiş" hatalarının Türkçe açıklamaya çevrilmesi, art arda basışın sınırlanması, yanıtta token olmaması, yapıştırılan tırnak ve boşlukların temizlenmesi.
 
 **Sözleşme testleri (uçtan uca)** — aynı test paketi hem Java hem Python sunucusuna karşı çalışır. Böylece iki sürümün aynı davrandığı kanıtlanır:
 
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (101 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu + 7 Telegram)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (105 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu + 7 Telegram + 4 analiz)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (28 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (20 test)
 ```
@@ -560,6 +570,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_analiz.py`** (4 test, yalnızca Java): boş aralıkta her günün sıfırla dönmesi; alım toplamı, kg ağırlıklı randıman, kalite sınıfı payları (toplam %100), üreticilerin kg'a göre sıralanması, fiyat geçmişinin son noktası ve emanetin alıma sayılmaması; ters ve 366 günden uzun aralığın reddi; yalnızca Yönetici, Muhasebe ve Fiyat yöneticisinin erişebilmesi.
 - **`tests/test_telegram.py`** (7 test, yalnızca Java): test, 127.0.0.1 üzerinde sahte bir Telegram API'si açar. Sunucu `TELEGRAM_API_ADRESI=http://127.0.0.1:8029`, `TELEGRAM_BOT_TOKEN=123456:TEST`, `TELEGRAM_BOT_CHAT_ID=42` ile başlatılır; test `FISTIK_TELEGRAM_SAHTE_PORT=8029` ile çalıştırılır. Kapsam: talep kaydedilince doğru sohbete HTML mesaj gitmesi (şifre içermez, kullanıcı metni kaçışlı); başarısız talepte (alınmış kullanıcı adı, yönetici rolü) mesaj gitmemesi; yanıtın Telegram'ı beklememesi. Test düğmesi için: yalnızca yöneticinin kullanabilmesi, sahte sohbete deneme mesajı gitmesi (token ve kimlik yanıtta açıkça yok), art arda basışta beklemesi; ayarsız sunucuda eksik değişkenlerin adıyla söylenmesi. Sahte Telegram ayarlıyken 6 test çalışır, 1'i atlanır; ayarsızken 3'ü çalışır, 4'ü atlanır.
 - **`tests/test_sorgu.py`** (5 test, yalnızca Java): doğru bilgiyle yalnızca kendi özetinin dönmesi (başka üreticinin verisi, T.C., telefon, IBAN ve soyadının yanıtta olmaması); "kayıt yok" ile "telefon yanlış"ın aynı mesajı vermesi; doğrulamalar; 5 hatalı denemeden sonra 429 (doğru bilgi de bekletilir, başka T.C. etkilenmez); sorgunun giriş gerektirmemesi.
 - **`tests/test_tahsilat.py`** (7 test, yalnızca Java): açık hesap ve tahsilat (fazlası alıcı avansı), alıcı ekstresinde yürüyen bakiye ve dönem devri, tarih ve tutar doğrulamaları, yetki, tahsilat kaydının değiştirilemezliği, gün sonu kasasına giriş; resmî kesintilerin açılıp kapatılması ve oran değişikliğinin yalnızca yeni hakedişlere uygulanması.

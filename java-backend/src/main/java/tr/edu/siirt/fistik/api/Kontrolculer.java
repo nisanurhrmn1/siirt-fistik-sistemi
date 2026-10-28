@@ -316,6 +316,18 @@ public final class Kontrolculer {
             return servis.gunlukOzet(tarih != null ? tarih : Dogrulama.bugunTr());
         }
 
+        @GetMapping("/raporlar/analiz")
+        @Tag(name = "Raporlar")
+        @PreAuthorize(Yetki.RAPOR)
+        @Operation(summary = "Grafikli analiz: günlük alım, kalite ve ürün dağılımı, üreticiler, fiyat geçmişi",
+                description = "Tarih verilmezse son 30 gün. En fazla 366 gün. Ortalamalar kg ağırlıklı; gün sınırı Türkiye saatidir.")
+        public AnalizRaporu analiz(
+                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate baslangic,
+                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate bitis) {
+            LocalDate son = bitis != null ? bitis : Dogrulama.bugunTr();
+            return servis.analiz(baslangic != null ? baslangic : son.minusDays(29), son);
+        }
+
         @GetMapping("/raporlar/gun-sonu")
         @Tag(name = "Raporlar")
         @Operation(summary = "Gün sonu kasa ve kantar raporu",

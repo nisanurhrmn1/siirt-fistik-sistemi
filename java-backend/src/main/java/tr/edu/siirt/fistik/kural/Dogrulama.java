@@ -26,9 +26,26 @@ public final class Dogrulama {
         return deger.setScale(2, RoundingMode.HALF_UP);
     }
 
+    /** Yalnızca demo verisi: geçmiş sezon üretilirken "şimdi" bu iş parçacığında o ana sabitlenir. */
+    private static final ThreadLocal<OffsetDateTime> SABIT_SAAT = new ThreadLocal<>();
+
     /** Veritabanının mikro saniye hassasiyetine kırpılmış UTC "şimdi". */
     public static OffsetDateTime simdi() {
+        OffsetDateTime sabit = SABIT_SAAT.get();
+        if (sabit != null) return sabit;
         return OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+    }
+
+    /** {@code is} çalışırken simdi() {@code an} döner (demo verisinin geçmiş günleri için); sonra eski hâline döner. */
+    public static <T> T saatiSabitle(OffsetDateTime an, java.util.function.Supplier<T> is) {
+        OffsetDateTime onceki = SABIT_SAAT.get();
+        SABIT_SAAT.set(an.withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS));
+        try {
+            return is.get();
+        } finally {
+            if (onceki == null) SABIT_SAAT.remove();
+            else SABIT_SAAT.set(onceki);
+        }
     }
 
     public static LocalDate bugunTr() {

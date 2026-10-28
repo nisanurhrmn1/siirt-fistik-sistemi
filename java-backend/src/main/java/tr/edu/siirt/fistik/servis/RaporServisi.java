@@ -7,11 +7,14 @@ import tr.edu.siirt.fistik.alan.*;
 import tr.edu.siirt.fistik.api.Yanitlar.*;
 import tr.edu.siirt.fistik.kural.Dogrulama;
 import tr.edu.siirt.fistik.kural.Hatalar.BulunamadiHatasi;
+import tr.edu.siirt.fistik.kural.Hatalar.DogrulamaHatasi;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -247,6 +250,129 @@ public class RaporServisi {
 
         return new GunSonuRaporu(gun, Dogrulama.simdi(), gunlukOzet(gun), kasa, urunTurleri, teslimatlar, kasaHareketleri,
                 siloGirisleri, sevkiyatlar, donusumler);
+    }
+
+    // ─── Grafikli analiz ───
+
+    /** Analizde en fazla bu kadar gün seçilebilir (bir sezon + pay). */
+    public static final int ANALIZ_AZAMI_GUN = 366;
+
+    private static BigDecimal yuzde(BigDecimal pay, BigDecimal toplam) {
+        return toplam.signum() == 0 ? ZERO : pay.multiply(BigDecimal.valueOf(100)).divide(toplam, 1, RoundingMode.HALF_UP);
+    }
+
+    private record Satir(WeighTicket t, QualityInspection q, Settlement s) {
+        BigDecimal kg() { return t.getNetKg(); }
+        BigDecimal tutar() { return s != null ? s.getGrossAmount() : ZERO; }
+    }
+
+    private static BigDecimal ortalama(List<Satir> ss, Function<Satir, BigDecimal> deger) {
+        BigDecimal kg = topla(ss, Satir::kg);
+        return agirlikli(topla(ss.stream().filter(x -> deger.apply(x) != null).toList(), x -> x.kg().multiply(deger.apply(x))), kg);
+    }
+
+    /**
+     * Raporlar sekmesindeki grafikler: günlük alım serisi, kalite sınıfı ve ürün türü dağılımı, en çok teslim eden üreticiler,
+     * taban fiyat geçmişi ve ödeme durumu. Alım, günlük özetle aynı tanımdadır: sınıflanmış / hakedişi çıkmış teslimatlar
+     * (emanette bekleyenler satışa çevrilene kadar alım sayılmaz). Gün sınırı Türkiye saatidir.
+     */
+    public AnalizRaporu analiz(LocalDate bas, LocalDate son) {
+        if (son.isBefore(bas)) throw new DogrulamaHatasi("bitis", "Bitiş tarihi başlangıçtan önce olamaz.");
+        if (ChronoUnit.DAYS.between(bas, son) >= ANALIZ_AZAMI_GUN)
+            throw new DogrulamaHatasi("baslangic", "En fazla %d günlük aralık seçilebilir.".formatted(ANALIZ_AZAMI_GUN));
+        OffsetDateTime b = Dogrulama.gunAraligi(bas)[0], s = Dogrulama.gunAraligi(son)[1];
+        Map<Long, QualityGrade> siniflar = em.createQuery("select g from QualityGrade g", QualityGrade.class)
+                .getResultStream().collect(Collectors.toMap(QualityGrade::getId, Function.identity()));
+
+        List<Object[]> ham = em.createQuery("""
+                        select t, q from WeighTicket t, QualityInspection q where q.ticketId = t.id
+                        and t.grossWeighedAt >= :b and t.grossWeighedAt < :s and t.status in :durumlar
+                        order by t.grossWeighedAt, t.id""", Object[].class)
+                .setParameter("b", b).setParameter("s", s)
+                .setParameter("durumlar", List.of(TicketStatus.GRADED, TicketStatus.SETTLED)).getResultList();
+        Map<Long, Settlement> hakedis = ham.isEmpty() ? Map.of() : em.createQuery(
+                        "select s from Settlement s where s.ticketId in :ids", Settlement.class)
+                .setParameter("ids", ham.stream().map(r -> ((WeighTicket) r[0]).getId()).toList())
+                .getResultStream().collect(Collectors.toMap(Settlement::getTicketId, Function.identity(), (x, y) -> x));
+        List<Satir> satirlar = ham.stream().map(r -> new Satir((WeighTicket) r[0], (QualityInspection) r[1],
+                hakedis.get(((WeighTicket) r[0]).getId()))).toList();
+        BigDecimal toplamKg = topla(satirlar, Satir::kg);
+
+        // Günlük seri: her gün, teslimat olmasa da
+        Map<LocalDate, List<Satir>> gune = satirlar.stream().collect(Collectors.groupingBy(
+                x -> x.t().getGrossWeighedAt().atZoneSameInstant(Dogrulama.TR).toLocalDate()));
+        List<AnalizGunu> gunluk = new ArrayList<>();
+        for (LocalDate g = bas; !g.isAfter(son); g = g.plusDays(1)) {
+            List<Satir> ss = gune.getOrDefault(g, List.of());
+            gunluk.add(new AnalizGunu(g, ss.size(), q(topla(ss, Satir::kg)), q(topla(ss, Satir::tutar)),
+                    ortalama(ss, x -> x.t().getUnitPrice()), ortalama(ss, x -> x.q().getYieldRatio()),
+                    ortalama(ss, x -> x.q().getSplitRatio())));
+        }
+
+        List<AnalizSinifi> sinifDagilimi = satirlar.stream().collect(Collectors.groupingBy(x -> x.q().getQualityGradeId()))
+                .entrySet().stream().sorted(Comparator.comparing(e -> siniflar.get(e.getKey()).getPriority()))
+                .map(e -> {
+                    QualityGrade g = siniflar.get(e.getKey());
+                    BigDecimal kg = topla(e.getValue(), Satir::kg);
+                    return new AnalizSinifi(g.getCode(), g.getName(), g.getProductType(), g.getProductType().getAd(), e.getValue().size(),
+                            q(kg), q(topla(e.getValue(), Satir::tutar)), yuzde(kg, toplamKg));
+                }).toList();
+        List<AnalizUrunTuru> urunTurleri = satirlar.stream()
+                .collect(Collectors.groupingBy(x -> x.t().getProductType(), () -> new EnumMap<>(ProductType.class), Collectors.toList()))
+                .entrySet().stream().map(e -> {
+                    BigDecimal kg = topla(e.getValue(), Satir::kg);
+                    return new AnalizUrunTuru(e.getKey(), e.getKey().getAd(), e.getValue().size(), q(kg),
+                            q(topla(e.getValue(), Satir::tutar)), yuzde(kg, toplamKg));
+                }).toList();
+
+        Map<Long, String> ureticiAdi = em.createQuery("select p.id, p.fullName from Producer p", Object[].class)
+                .getResultStream().collect(Collectors.toMap(r -> (Long) r[0], r -> (String) r[1]));
+        List<AnalizUreticisi> ureticiler = satirlar.stream().collect(Collectors.groupingBy(x -> x.t().getProducerId()))
+                .entrySet().stream()
+                .map(e -> new AnalizUreticisi(e.getKey(), ureticiAdi.get(e.getKey()), e.getValue().size(),
+                        q(topla(e.getValue(), Satir::kg)), q(topla(e.getValue(), Satir::tutar))))
+                .sorted(Comparator.comparing(AnalizUreticisi::kg).reversed().thenComparing(AnalizUreticisi::adSoyad))
+                .limit(10).toList();
+
+        // Taban fiyat geçmişi: her günün sonunda (bugün için şu an) geçerli onaylı fiyat
+        OffsetDateTime simdi = Dogrulama.simdi();
+        List<DailyPrice> fiyatlar = em.createQuery("""
+                        select p from DailyPrice p where p.status in :durumlar and p.validFrom < :s
+                        and (p.validTo is null or p.validTo > :b) order by p.validFrom desc, p.id desc""", DailyPrice.class)
+                .setParameter("durumlar", List.of(PriceStatus.APPROVED, PriceStatus.REVOKED))
+                .setParameter("b", b).setParameter("s", s).getResultList();
+        Map<Long, List<DailyPrice>> sinifFiyati = fiyatlar.stream().collect(Collectors.groupingBy(DailyPrice::getQualityGradeId));
+        List<FiyatSerisi> fiyatSerileri = siniflar.values().stream()
+                .filter(g -> g.isActive() || sinifFiyati.containsKey(g.getId()))
+                .sorted(Comparator.comparing(QualityGrade::getPriority))
+                .map(g -> {
+                    List<DailyPrice> ps = sinifFiyati.getOrDefault(g.getId(), List.of());
+                    List<FiyatNoktasi> noktalar = new ArrayList<>();
+                    for (LocalDate gun = bas; !gun.isAfter(son); gun = gun.plusDays(1)) {
+                        OffsetDateTime an = Dogrulama.gunAraligi(gun)[1].minusNanos(1000);
+                        if (an.isAfter(simdi)) an = simdi;
+                        final OffsetDateTime o = an.withOffsetSameInstant(ZoneOffset.UTC);
+                        noktalar.add(new FiyatNoktasi(gun, ps.stream()
+                                .filter(p -> !p.getValidFrom().isAfter(o) && (p.getValidTo() == null || p.getValidTo().isAfter(o))
+                                        && p.getApprovedAt() != null && !p.getApprovedAt().isAfter(o)
+                                        && (p.getRevokedAt() == null || p.getRevokedAt().isAfter(o)))
+                                .map(DailyPrice::getPricePerKg).findFirst().orElse(null)));
+                    }
+                    return new FiyatSerisi(g.getCode(), g.getName(), g.getProductType(), g.getProductType().getAd(), noktalar);
+                })
+                .filter(f -> f.noktalar().stream().anyMatch(n -> n.fiyat() != null)).toList();
+
+        Collection<Settlement> hs = hakedis.values();
+        BigDecimal net = topla(hs, Settlement::getNetPayable), odenen = topla(hs, Settlement::getPaidAmount);
+        BigDecimal emanetKg = em.createQuery("""
+                        select coalesce(sum(t.netKg - t.depositSoldKg), 0) from WeighTicket t
+                        where t.status = :e and t.grossWeighedAt >= :b and t.grossWeighedAt < :s""", BigDecimal.class)
+                .setParameter("e", TicketStatus.DEPOSITED).setParameter("b", b).setParameter("s", s).getSingleResult();
+        AnalizOzeti ozet = new AnalizOzeti(satirlar.size(), (int) satirlar.stream().map(x -> x.t().getProducerId()).distinct().count(),
+                q(toplamKg), q(topla(satirlar, Satir::tutar)), ortalama(satirlar, x -> x.t().getUnitPrice()),
+                ortalama(satirlar, x -> x.q().getYieldRatio()), ortalama(satirlar, x -> x.q().getSplitRatio()),
+                q(net), q(odenen), q(net.subtract(odenen)), q(emanetKg));
+        return new AnalizRaporu(bas, son, simdi, ozet, gunluk, sinifDagilimi, urunTurleri, ureticiler, fiyatSerileri);
     }
 
     // ─── Günlük özet ───

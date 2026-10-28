@@ -249,4 +249,39 @@ public final class Yanitlar {
                              BigDecimal odenenToplam, int odemeSayisi, BigDecimal verilenAvansToplami,
                              List<KaliteKirilimi> kaliteKirilimi, int emanetTeslimatSayisi, BigDecimal emanetKg) {
     }
+
+    // ─── Grafikli analiz (Raporlar sekmesi) ───
+
+    public record AnalizRaporu(LocalDate baslangic, LocalDate bitis, OffsetDateTime olusturulma, AnalizOzeti ozet,
+                               List<AnalizGunu> gunluk, List<AnalizSinifi> siniflar, List<AnalizUrunTuru> urunTurleri,
+                               List<AnalizUreticisi> ureticiler, List<FiyatSerisi> fiyatlar) {
+    }
+
+    /** Ortalamalar kg ağırlıklıdır. Emanet: aralıkta teslim edilip hâlâ satışa çevrilmemiş miktar. */
+    public record AnalizOzeti(int teslimatSayisi, int ureticiSayisi, BigDecimal toplamKg, BigDecimal brutTutar,
+                              BigDecimal ortalamaFiyat, BigDecimal ortalamaRandiman, BigDecimal ortalamaCatlak,
+                              BigDecimal netHakedis, BigDecimal odenen, BigDecimal acikHakedis, BigDecimal emanetKg) {
+    }
+
+    /** Aralıktaki her gün (teslimat olmayan günler sıfır). */
+    public record AnalizGunu(LocalDate tarih, int teslimatSayisi, BigDecimal kg, BigDecimal tutar, BigDecimal ortalamaFiyat,
+                             BigDecimal ortalamaRandiman, BigDecimal ortalamaCatlak) {
+    }
+
+    public record AnalizSinifi(String kaliteKodu, String kaliteAdi, ProductType urunTuru, String urunTuruAdi, int teslimatSayisi,
+                               BigDecimal kg, BigDecimal tutar, BigDecimal yuzde) {
+    }
+
+    public record AnalizUrunTuru(ProductType urunTuru, String ad, int teslimatSayisi, BigDecimal kg, BigDecimal tutar, BigDecimal yuzde) {
+    }
+
+    public record AnalizUreticisi(Long ureticiId, String adSoyad, int teslimatSayisi, BigDecimal kg, BigDecimal tutar) {
+    }
+
+    /** Her günün sonunda (bugün için şu an) geçerli taban fiyat; fiyat yoksa null. */
+    public record FiyatSerisi(String kaliteKodu, String kaliteAdi, ProductType urunTuru, String urunTuruAdi, List<FiyatNoktasi> noktalar) {
+    }
+
+    public record FiyatNoktasi(LocalDate tarih, BigDecimal fiyat) {
+    }
 }
