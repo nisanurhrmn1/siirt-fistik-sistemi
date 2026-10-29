@@ -675,8 +675,12 @@ public class Kurallar {
                 BigDecimal.class).setParameter("l", lotId).setParameter("s", siloId).getSingleResult();
     }
 
-    /** Kaliteye göre ayrıştırma + kapasite kontrolü. */
+    /**
+     * Kaliteye göre ayrıştırma + kapasite kontrolü. Silo satırı kilitlenir (SELECT … FOR UPDATE): aynı siloya eşzamanlı
+     * iki tartım kapasiteyi birlikte aşamaz; ikincisi birincinin işlemi bitince güncel stokla kontrol edilir.
+     */
     public void siloKabulEderMi(Silo silo, Lot lot, BigDecimal miktar) {
+        em.lock(silo, LockModeType.PESSIMISTIC_WRITE);
         if (!silo.isActive()) throw new IsKuraliHatasi(silo.getCode() + " pasif.");
         if (silo.getDedicatedGradeId() != null && !silo.getDedicatedGradeId().equals(lot.getQualityGradeId()))
             throw new IsKuraliHatasi(silo.getCode() + " yalnızca kendi kalite sınıfını kabul eder.");

@@ -15,10 +15,36 @@ Giriş ekranındaki düğmelerle her rolü (Kantar memuru, Muhasebe, Fiyat yöne
 
 ---
 
+## BMH-405 Yazılım Mühendisliği Teorik Çerçevesi
+
+Bu proje yalnızca çalışan bir kod değildir; arkasında açıkça yazılmış bir **kapsam sınırı**, bir **belirsizlik kaydı** ve **test edilebilir kabul kriterleri** vardır:
+
+| Belge | Ders haftası | İçerik |
+|---|---|---|
+| 🧭 [01 · Kapsam ve aktörler](docs/01_KAPSAM_VE_AKTORLER.md) | Hafta 5 | Sistem sınırı (içeride / dışarıda), Mermaid kapsam diyagramı, aktör listesi, Cockburn biçiminde UC-01 *Kantar Tartımı ve Fiyat Kilitleme* |
+| 🔍 [02 · Belirsizlik kaydı](docs/02_BELIRSIZLIK_KAYDI.md) | Hafta 4 | Altı belirsizlik türünün (kapsam, eksiklik, sözcüksel, muğlaklık, yapısal, gönderim) her biri için fıstık senaryosu, müşteriye sorulacak soru ve sistemdeki karar |
+| ✅ [03 · Kabul kriterleri ve kalite](docs/03_KABUL_KRITERLERI_VE_KALITE.md) | Hafta 5 | Sınır değerli 4 Given-When-Then kabul kriteri ve 2 ölçülebilir kalite senaryosu; her biri `tests/test_kabul.py` içinde çalışan bir teste bağlı |
+
+**Lehman: E-türü yazılım.** Sistem dünyaya gömülüdür ve dünyayla birlikte değişmek zorundadır: fiyatlar her gün, kesinti oranları mevzuatla, kalite baremleri merkezin yönergesiyle değişir. Bu yüzden değişken olan her şey koda değil **veriye** konuldu (günlük fiyat, çatlak primi / boş iskonto kuralı, kesinti türleri ve oranları, kalite sınıfı eşikleri, silolar) ve panelden yönetilir. Değişikliğin geçmişi bozmaması için de her hesap anındaki değer **dondurulur**: fiyat tartımda, kesinti oranı hakedişte kopyalanır; eski kayıt yeni kuralla yeniden hesaplanmaz.
+
+**Naur: "Programlama teori kurmaktır".** Bir programın asıl değeri, onu yazanların kafasındaki *neden böyle?* bilgisidir; bu bilgi kaybolursa kod çalışsa bile "anlama borcu" birikir. Projede bu teori kodun dışına üç yolla taşındı: (1) her belirsizliğin kararı ve gerekçesi [belirsizlik kaydında](docs/02_BELIRSIZLIK_KAYDI.md) ve [SRS](docs/GEREKSINIMLER.md) gereksinimlerinde; (2) bu kararlar **119 uçtan uca sözleşme testi** ve **28 birim testiyle** çalıştırılabilir hâle getirildi (karar değişirse test kırılır); (3) en kritik kurallar (fiyat kilidi, değiştirilemez cari defter, eksi stok yasağı) ayrıca veritabanı tetikleyicileriyle korunur, yani teori uygulamayı atlayan bir SQL'e karşı bile geçerlidir.
+
+**Brooks: dört özsel zorluk** (*No Silver Bullet*) ve sistemdeki karşılıkları:
+
+| Zorluk | Bu sistemde nasıl görünüyor | Nasıl ele alındı |
+|---|---|---|
+| **Karmaşıklık** | Aynı teslimat fiyat, prim, iskonto, kesinti, FIFO avans mahsubu, emanet ve silo kurallarının hepsinden geçer; kurallar birbirini etkiler. | Kurallar tek bir kural katmanında (`kural/Kurallar.java`) toplandı; her kural tek işlemde uygulanır. Sınır değerleri tek tek test edilir ([KK-3](docs/03_KABUL_KRITERLERI_VE_KALITE.md)). |
+| **Uyum (conformity)** | Sistem dış dünyanın keyfî kurallarına uymak zorunda: T.C. / VKN / IBAN algoritmaları, stopaj ve borsa oranları, kantar indikatörünün satır biçimi, Netgsm ve Telegram API'leri. | Her dış kural bir doğrulama ya da adaptör sınıfında yalıtıldı (`Dogrulama`, `SmsSaglayici`, `TelegramBildirimServisi`, `kantarSatiriniCoz`); dış servis hatası asıl işlemi bozmaz. |
+| **Değişkenlik** | Fiyatlar gün içinde, oranlar yılda bir, baremler sezona göre değişir; yeni ürün türü (yaş fıstık) sonradan eklendi. | Değişen her şey veri ve panel ayarı; şema Flyway göçleriyle (V1–V10) sürüm sürüm gelişti; değişiklikler regresyon testleriyle korunur. |
+| **Görünmezlik** | Fiyat kilidinin, avans mahsubunun ya da stok hareketinin "neden böyle olduğu" ekrandan görünmez. | Kapsam diyagramı, UML ve ER diyagramları; fişte baz fiyat / prim / iskonto ayrı satırlar; değiştirilemez cari defter ve her kaydın işlemi yapan kullanıcıyla imzalanması iz bırakır; grafikli raporlar eğilimleri görünür kılar. |
+
 ## Proje dokümanları
 
 | Doküman | İçerik |
 |---|---|
+| 🧭 [01 · Kapsam ve aktörler](docs/01_KAPSAM_VE_AKTORLER.md) | Sistem sınırı, kapsam diyagramı (Mermaid), aktörler, UC-01 (Cockburn) |
+| 🔍 [02 · Belirsizlik kaydı](docs/02_BELIRSIZLIK_KAYDI.md) | 9 belirsizlik: tür, olası yorumlar, müşteriye soru, karar, kaynak |
+| ✅ [03 · Kabul kriterleri ve kalite](docs/03_KABUL_KRITERLERI_VE_KALITE.md) | Given-When-Then kabul kriterleri, performans ve yarış durumu kalite senaryoları |
 | 📋 [Gereksinimler (SRS)](docs/GEREKSINIMLER.md) | Fonksiyonel ve fonksiyonel olmayan gereksinimler, iş kuralları, kullanım durumları, izlenebilirlik matrisi |
 | 📐 [UML diyagramları](docs/UML.md) | Kullanım durumu, sınıf, sıralama, etkinlik, durum ve bileşen/dağıtım diyagramları |
 | 🗄️ [Veritabanı (ER)](docs/ER.md) | ER diyagramı, tablolar ve iş kuralı → şema eşlemesi |
@@ -63,6 +89,8 @@ Bu proje alım sürecinin tamamını kayıt altına alır ve para hesaplarını 
 ---
 
 ## 2. Çözülen belirsizlikler (edge case'ler)
+
+> Tam kayıt (belirsizlik türü, olası yorumlar, müşteriye sorulan soru, karar ve doğrulayan test): **[docs/02_BELIRSIZLIK_KAYDI.md](docs/02_BELIRSIZLIK_KAYDI.md)**
 
 ### 2.1 Aynı gün birden fazla teslimat
 **Sorun:** Bir üretici aynı gün birkaç kez gelebilir. Teslimatlar "üretici + tarih" ile tanımlanırsa birbirinin üzerine yazılır.
@@ -546,7 +574,7 @@ cd java-backend
 ```bash
 # Java sunucusunu test veritabanına bağlı başlatın (ayrı bir terminalde):
 #   $env:DATABASE_URL = "<.env içindeki TEST_DATABASE_URL>"; java -jar java-backend\target\siirt-fistik.jar --server.port=8020
-.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (105 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu + 7 Telegram + 4 analiz)
+.\.venv\Scripts\python.exe -m pytest -q --java http://127.0.0.1:8020   # Java (119 test: 28 + 10 güvenlik + 9 kullanıcı + 8 saha + 4 rapor + 8 sevkiyat + 4 SMS + 11 emanet/prim + 7 tahsilat/kesinti + 5 sorgu + 7 Telegram + 4 analiz + 14 kabul)
 .\.venv\Scripts\python.exe -m pytest -q --pg                           # Python + PostgreSQL (28 test)
 .\.venv\Scripts\python.exe -m pytest -q                                # Python + SQLite (20 test)
 ```
@@ -570,6 +598,7 @@ cd java-backend
   - geçici şifrenin ilk girişte değiştirilmesi ve şifre sıfırlama
   - pasifleştirmenin ve rol değişikliğinin açık oturumda hemen geçerli olması
   - demo hesaplarının ve yöneticinin kendi hesabının korunması
+- **`tests/test_kabul.py`** (14 test, yalnızca Java): [docs/03](docs/03_KABUL_KRITERLERI_VE_KALITE.md) belgesindeki senaryoların birebir karşılığı. KK-1 fiyat kilidi; KK-2 avans hakedişten büyükken net ödemenin 0 ₺, bakiyenin −209.600 ₺ olması; KK-3 çatlak primi ve boş iskontosunun 7 sınır değeri ile baz değerin hemen altında sınıf düşmesi; KK-4 1.200 kg emanetin 400 kg'ı bozulunca 800 kg kalması; KS-2 iki ayrı bağlantıdan **aynı anda** gönderilen iki sevkiyat / iki tartımdan yalnızca birinin geçmesi (stok eksiye düşmez, kapasite aşılmaz); KS-1 önizleme ve kayıt tepki süresinin ölçülmesi (`--sure-esigi 500` verilirse eşik de doğrulanır).
 - **`tests/test_analiz.py`** (4 test, yalnızca Java): boş aralıkta her günün sıfırla dönmesi; alım toplamı, kg ağırlıklı randıman, kalite sınıfı payları (toplam %100), üreticilerin kg'a göre sıralanması, fiyat geçmişinin son noktası ve emanetin alıma sayılmaması; ters ve 366 günden uzun aralığın reddi; yalnızca Yönetici, Muhasebe ve Fiyat yöneticisinin erişebilmesi.
 - **`tests/test_telegram.py`** (7 test, yalnızca Java): test, 127.0.0.1 üzerinde sahte bir Telegram API'si açar. Sunucu `TELEGRAM_API_ADRESI=http://127.0.0.1:8029`, `TELEGRAM_BOT_TOKEN=123456:TEST`, `TELEGRAM_BOT_CHAT_ID=42` ile başlatılır; test `FISTIK_TELEGRAM_SAHTE_PORT=8029` ile çalıştırılır. Kapsam: talep kaydedilince doğru sohbete HTML mesaj gitmesi (şifre içermez, kullanıcı metni kaçışlı); başarısız talepte (alınmış kullanıcı adı, yönetici rolü) mesaj gitmemesi; yanıtın Telegram'ı beklememesi. Test düğmesi için: yalnızca yöneticinin kullanabilmesi, sahte sohbete deneme mesajı gitmesi (token ve kimlik yanıtta açıkça yok), art arda basışta beklemesi; ayarsız sunucuda eksik değişkenlerin adıyla söylenmesi. Sahte Telegram ayarlıyken 6 test çalışır, 1'i atlanır; ayarsızken 3'ü çalışır, 4'ü atlanır.
 - **`tests/test_sorgu.py`** (5 test, yalnızca Java): doğru bilgiyle yalnızca kendi özetinin dönmesi (başka üreticinin verisi, T.C., telefon, IBAN ve soyadının yanıtta olmaması); "kayıt yok" ile "telefon yanlış"ın aynı mesajı vermesi; doğrulamalar; 5 hatalı denemeden sonra 429 (doğru bilgi de bekletilir, başka T.C. etkilenmez); sorgunun giriş gerektirmemesi.

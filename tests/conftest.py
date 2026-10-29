@@ -24,6 +24,8 @@ def pytest_addoption(parser):
     parser.addoption("--java", metavar="URL",
                      help="Aynı testleri çalışan Java (Spring Boot) sunucusuna karşı çalıştır, ör. http://127.0.0.1:8020. "
                           "Sunucu TEST_DATABASE_URL veritabanına bağlı olmalı.")
+    parser.addoption("--sure-esigi", metavar="MS",
+                     help="KS-1 tepki süresi eşiği (ms). Yalnızca sunucu veritabanıyla aynı bölgedeyken verin, ör. 500.")
 
 
 # Java modunda her testten önce boşaltılan tablolar (başlangıç verisi tabloları korunur: users, quality_grades,
